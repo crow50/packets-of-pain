@@ -1,16 +1,16 @@
-# Contributing to Server Survival
+# Contributing to Packets of Pain
 
 First off, thanks for taking the time to contribute! 🎉
 
-The following is a set of guidelines for contributing to Server Survival. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+The following is a set of guidelines for contributing to Packets of Pain. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
 
 ## Getting Started
 
 1.  **Fork the repository** on GitHub.
 2.  **Clone your fork** locally:
     ```bash
-    git clone https://github.com/your-username/server-survival.git
-    cd server-survival
+    git clone https://github.com/your-username/packets-of-pain.git
+    cd packets-of-pain
     ```
 3.  **Create a branch** for your feature or bugfix:
     ```bash
