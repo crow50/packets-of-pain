@@ -2,6 +2,14 @@
 STATE.sound = new SoundService();
 
 
+const GAME_MODES = {
+  SANDBOX: "sandbox",
+  CAMPAIGN: "campaign",
+};
+
+let currentGameMode = null;
+
+
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(CONFIG.colors.bg);
@@ -260,6 +268,15 @@ window.closeFAQ = () => {
 window.startGame = () => {
     document.getElementById('main-menu-modal').classList.add('hidden');
     resetGame();
+};
+
+window.startSandbox = () => {
+    currentGameMode = GAME_MODES.SANDBOX;
+    startGame();
+};
+
+window.startCampaign = () => {
+    alert("Campaign mode is not implemented yet.");
 };
 
 function createService(type, pos) {

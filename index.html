@@ -293,14 +293,19 @@
             </button>
 
             <h1
-                class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2 tracking-tighter filter drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
-                Packets of<br>PAIN
+                class="text-6xl font-black text-white mb-2 tracking-tighter filter drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+                Packets of Pain
             </h1>
 
             <div class="space-y-4">
-                <button onclick="startGame()"
+                <button onclick="startSandbox()"
                     class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-lg border border-green-400/50">
-                    Start The Packets
+                    Sandbox Mode
+                </button>
+
+                <button onclick="startCampaign()"
+                    class="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3 px-8 rounded-lg border border-gray-600 transition hover:text-white font-mono uppercase">
+                    Campaign (Coming Soon)
                 </button>
 
                 <button onclick="showFAQ()"
