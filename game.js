@@ -296,14 +296,14 @@ function createConnection(fromId, toId) {
     let valid = false;
     const t1 = from.type, t2 = to.type;
 
-    if (t1 === 'internet' && (t2 === 'waf' || t2 === 'alb')) valid = true;
-    else if (t1 === 'waf' && t2 === 'alb') valid = true;
-    else if (t1 === 'alb' && t2 === 'compute') valid = true;
-    else if (t1 === 'compute' && (t2 === 'db' || t2 === 's3')) valid = true;
+    if (t1 === 'internet' && (t2 === 'waf' || t2 === 'loadBalancer')) valid = true;
+    else if (t1 === 'waf' && t2 === 'loadBalancer') valid = true;
+    else if (t1 === 'loadBalancer' && t2 === 'compute') valid = true;
+    else if (t1 === 'compute' && (t2 === 'database' || t2 === 'objectStorage')) valid = true;
 
     if (!valid) {
         new Audio('assets/sounds/click-9.mp3').play();
-        console.error("Invalid connection topology: WAF/ALB from Internet -> WAF -> ALB -> Compute -> (RDS/S3)");
+        console.error("Invalid connection topology: WAF/Load Balancer from Internet -> WAF -> Load Balancer -> Compute -> (Database/Object Storage)");
         return;
     }
 
@@ -346,10 +346,21 @@ function calculateFailChanceBasedOnLoad(load) {
     return 2 * (load - 0.5);
 }
 
+function getToolId(t) {
+    const map = {
+        'waf': 'tool-waf',
+        'loadBalancer': 'tool-lb',
+        'compute': 'tool-compute',
+        'database': 'tool-db',
+        'objectStorage': 'tool-objstore'
+    };
+    return map[t] || `tool-${t}`;
+}
+
 window.setTool = (t) => {
     STATE.activeTool = t; STATE.selectedNodeId = null;
     document.querySelectorAll('.service-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(`tool-${t}`).classList.add('active');
+    document.getElementById(getToolId(t)).classList.add('active');
     new Audio('assets/sounds/click-9.mp3').play();
 };
 
@@ -411,16 +422,17 @@ container.addEventListener('mousedown', (e) => {
     else if (STATE.activeTool === 'connect' && (i.type === 'service' || i.type === 'internet')) {
         if (STATE.selectedNodeId) { createConnection(STATE.selectedNodeId, i.id); STATE.selectedNodeId = null; }
         else { STATE.selectedNodeId = i.id; new Audio('assets/sounds/click-5.mp3').play(); }
-    } else if (['waf', 'alb', 'lambda', 'db', 's3'].includes(STATE.activeTool)) {
-        if ((STATE.activeTool === 'lambda' && i.type === 'service') || (STATE.activeTool === 'db' && i.type === 'service')) {
+    } else if (['waf', 'loadBalancer', 'compute', 'database', 'objectStorage'].includes(STATE.activeTool)) {
+        if ((STATE.activeTool === 'compute' && i.type === 'service') || (STATE.activeTool === 'database' && i.type === 'service')) {
             const svc = STATE.services.find(s => s.id === i.id);
-            if (svc && ((STATE.activeTool === 'lambda' && svc.type === 'compute') || (STATE.activeTool === 'db' && svc.type === 'db'))) {
+            if (svc && ((STATE.activeTool === 'compute' && svc.type === 'compute') || (STATE.activeTool === 'database' && svc.type === 'database'))) {
                 svc.upgrade();
                 return;
             }
         }
         if (i.type === 'ground') {
-            createService({ 'waf': 'waf', 'alb': 'alb', 'lambda': 'compute', 'db': 'db', 's3': 's3' }[STATE.activeTool], snapToGrid(i.pos));
+            const toolMap = { 'waf': 'waf', 'loadBalancer': 'loadBalancer', 'compute': 'compute', 'database': 'database', 'objectStorage': 'objectStorage' };
+            createService(toolMap[STATE.activeTool], snapToGrid(i.pos));
         }
     }
 });
@@ -471,7 +483,7 @@ container.addEventListener('mousemove', (e) => {
                 if (svc.mesh.material.emissive) svc.mesh.material.emissive.setHex(0x000000);
             });
 
-            if ((STATE.activeTool === 'lambda' && s.type === 'compute') || (STATE.activeTool === 'db' && s.type === 'db')) {
+            if ((STATE.activeTool === 'compute' && s.type === 'compute') || (STATE.activeTool === 'database' && s.type === 'database')) {
                 const tiers = CONFIG.services[s.type].tiers;
                 if (s.tier < tiers.length) {
                     cursor = 'pointer';
