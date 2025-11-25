@@ -1,7 +1,5 @@
 # Packets of Pain 🖥️🔥
 
-![Gameplay Demo](assets/gameplay.gif)
-
 **Packets of Pain** is an interactive 3D simulation game where you play as a **Cloud Architect**. Your mission is to build and scale a resilient cloud infrastructure to handle increasing traffic loads while fighting off DDoS attacks and managing your budget.
 
 ## 🎮 How to Play
@@ -13,7 +11,7 @@ Survive as long as possible! Manage your **Budget ($)** and **Reputation (%)**.
 - **Game Over** if Reputation hits 0% or you go bankrupt.
 
 ### Traffic Types
-- 🟢 **Web Traffic (Green):** Needs to be stored in **S3**.
+- 🟢 **Web Traffic (Green):** Needs to be stored in **Object Storage**.
 - 🟠 **API Traffic (Orange):** Needs to be processed and saved to a **Database**.
 - 🟣 **Fraud/DDoS (Pink):** Must be blocked by a **WAF**.
 
@@ -23,10 +21,10 @@ Build your architecture using the toolbar. Each service has a cost and upkeep:
 | Service | Cost | Upkeep | Function |
 | :--- | :--- | :--- | :--- |
 | **WAF** | $50 | Low | **Firewall.** The first line of defense. Blocks Fraud traffic. |
-| **ALB** | $50 | Medium | **Load Balancer.** Distributes traffic to multiple Compute instances. |
-| **Compute** | $100 | High | **EC2 Instance.** Processes requests. **Upgradeable (Tiers 1-3).** |
-| **Database** | $200 | Very High | **RDS.** Destination for API traffic. **Upgradeable (Tiers 1-3).** |
-| **S3** | $25 | Low | **Storage.** Destination for Web traffic. |
+| **Load Balancer** | $50 | Medium | **Load Balancer.** Distributes traffic to multiple Compute instances. |
+| **Compute** | $100 | High | **Compute Node.** Processes requests. **Upgradeable (Tiers 1-3).** |
+| **Database** | $200 | Very High | **Database.** Destination for API traffic. **Upgradeable (Tiers 1-3).** |
+| **Object Storage** | $25 | Low | **Storage.** Destination for Web traffic. |
 
 ### Scoring & Economy
 - **Web Request:** +$1.25 / +5 Score
@@ -38,7 +36,7 @@ Build your architecture using the toolbar. Each service has a cost and upkeep:
 - **Service Upgrades:** Click on **Compute** or **Database** instances with their respective tools to upgrade them.
     - **Tier 2:** Increased capacity (Cost: $200/$400).
     - **Tier 3:** Maximum capacity (Cost: $250/$600).
-- **Smart Load Balancing:** ALBs now use **Round Robin** to distribute traffic evenly across all connected instances.
+- **Smart Load Balancing:** Load Balancers now use **Round Robin** to distribute traffic evenly across all connected instances.
 - **Visual Feedback:** Upgradeable services glow when hovered, and rings indicate their current tier.
 
 ### Controls
@@ -47,13 +45,13 @@ Build your architecture using the toolbar. Each service has a cost and upkeep:
 - **Camera Reset:** Press `R` to reset the camera position.
 - **Birds-Eye View:** Press `T` to switch between isometric and top-down view
 - **Connect Tool:** Click two nodes to create a connection (flow direction matters!).
-    - *Valid Flows:* Internet -> WAF -> ALB -> Compute -> (DB/S3)
+    - *Valid Flows:* Internet -> WAF -> Load Balancer -> Compute -> (Database/Object Storage)
 - **Delete Tool:** Remove services to recover 50% of the cost.
 - **Time Controls:** Pause, Play (1x), and Fast Forward (3x).
 
 ## 🧠 Strategy Tips
 1.  **Block Fraud First:** Always place a WAF immediately connected to the Internet. Fraud leaks destroy reputation fast.
-2.  **Scale Compute:** As traffic increases, a single Compute node won't be enough. Use an ALB to split traffic across multiple Compute nodes.
+2.  **Scale Compute:** As traffic increases, a single Compute node won't be enough. Use a Load Balancer to split traffic across multiple Compute nodes.
 3.  **Watch Your Queues:** If a service's queue fills up (red ring), requests will fail. Add more capacity!
 4.  **Budget Wisely:** Databases are expensive. Don't over-provision them early on.
 
