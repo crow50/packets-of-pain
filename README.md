@@ -1,8 +1,8 @@
-# Server Survival 🖥️🔥
+# Packets of Pain 🖥️🔥
 
 ![Gameplay Demo](assets/gameplay.gif)
 
-**Server Survival** is an interactive 3D simulation game where you play as a **Cloud Architect**. Your mission is to build and scale a resilient cloud infrastructure to handle increasing traffic loads while fighting off DDoS attacks and managing your budget.
+**Packets of Pain** is an interactive 3D simulation game where you play as a **Cloud Architect**. Your mission is to build and scale a resilient cloud infrastructure to handle increasing traffic loads while fighting off DDoS attacks and managing your budget.
 
 ## 🎮 How to Play
 
@@ -70,11 +70,4 @@ Build your architecture using the toolbar. Each service has a cost and upkeep:
 2.  Open `index.html` in your modern web browser.
 3.  Start building your cloud empire!
 
-
-## 💬 Community
-
-Join our Discord server to discuss strategies and share your high scores:
-[Join Discord](https://discord.gg/bYSktNXy)
-
 ---
-*Built with code and chaos.*
