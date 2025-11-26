@@ -109,6 +109,12 @@ class Service {
                 continue;
             }
 
+            // Prevent re-computing if already computed (pass through)
+            if (this.type === 'compute' && req.hasCompute) {
+                this.processing.push({ req: req, timer: this.config.processingTime });
+                continue;
+            }
+
             this.processing.push({ req: req, timer: 0 });
         }
     }
@@ -125,7 +131,12 @@ class Service {
             if (job.timer >= this.config.processingTime) {
                 this.processing.splice(i, 1);
 
-                const failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
+                let failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
+                // Load Balancers are robust and shouldn't fail randomly based on load, only on queue saturation
+                if (this.type === 'loadBalancer') {
+                    failChance = 0;
+                }
+
                 if (Math.random() < failChance) {
                     failRequest(job.req);
                     continue;
@@ -142,30 +153,117 @@ class Service {
                 }
 
                 if (this.type === 'compute') {
+                    job.req.hasCompute = true;
                     const requiredType = job.req.type === TRAFFIC_TYPES.API ? 'database' : (job.req.type === TRAFFIC_TYPES.WEB ? 'objectStorage' : null);
+                    let target = null;
 
                     if (requiredType) {
-                        const correctTarget = STATE.services.find(s =>
-                            this.connections.includes(s.id) && s.type === requiredType
+                        // Try to find preferred target
+                        target = STATE.services.find(s =>
+                            this.connections.includes(s.id) && s.type === requiredType && s.id !== job.req.lastNodeId
                         );
+                    }
 
-                        if (correctTarget) {
-                            job.req.flyTo(correctTarget);
-                        } else {
-                            failRequest(job.req);
+                    // Fallback to Round Robin if no preferred target found (allows arbitrary chains)
+                    if (!target && this.connections.length > 0) {
+                        let candidates = this.connections
+                            .filter(id => id !== job.req.lastNodeId)
+                            .map(id => STATE.services.find(s => s.id === id))
+                            .filter(s => s !== undefined);
+
+                        if (candidates.length === 0) {
+                            // If no valid targets (dead end), allow backtracking
+                            candidates = this.connections
+                                .map(id => STATE.services.find(s => s.id === id))
+                                .filter(s => s !== undefined);
                         }
+
+                        if (candidates.length > 0) {
+                            target = candidates[this.rrIndex % candidates.length];
+                            this.rrIndex++;
+                        }
+                    }
+
+                    if (target) {
+                        job.req.lastNodeId = this.id;
+                        job.req.flyTo(target);
                     } else {
                         failRequest(job.req);
                     }
                 } else {
-                    // Round Robin Load Balancing
-                    const candidates = this.connections
+                    // Smart Routing (Prioritize downstream)
+                    let candidates = this.connections
+                        .filter(id => id !== job.req.lastNodeId)
                         .map(id => STATE.services.find(s => s.id === id))
                         .filter(s => s !== undefined);
 
-                    if (candidates.length > 0) {
-                        const target = candidates[this.rrIndex % candidates.length];
-                        this.rrIndex++;
+                    // Define preferred types to avoid upstream flow
+                    let preferredTypes = [];
+                    let avoidTypes = [];
+
+                    if (job.req.type === TRAFFIC_TYPES.FRAUD) {
+                        preferredTypes = ['waf', 'loadBalancer'];
+                    } else if (job.req.type === TRAFFIC_TYPES.WEB) {
+                        if (job.req.hasCompute) {
+                            preferredTypes = ['objectStorage', 'loadBalancer'];
+                            avoidTypes = ['compute', 'database'];
+                        } else {
+                            preferredTypes = ['compute', 'loadBalancer'];
+                            avoidTypes = ['objectStorage', 'database'];
+                        }
+                    } else if (job.req.type === TRAFFIC_TYPES.API) {
+                        if (job.req.hasCompute) {
+                            preferredTypes = ['database', 'loadBalancer'];
+                            avoidTypes = ['compute', 'objectStorage'];
+                        } else {
+                            preferredTypes = ['compute', 'loadBalancer'];
+                            avoidTypes = ['database', 'objectStorage'];
+                        }
+                    }
+
+                    let finalCandidates = candidates.filter(s => preferredTypes.includes(s.type));
+                    
+                    if (finalCandidates.length === 0) {
+                        finalCandidates = candidates.filter(s => !avoidTypes.includes(s.type));
+                    }
+
+                    if (finalCandidates.length === 0) {
+                        finalCandidates = candidates;
+                    }
+
+                    // Hard filter for wrong storage types
+                    if (job.req.type === TRAFFIC_TYPES.WEB) {
+                        finalCandidates = finalCandidates.filter(s => s.type !== 'database');
+                    } else if (job.req.type === TRAFFIC_TYPES.API) {
+                        finalCandidates = finalCandidates.filter(s => s.type !== 'objectStorage');
+                    }
+
+                    if (finalCandidates.length === 0) {
+                        // If no valid targets (dead end), allow backtracking
+                        finalCandidates = this.connections
+                            .map(id => STATE.services.find(s => s.id === id))
+                            .filter(s => s !== undefined);
+
+                        // Re-apply Hard filter for wrong storage types on backtracked candidates
+                        if (job.req.type === TRAFFIC_TYPES.WEB) {
+                            finalCandidates = finalCandidates.filter(s => s.type !== 'database');
+                        } else if (job.req.type === TRAFFIC_TYPES.API) {
+                            finalCandidates = finalCandidates.filter(s => s.type !== 'objectStorage');
+                        }
+                    }
+
+                    if (finalCandidates.length > 0) {
+                        // Load Balancing: Prefer targets with available queue space
+                        // Sort by queue length (ascending) to find the least loaded target
+                        finalCandidates.sort((a, b) => a.queue.length - b.queue.length);
+                        
+                        // Pick the best candidate (least loaded)
+                        const target = finalCandidates[0];
+                        
+                        // If the best candidate is full (>= 20), we still send it (and it will fail),
+                        // but this ensures we fill up empty queues first.
+
+                        job.req.lastNodeId = this.id;
                         job.req.flyTo(target);
                     } else {
                         failRequest(job.req);
