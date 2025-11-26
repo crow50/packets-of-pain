@@ -1,7 +1,12 @@
 const TRAFFIC_TYPES = {
     WEB: 'WEB',     // Requires S3 (Simpler, lower reward)
     API: 'API',     // Requires RDS (Complex, higher reward)
-    FRAUD: 'FRAUD'  // Must be blocked by WAF
+    FRAUD: 'FRAUD',  // Must be blocked by WAF
+    MALICIOUS: 'MALICIOUS', // Must be blocked by Firewall or WAF
+    OUTBOUND: 'OUTBOUND', // For future use
+    INBOUND: 'INBOUND', // For future use
+    REQUEST: 'REQUEST', // For future use
+    RESPONSE: 'RESPONSE' // For future use
 };
 
 const CONFIG = {
@@ -19,7 +24,13 @@ const CONFIG = {
         requestFail: 0xef4444
     },
     services: {
-        waf: { name: "WAF Firewall", cost: 50, type: 'waf', processingTime: 20, capacity: 100, upkeep: 5 },
+        // Generic Devices
+        modem: { name: "Modem", cost: 25, type: 'modem', processingTime: 100, capacity: 2, upkeep: 2 },
+        switch: { name: "Switch", cost: 30, type: 'switch', processingTime: 200, capacity: 10, upkeep: 2 },
+        firewall: { name: "Firewall", cost: 75, type: 'firewall', processingTime: 50, capacity: 20, upkeep: 10 },
+
+        // Cloud Services
+        waf: { name: "Web Application Firewall", cost: 50, type: 'waf', processingTime: 20, capacity: 100, upkeep: 5 },
         loadBalancer: { name: "Load Balancer", cost: 50, type: 'loadBalancer', processingTime: 50, capacity: 50, upkeep: 8 },
         compute: {
             name: "Compute Node", cost: 100, type: 'compute', processingTime: 600, capacity: 5, upkeep: 15,
@@ -40,8 +51,8 @@ const CONFIG = {
         objectStorage: { name: "Object Storage", cost: 25, type: 'objectStorage', processingTime: 200, capacity: 100, upkeep: 5 }
     },
     survival: {
-        startBudget: 500,
-        baseRPS: 1.0,
+        startBudget: 2000,
+        baseRPS: 0.5,
         rampUp: 0.025,
         trafficDistribution: {
             [TRAFFIC_TYPES.WEB]: 0.50,
