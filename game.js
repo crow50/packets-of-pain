@@ -1,4 +1,3 @@
-
 STATE.sound = new SoundService();
 
 
@@ -20,7 +19,19 @@ const d = 50;
 const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
 const cameraTarget = new THREE.Vector3(0, 0, 0);
 let isIsometric = true;
-resetCamera()
+
+function resetCamera() {
+    if (isIsometric) {
+        camera.position.set(20, 20, 20);
+        camera.lookAt(cameraTarget);
+    } else {
+        camera.position.set(0, 50, 0);
+        camera.lookAt(cameraTarget);
+    }
+    camera.updateProjectionMatrix();
+}
+
+resetCamera();
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -65,6 +76,29 @@ let lastMouseX = 0;
 let lastMouseY = 0;
 const panSpeed = 0.1;
 
+let isDraggingNode = false;
+let draggedNode = null;
+
+function updateLinkVisuals(nodeId) {
+    const links = STATE.connections.filter(c => c.from === nodeId || c.to === nodeId);
+    links.forEach(link => {
+        const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
+        const from = getEntity(link.from);
+        const to = getEntity(link.to);
+        
+        if (from && to) {
+            const positions = link.mesh.geometry.attributes.position.array;
+            positions[0] = from.position.x;
+            positions[1] = 1; // y is fixed
+            positions[2] = from.position.z;
+            positions[3] = to.position.x;
+            positions[4] = 1;
+            positions[5] = to.position.z;
+            link.mesh.geometry.attributes.position.needsUpdate = true;
+        }
+    });
+}
+
 function resetGame(mode = 'survival') {
     STATE.sound.init();
     STATE.sound.playGameBGM();
@@ -79,8 +113,11 @@ function resetGame(mode = 'survival') {
     STATE.isRunning = true;
     STATE.lastTime = performance.now();
     STATE.timeScale = 0;
-    STATE.currentRPS = 0.5;
+    STATE.currentRPS = CONFIG.survival.baseRPS;
     STATE.spawnTimer = 0;
+    STATE.hovered = null;
+
+    resetCamera();
 
     // Clear visual elements
     while (serviceGroup.children.length > 0) {
@@ -101,6 +138,14 @@ function resetGame(mode = 'survival') {
 
     // Update UI displays
     updateScoreUI();
+
+    // Reset Reputation Bar
+    const repBar = document.getElementById('rep-bar');
+    if (repBar) {
+        repBar.style.width = '100%';
+        repBar.classList.remove('bg-red-500');
+        repBar.classList.add('bg-yellow-500');
+    }
 
     // Ensure loop is running
     if (!STATE.animationId) {
@@ -129,6 +174,15 @@ function getIntersect(clientX, clientY) {
         let obj = intersects[0].object;
         while (obj.parent && obj.parent !== serviceGroup) obj = obj.parent;
         return { type: 'service', id: obj.userData.id, obj: obj };
+    }
+
+    // Check for links
+    raycaster.params.Line.threshold = 1;
+    const linkIntersects = raycaster.intersectObjects(connectionGroup.children, true);
+    if (linkIntersects.length > 0) {
+        const mesh = linkIntersects[0].object;
+        const link = STATE.connections.find(c => c.mesh === mesh);
+        if (link) return { type: 'link', id: link.id, obj: mesh, link: link };
     }
 
     const intInter = raycaster.intersectObject(STATE.internetNode.mesh);
@@ -166,7 +220,10 @@ function spawnRequest() {
         const wafEntry = entryNodes.find(s => s?.type === 'waf');
         const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
 
-        if (target) req.flyTo(target); else failRequest(req);
+        if (target) {
+            req.lastNodeId = 'internet';
+            req.flyTo(target);
+        } else failRequest(req);
     } else failRequest(req);
 }
 
@@ -176,6 +233,7 @@ function updateScore(req, outcome) {
     if (outcome === 'FRAUD_BLOCKED') {
         STATE.score.fraudBlocked += points.FRAUD_BLOCKED_SCORE;
         STATE.score.total += points.FRAUD_BLOCKED_SCORE;
+        STATE.reputation += 1; // Reward for blocking fraud
         STATE.sound.playFraudBlocked();
     } else if (req.type === TRAFFIC_TYPES.FRAUD && outcome === 'FRAUD_PASSED') {
         STATE.reputation += points.FRAUD_PASSED_REPUTATION;
@@ -185,14 +243,27 @@ function updateScore(req, outcome) {
             STATE.score.web += points.WEB_SCORE;
             STATE.score.total += points.WEB_SCORE;
             STATE.money += points.WEB_REWARD;
+            STATE.reputation += 0.1; // Small rep gain for success
         } else if (req.type === TRAFFIC_TYPES.API) {
             STATE.score.api += points.API_SCORE;
             STATE.score.total += points.API_SCORE;
             STATE.money += points.API_REWARD;
+            STATE.reputation += 0.1; // Small rep gain for success
         }
     } else if (outcome === 'FAILED') {
         STATE.reputation += points.FAIL_REPUTATION;
         STATE.score.total -= (req.type === TRAFFIC_TYPES.API ? points.API_SCORE : points.WEB_SCORE) / 2;
+    }
+
+    // Cap reputation at 100
+    if (STATE.reputation > 100) STATE.reputation = 100;
+
+    // Update Reputation Bar
+    const repBar = document.getElementById('rep-bar');
+    if (repBar) {
+        repBar.style.width = `${Math.max(0, STATE.reputation)}%`;
+        if (STATE.reputation < 30) repBar.classList.replace('bg-yellow-500', 'bg-red-500');
+        else repBar.classList.replace('bg-red-500', 'bg-yellow-500');
     }
 
     updateScoreUI();
@@ -293,42 +364,57 @@ function createConnection(fromId, toId) {
     const from = getEntity(fromId), to = getEntity(toId);
     if (!from || !to || from.connections.includes(toId)) return;
 
-    let valid = false;
-    const t1 = from.type, t2 = to.type;
-
-    if (t1 === 'internet' && (t2 === 'waf' || t2 === 'loadBalancer')) valid = true;
-    else if (t1 === 'waf' && t2 === 'loadBalancer') valid = true;
-    else if (t1 === 'loadBalancer' && t2 === 'compute') valid = true;
-    else if (t1 === 'compute' && (t2 === 'database' || t2 === 'objectStorage')) valid = true;
-
-    if (!valid) {
-        new Audio('assets/sounds/click-9.mp3').play();
-        console.error("Invalid connection topology: WAF/Load Balancer from Internet -> WAF -> Load Balancer -> Compute -> (Database/Object Storage)");
-        return;
-    }
+    // Relaxed connection rules: Allow any connection between distinct nodes
+    // Removed hardcoded topology checks
 
     new Audio('assets/sounds/click-5.mp3').play();
 
     from.connections.push(toId);
+    to.connections.push(fromId);
     const pts = [from.position.clone(), to.position.clone()];
     pts[0].y = pts[1].y = 1;
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
     const mat = new THREE.LineBasicMaterial({ color: CONFIG.colors.line });
     const line = new THREE.Line(geo, mat);
     connectionGroup.add(line);
-    STATE.connections.push({ from: fromId, to: toId, mesh: line });
+    
+    const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
+    STATE.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
     STATE.sound.playConnect();
+}
+
+function deleteLink(link) {
+    if (!link) return;
+    
+    // Remove from source node's connections list
+    const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
+    const fromNode = getEntity(link.from);
+    if (fromNode) {
+        fromNode.connections = fromNode.connections.filter(id => id !== link.to);
+    }
+
+    const toNode = getEntity(link.to);
+    if (toNode) {
+        toNode.connections = toNode.connections.filter(id => id !== link.from);
+    }
+
+    // Remove mesh
+    connectionGroup.remove(link.mesh);
+    link.mesh.geometry.dispose();
+    link.mesh.material.dispose();
+
+    // Remove from state
+    STATE.connections = STATE.connections.filter(c => c.id !== link.id);
+    STATE.sound.playDelete();
 }
 
 function deleteObject(id) {
     const svc = STATE.services.find(s => s.id === id);
     if (!svc) return;
 
-    STATE.services.forEach(s => s.connections = s.connections.filter(c => c !== id));
-    STATE.internetNode.connections = STATE.internetNode.connections.filter(c => c !== id);
-    const toRemove = STATE.connections.filter(c => c.from === id || c.to === id);
-    toRemove.forEach(c => connectionGroup.remove(c.mesh));
-    STATE.connections = STATE.connections.filter(c => !toRemove.includes(c));
+    // Find all links connected to this node
+    const linksToRemove = STATE.connections.filter(c => c.from === id || c.to === id);
+    linksToRemove.forEach(link => deleteLink(link));
 
     svc.destroy();
     STATE.services = STATE.services.filter(s => s.id !== id);
@@ -403,154 +489,219 @@ window.toggleMute = () => {
     }
 };
 
-container.addEventListener('contextmenu', (e) => e.preventDefault());
-
-container.addEventListener('mousedown', (e) => {
-    if (!STATE.isRunning) return;
-
-    if (e.button === 2 || e.button === 1) {
-        isPanning = true;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
-        container.style.cursor = 'grabbing';
-        e.preventDefault();
-        return;
-    }
-
-    const i = getIntersect(e.clientX, e.clientY);
-    if (STATE.activeTool === 'delete' && i.type === 'service') deleteObject(i.id);
-    else if (STATE.activeTool === 'connect' && (i.type === 'service' || i.type === 'internet')) {
-        if (STATE.selectedNodeId) { createConnection(STATE.selectedNodeId, i.id); STATE.selectedNodeId = null; }
-        else { STATE.selectedNodeId = i.id; new Audio('assets/sounds/click-5.mp3').play(); }
-    } else if (['waf', 'loadBalancer', 'compute', 'database', 'objectStorage'].includes(STATE.activeTool)) {
-        if ((STATE.activeTool === 'compute' && i.type === 'service') || (STATE.activeTool === 'database' && i.type === 'service')) {
-            const svc = STATE.services.find(s => s.id === i.id);
-            if (svc && ((STATE.activeTool === 'compute' && svc.type === 'compute') || (STATE.activeTool === 'database' && svc.type === 'database'))) {
-                svc.upgrade();
-                return;
-            }
-        }
-        if (i.type === 'ground') {
-            const toolMap = { 'waf': 'waf', 'loadBalancer': 'loadBalancer', 'compute': 'compute', 'database': 'database', 'objectStorage': 'objectStorage' };
-            createService(toolMap[STATE.activeTool], snapToGrid(i.pos));
-        }
-    }
-});
-
-container.addEventListener('mousemove', (e) => {
+document.addEventListener('mousemove', (e) => {
     if (isPanning) {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
-
-    const panX = -dx * (camera.right - camera.left) / window.innerWidth * panSpeed;
-    const panY = dy * (camera.top - camera.bottom) / window.innerHeight * panSpeed;
-
-    if (isIsometric) {
-        camera.position.x += panX;
-        camera.position.z += panY;
-        cameraTarget.x += panX;
-        cameraTarget.z += panY;
-        camera.lookAt(cameraTarget);
-    } else {
-        camera.position.x += panX;
-        camera.position.z += panY;
-        camera.lookAt(camera.position.x, 0, camera.position.z);
-    }
-    camera.updateProjectionMatrix();        lastMouseX = e.clientX;
+        
+        // Adjust panning direction based on camera rotation
+        // For isometric view (45 deg rotation), we need to rotate the input vector
+        // But since we are using an orthographic camera with lookAt(0,0,0), simple X/Z panning relative to camera works best
+        
+        // Move camera opposite to mouse movement
+        camera.position.x -= dx * panSpeed;
+        camera.position.z -= dy * panSpeed;
+        // Also move target to keep looking at same relative point if needed, 
+        // but for Ortho camera looking at 0,0,0, moving position is enough if we don't re-lookAt every frame
+        // However, resetCamera() calls lookAt. Let's just move position.
+        
+        lastMouseX = e.clientX;
         lastMouseY = e.clientY;
+        return;
+    }
+
+    if (isDraggingNode && draggedNode) {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        
+        const target = new THREE.Vector3();
+        raycaster.ray.intersectPlane(plane, target);
+        
+        const snapped = snapToGrid(target);
+        draggedNode.position.copy(snapped);
+        draggedNode.mesh.position.x = snapped.x;
+        draggedNode.mesh.position.z = snapped.z;
+        
+        updateLinkVisuals(draggedNode.id);
+        return;
+    }
+
+    if (e.target !== renderer.domElement) {
         document.getElementById('tooltip').style.display = 'none';
+        STATE.hovered = null;
         return;
     }
 
     const i = getIntersect(e.clientX, e.clientY);
-    const t = document.getElementById('tooltip');
-    let cursor = 'default';
+    STATE.hovered = i;
 
-    if (i.type === 'service') {
-        const s = STATE.services.find(s => s.id === i.id);
-        if (s) {
-            t.style.display = 'block'; t.style.left = e.clientX + 15 + 'px'; t.style.top = e.clientY + 15 + 'px';
-
-            const load = s.processing.length / s.config.capacity;
-            let loadColor = load > 0.8 ? 'text-red-400' : (load > 0.4 ? 'text-yellow-400' : 'text-green-400');
-
-            t.innerHTML = `<strong class="text-blue-300">${s.config.name}</strong> <span class="text-xs text-yellow-400">T${s.tier || 1}</span><br>
-            Queue: <span class="${loadColor}">${s.queue.length}</span><br>
-            Load: <span class="${loadColor}">${s.processing.length}/${s.config.capacity}</span>`;
-
-            // Reset previous highlights
-            STATE.services.forEach(svc => {
-                if (svc.mesh.material.emissive) svc.mesh.material.emissive.setHex(0x000000);
-            });
-
-            if ((STATE.activeTool === 'compute' && s.type === 'compute') || (STATE.activeTool === 'database' && s.type === 'database')) {
-                const tiers = CONFIG.services[s.type].tiers;
-                if (s.tier < tiers.length) {
-                    cursor = 'pointer';
-                    const nextCost = tiers[s.tier].cost;
-                    t.innerHTML += `<br><span class="text-green-300 text-xs font-bold">Upgrade: $${nextCost}</span>`;
-
-                    if (s.mesh.material.emissive) s.mesh.material.emissive.setHex(0x333333);
-                } else {
-                    t.innerHTML += `<br><span class="text-gray-500 text-xs">Max Tier</span>`;
-                }
-            }
-        }
+    // Tooltip logic
+    const tooltip = document.getElementById('tooltip');
+    if (i.type === 'service' || i.type === 'link') {
+        tooltip.style.left = `${e.clientX + 15}px`;
+        tooltip.style.top = `${e.clientY + 15}px`;
+        tooltip.style.display = 'block';
     } else {
-        t.style.display = 'none';
-        // Reset highlights when not hovering service
-        STATE.services.forEach(svc => {
-            if (svc.mesh.material.emissive) svc.mesh.material.emissive.setHex(0x000000);
-        });
+        tooltip.style.display = 'none';
     }
-
-    container.style.cursor = cursor;
 });
 
-container.addEventListener('mouseup', (e) => {
+function updateTooltip() {
+    const tooltip = document.getElementById('tooltip');
+    if (!STATE.hovered || tooltip.style.display === 'none') return;
+
+    const i = STATE.hovered;
+    if (i.type === 'service' || i.type === 'link') {
+        const id = i.id;
+        let content = `<div class="font-bold border-b border-gray-500 pb-1 mb-1 text-xs">${id}</div>`;
+
+        if (i.type === 'service') {
+            const svc = STATE.services.find(s => s.id === id);
+            if (svc) {
+                const loadPct = Math.round(svc.totalLoad * 100);
+                const loadColor = loadPct > 80 ? 'text-red-400' : (loadPct > 50 ? 'text-yellow-400' : 'text-green-400');
+                
+                content += `
+                    <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
+                        <span class="text-gray-400">Type:</span> <span class="text-white capitalize">${svc.type}</span>
+                        <span class="text-gray-400">Tier:</span> <span class="text-white">${svc.tier || 1}</span>
+                        <span class="text-gray-400">Load:</span> <span class="${loadColor}">${loadPct}%</span>
+                        <span class="text-gray-400">Queue:</span> <span class="text-white">${svc.queue.length}/20</span>
+                        <span class="text-gray-400">Proc:</span> <span class="text-white">${svc.processing.length}/${svc.config.capacity}</span>
+                        <span class="text-gray-400">Links:</span> <span class="text-white">${svc.connections.length}</span>
+                    </div>
+                `;
+            }
+        } else if (i.type === 'link') {
+            const link = i.link;
+            // Calculate traffic on this link
+            const traffic = STATE.requests.filter(r => 
+                r.isMoving && r.target && (
+                    (r.lastNodeId === link.from && r.target.id === link.to) ||
+                    (r.lastNodeId === link.to && r.target.id === link.from)
+                )
+            ).length;
+
+            content += `
+                <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
+                    <span class="text-gray-400">Type:</span> <span class="text-white">Wired</span>
+                    <span class="text-gray-400">Traffic:</span> <span class="text-white">${traffic} pkts</span>
+                </div>
+            `;
+        }
+
+        tooltip.innerHTML = content;
+    }
+}
+
+document.addEventListener('mousedown', (e) => {
+    if (e.target !== renderer.domElement) return;
+
+    if (e.button === 2 || e.button === 1) { // Right or Middle click
+        isPanning = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        container.style.cursor = 'move';
+    }
+
+    if (e.button === 0) { // Left mouse button
+        const i = getIntersect(e.clientX, e.clientY);
+
+        if (STATE.activeTool === 'select') {
+            if (i.type === 'service') {
+                isDraggingNode = true;
+                draggedNode = STATE.services.find(s => s.id === i.id);
+                container.style.cursor = 'grabbing';
+                STATE.selectedNodeId = i.id;
+            } else {
+                STATE.selectedNodeId = null;
+            }
+        } else if (STATE.activeTool === 'delete') {
+            if (i.type === 'service') deleteObject(i.id);
+            else if (i.type === 'link') deleteLink(i.link);
+        } else if (STATE.activeTool === 'connect') {
+            if (i.type === 'service' || i.type === 'internet') {
+                if (!STATE.selectedNodeId) {
+                    STATE.selectedNodeId = i.id;
+                    // Optional: Add visual feedback for source selection here
+                } else {
+                    createConnection(STATE.selectedNodeId, i.id);
+                    STATE.selectedNodeId = null;
+                }
+            } else {
+                STATE.selectedNodeId = null;
+            }
+        } else {
+            // Placement tools
+            if (i.type === 'ground') {
+                createService(STATE.activeTool, snapToGrid(i.pos));
+            }
+        }
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (e.button === 0) { // Left mouse button
+        isDraggingNode = false;
+        draggedNode = null;
+        container.style.cursor = 'auto';
+    }
+    
     if (e.button === 2 || e.button === 1) {
         isPanning = false;
         container.style.cursor = 'default';
     }
+    
+    if (isDraggingNode) {
+        isDraggingNode = false;
+        draggedNode = null;
+        container.style.cursor = 'default';
+    }
 });
-
-
 
 function animate(time) {
     STATE.animationId = requestAnimationFrame(animate);
-    if (!STATE.isRunning) return;
 
-    const dt = ((time - STATE.lastTime) / 1000) * STATE.timeScale;
+    const delta = (time - STATE.lastTime) / 1000;
     STATE.lastTime = time;
 
-    STATE.services.forEach(s => s.update(dt));
-    STATE.requests.forEach(r => r.update(dt));
-
-    STATE.spawnTimer += dt;
-    if (STATE.spawnTimer > (1 / STATE.currentRPS)) {
-        STATE.spawnTimer = 0;
-        spawnRequest();
-        STATE.currentRPS += CONFIG.survival.rampUp;
+    if (!STATE.isRunning) {
+        renderer.render(scene, camera);
+        return;
     }
 
-    document.getElementById('money-display').innerText = `$${Math.floor(STATE.money)}`;
+    // Spawn requests
+    STATE.spawnTimer += delta * STATE.timeScale;
+    if (STATE.spawnTimer > 1 / STATE.currentRPS) {
+        spawnRequest();
+        STATE.spawnTimer = 0;
+    }
 
-    const totalUpkeep = STATE.services.reduce((sum, s) => sum + s.config.upkeep / 60, 0);
-    const upkeepDisplay = document.getElementById('upkeep-display');
-    if (upkeepDisplay) upkeepDisplay.innerText = `-$${totalUpkeep.toFixed(2)}/s`;
+    // Difficulty Ramp
+    if (STATE.gameMode === 'survival') {
+        STATE.currentRPS += CONFIG.survival.rampUp * delta * STATE.timeScale;
+    }
 
-    STATE.reputation = Math.min(100, STATE.reputation);
-    document.getElementById('rep-bar').style.width = `${Math.max(0, STATE.reputation)}%`;
+    // Update entities
+    STATE.services.forEach(s => s.update(delta * STATE.timeScale));
+    STATE.requests.forEach(r => r.update(delta * STATE.timeScale));
+
+    // Update UI
     document.getElementById('rps-display').innerText = `${STATE.currentRPS.toFixed(1)} req/s`;
+    document.getElementById('money-display').innerText = `$${STATE.money.toFixed(2)}`;
 
+    const totalUpkeep = STATE.services.reduce((sum, s) => sum + (s.config.upkeep / 60), 0);
+    document.getElementById('upkeep-display').innerText = `-$${totalUpkeep.toFixed(2)}/s`;
+    
+    updateTooltip();
 
+    // Check game over
     if (STATE.reputation <= 0 || STATE.money <= -1000) {
         STATE.isRunning = false;
-        document.getElementById('modal-title').innerText = "SYSTEM FAILURE";
-        document.getElementById('modal-title').classList.add("text-red-500");
-        document.getElementById('modal-desc').innerText = `Final Score: ${STATE.score.total}`;
         document.getElementById('modal').classList.remove('hidden');
-        STATE.sound.playGameOver();
+        document.getElementById('modal-title').innerText = STATE.reputation <= 0 ? 'REPUTATION LOST' : 'BANKRUPT';
+        document.getElementById('modal-desc').innerText = STATE.reputation <= 0 ? 'Users have abandoned your platform.' : 'Funding has been cut.';
     }
 
     renderer.render(scene, camera);
@@ -566,32 +717,19 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'H' || event.key === 'h') {
-        document.getElementById('statsPanel').classList.toggle("hidden");
-        document.getElementById('detailsPanel').classList.toggle("hidden");
-        document.getElementById('objectivesPanel').classList.toggle("hidden");
-    }
-    if (event.key === 'R' || event.key === 'r') {
+document.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'r') {
         resetCamera();
     }
-    if (event.key === 'T' || event.key === 't') {
-        toggleView();
+    if (e.key.toLowerCase() === 't') {
+        isIsometric = !isIsometric;
+        resetCamera();
+    }
+    if (e.key.toLowerCase() === 'h') {
+        const ui = document.getElementById('statsPanel');
+        ui.classList.toggle('hidden');
     }
 });
 
-function toggleView() {
-    isIsometric = !isIsometric;
-    resetCamera();
-}
-
-function resetCamera() {
-    if (isIsometric) {
-        camera.position.set(40, 40, 40);
-        cameraTarget.set(0, 0, 0);
-        camera.lookAt(cameraTarget);
-    } else {
-        camera.position.set(0, 50, 0);
-        camera.lookAt(0, 0, 0);
-    }
-}
+// Prevent context menu on right click
+document.addEventListener('contextmenu', event => event.preventDefault());
