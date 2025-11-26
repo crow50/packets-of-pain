@@ -185,3 +185,37 @@ body {
         opacity: 0;
     }
 }
+
+body.campaign-mode #objectivesPanel {
+    display: none;
+}
+
+body.campaign-mode #level-instructions-panel {
+    top: auto;
+    right: auto;
+    bottom: 6rem;
+    left: 1rem;
+    width: 22rem;
+    max-height: calc(100vh - 7rem);
+}
+
+.campaign-highlight {
+    animation: campaignPulse 1.4s ease-in-out infinite;
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.45);
+    border-color: #3b82f6;
+}
+
+@keyframes campaignPulse {
+    0% {
+        transform: translateY(0);
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+    }
+    50% {
+        transform: translateY(-2px);
+        box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
+    }
+    100% {
+        transform: translateY(0);
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
+    }
+}

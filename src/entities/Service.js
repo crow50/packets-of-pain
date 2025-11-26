@@ -27,6 +27,18 @@ class Service {
                 geo = new THREE.BoxGeometry(3, 2, 0.5);
                 mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.waf, ...materialProps });
                 break;
+            case 'firewall':
+                geo = new THREE.BoxGeometry(3, 1.5, 1.5);
+                mat = new THREE.MeshStandardMaterial({ color: 0xff6b6b, roughness: 0.3 });
+                break;
+            case 'switch':
+                geo = new THREE.BoxGeometry(2.5, 0.75, 3);
+                mat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.3 });
+                break;
+            case 'modem':
+                geo = new THREE.BoxGeometry(2, 0.75, 2);
+                mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 });
+                break;
             case 'loadBalancer':
                 geo = new THREE.BoxGeometry(3, 1.5, 3);
                 mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.loadBalancer, roughness: 0.1 });
@@ -52,6 +64,9 @@ class Service {
         this.mesh.position.copy(pos);
 
         if (this.type === 'waf') this.mesh.position.y += 1;
+        else if (this.type === 'firewall') this.mesh.position.y += 0.8;
+        else if (this.type === 'switch') this.mesh.position.y += 0.4;
+        else if (this.type === 'modem') this.mesh.position.y += 0.5;
         else if (this.type === 'loadBalancer') this.mesh.position.y += 0.75;
         else if (this.type === 'compute') this.mesh.position.y += 1.5;
         else if (this.type === 'objectStorage') this.mesh.position.y += 0.75;
