@@ -12,7 +12,8 @@
 
 <body>
 
-    <!-- UI Overlay: Top Bar -->
+    <div id="sandbox-ui" class="hidden">
+        <!-- UI Overlay: Top Bar -->
     <div class="absolute top-0 left-0 w-full h-full pointer-events-none">
 
         <!-- Stats Panel (Top Left) -->
@@ -67,6 +68,19 @@
                     <span class="text-purple-300 font-bold">WAF REFLECTED</span>
                     <span id="score-fraud" class="text-purple-300">0</span>
                 </div>
+            </div>
+        </div>
+
+        <div id="level-instructions-panel" class="absolute top-44 right-4 glass-panel rounded-xl p-4 w-72 pointer-events-auto hidden space-y-3 border border-blue-500/30 bg-gradient-to-b from-slate-900/80 to-slate-900/30">
+            <div>
+                <p id="level-instructions-title" class="text-xs uppercase tracking-[0.4em] text-blue-300 font-mono">Campaign Objectives</p>
+                <h3 id="level-instructions-subtitle" class="text-lg font-bold text-white">Level Brief</h3>
+            </div>
+            <p id="level-description" class="text-sm text-gray-300 leading-relaxed"></p>
+            <ul id="level-instructions" class="space-y-2 text-xs text-gray-200 list-disc list-inside"></ul>
+            <div class="flex gap-2 mt-4">
+                <button onclick="resetLevel()" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-full py-2">Restart Level</button>
+                <button onclick="exitLevelToCampaignHub()" class="w-1/2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-[0.2em] rounded-full py-2">Back to Campaign</button>
             </div>
         </div>
 
@@ -157,7 +171,7 @@
 
             <!-- Tools -->
             <div class="flex gap-1 pr-4 border-r border-gray-700">
-                <button id="tool-select"
+                <button id="tool-select" data-tool-name="Select"
                     class="service-btn active bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent"
                     onclick="setTool('select')">
                     <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 24 24">
@@ -168,7 +182,7 @@
                     <span class="text-[10px] uppercase">Select</span>
                 </button>
 
-                <button id="tool-connect"
+                <button id="tool-connect" data-tool-name="LinkTool"
                     class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent"
                     onclick="setTool('connect')">
                     <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 24 24">
@@ -179,7 +193,7 @@
                     <span class="text-[10px] uppercase">Link</span>
                 </button>
 
-                <button id="tool-delete"
+                <button id="tool-delete" data-tool-name="Delete"
                     class="service-btn bg-red-900/30 text-red-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent hover:bg-red-900/50"
                     onclick="setTool('delete')">
                     <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,7 +208,7 @@
             <!-- Shop -->
             <div class="flex gap-2 pl-2">
                 <!-- WAF -->
-                <button id="tool-waf"
+                <button id="tool-waf" data-tool-name="WAF"
                     class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
                     onclick="setTool('waf')">
                     <div
@@ -209,7 +223,7 @@
                     <span class="text-[8px] text-gray-400 leading-tight">Security</span>
                 </button>
 
-                <button id="tool-lb"
+                <button id="tool-lb" data-tool-name="LoadBalancer"
                     class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
                     onclick="setTool('loadBalancer')">
                     <div
@@ -224,7 +238,7 @@
                     <span class="text-[8px] text-gray-400 leading-tight">Routing</span>
                 </button>
 
-                <button id="tool-compute"
+                <button id="tool-compute" data-tool-name="Compute"
                     class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
                     onclick="setTool('compute')">
                     <div
@@ -239,7 +253,7 @@
                     <span class="text-[8px] text-gray-400 leading-tight">CPU</span>
                 </button>
 
-                <button id="tool-db"
+                <button id="tool-db" data-tool-name="Database"
                     class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
                     onclick="setTool('database')">
                     <div
@@ -255,7 +269,7 @@
                 </button>
 
                 <!-- Object Storage -->
-                <button id="tool-objstore"
+                <button id="tool-objstore" data-tool-name="ObjectStorage"
                     class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
                     onclick="setTool('objectStorage')">
                     <div
@@ -273,13 +287,49 @@
         </div>
     </div>
 
-    <!-- Hover Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
+        <!-- Hover Tooltip -->
+        <div id="tooltip" class="tooltip"></div>
 
-    <!-- Game Canvas -->
-    <div id="canvas-container"></div>
+        <!-- Game Canvas -->
+        <div id="canvas-container"></div>
+    </div>
 
 
+
+    <div id="campaign-hub" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto px-4">
+        <div class="glass-panel w-full max-w-5xl rounded-3xl border border-blue-500/40 p-8 space-y-8 text-white">
+            <div class="flex justify-between items-start gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.4em] text-gray-400">Campaign</p>
+                    <h2 class="text-4xl font-black">Multi-Domain</h2>
+                    <p class="text-gray-400 max-w-xl">A questionable journey across increasingly chaotic networks.</p>
+                </div>
+                <button onclick="showView('main-menu')" class="text-sm font-mono uppercase tracking-widest text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2">Back to Main Menu</button>
+            </div>
+
+            <div id="campaign-worlds" class="grid gap-6 lg:grid-cols-2">
+                <div class="glass-panel border border-gray-700/80 p-6 space-y-4 bg-gradient-to-br from-slate-900/70 to-slate-900/30">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase tracking-[0.4em]">World</p>
+                        <h3 class="text-3xl font-bold text-white">Baby's First Network</h3>
+                    </div>
+                    <p class="text-sm text-gray-300">Learn in the tutorials designed for beginners.</p>
+                    <button onclick="enterCampaignWorld('babys-first-network')" class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-blue-900/40 border border-white/20 text-xs font-bold uppercase tracking-widest">View levels</button>
+                </div>
+            </div>
+
+            <section id="campaign-levels" class="hidden space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.4em] text-gray-400">World</p>
+                        <h3 class="text-2xl font-bold">Baby's First Network</h3>
+                    </div>
+                    <button onclick="hideCampaignLevels()" class="text-xs uppercase tracking-[0.4em] text-gray-300 border border-gray-600 rounded-full px-4 py-2 hover:text-white">Back to Worlds</button>
+                </div>
+                <div id="campaign-level-list" class="grid gap-4 md:grid-cols-2"></div>
+            </section>
+        </div>
+    </div>
 
     <!-- End/Next Level Modal -->
     <div id="modal"
@@ -323,7 +373,7 @@
 
                 <button onclick="startCampaign()"
                     class="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3 px-8 rounded-lg border border-gray-600 transition hover:text-white font-mono uppercase">
-                    Campaign (Coming Soon)
+                    Campaign
                 </button>
 
                 <button onclick="showFAQ()"
@@ -492,7 +542,7 @@
     <script src="src/entities/Request.js"></script>
     <script src="src/entities/Service.js"></script>
     <script src="src/services/SoundService.js"></script>
-    <script src="game.js"></script>
+    <script type="module" src="game.js"></script>
 </body>
 
 </html>

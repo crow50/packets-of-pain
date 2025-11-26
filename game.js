@@ -1,12 +1,33 @@
+import { LEVELS } from "./src/levels.js";
+
 STATE.sound = new SoundService();
 
+const GameContext = {
+    mode: "sandbox",
+    currentLevelId: null,
+    trafficProfile: null
+};
+window.GameContext = GameContext;
 
 const GAME_MODES = {
-  SANDBOX: "sandbox",
-  CAMPAIGN: "campaign",
+    SANDBOX: "sandbox",
+    CAMPAIGN: "campaign",
 };
 
-let currentGameMode = null;
+let currentView = 'main-menu';
+
+const BABY_LEVEL_IDS = ["baby-1", "baby-2", "baby-3"];
+const BABYS_FIRST_NETWORK_LEVELS = BABY_LEVEL_IDS.map(id => LEVELS[id]).filter(Boolean);
+
+const LEVEL_UNLOCK_CHAIN = {
+    "baby-2": "baby-1",
+    "baby-3": "baby-2",
+};
+
+const DEFAULT_TRAFFIC_PROFILE = {
+    userToInternetPps: CONFIG.survival.baseRPS || 0.5,
+    maliciousRate: 0
+};
 
 
 const container = document.getElementById('canvas-container');
@@ -211,13 +232,23 @@ function getTrafficType() {
 }
 
 function spawnRequest() {
-    const type = getTrafficType();
+    let type = getTrafficType();
+    if (isCampaignMode() && GameContext.trafficProfile) {
+        const { userToInternetPps = 0, maliciousRate = 0 } = GameContext.trafficProfile;
+        const total = userToInternetPps + maliciousRate;
+        if (total > 0) {
+            const fraudChance = maliciousRate / total;
+            type = Math.random() < fraudChance ? TRAFFIC_TYPES.FRAUD : TRAFFIC_TYPES.WEB;
+        } else {
+            type = TRAFFIC_TYPES.WEB;
+        }
+    }
     const req = new Request(type);
     STATE.requests.push(req);
     const conns = STATE.internetNode.connections;
     if (conns.length > 0) {
         const entryNodes = conns.map(id => STATE.services.find(s => s.id === id));
-        const wafEntry = entryNodes.find(s => s?.type === 'waf');
+        const wafEntry = entryNodes.find(s => s && s.type === 'waf');
         const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
 
         if (target) {
@@ -301,6 +332,28 @@ function flashMoney() {
     setTimeout(() => el.classList.remove('text-red-500'), 300);
 }
 
+function showView(viewName) {
+    const sandboxEl = document.getElementById('sandbox-ui');
+    const campaignEl = document.getElementById('campaign-hub');
+    const menuEl = document.getElementById('main-menu-modal');
+    if (!sandboxEl || !campaignEl || !menuEl) return;
+
+    const setOverlayState = (el, isActive) => {
+        el.classList.toggle('hidden', !isActive);
+        el.style.pointerEvents = isActive ? 'auto' : 'none';
+    };
+
+    setOverlayState(sandboxEl, viewName === 'sandbox');
+    setOverlayState(campaignEl, viewName === 'campaign');
+    setOverlayState(menuEl, viewName === 'main-menu');
+
+    if (viewName !== 'campaign') {
+        hideCampaignLevels();
+    }
+
+    currentView = viewName;
+}
+
 function showMainMenu() {
     // Ensure sound is initialized if possible (browsers might block until interaction)
     if (!STATE.sound.ctx) STATE.sound.init();
@@ -309,6 +362,7 @@ function showMainMenu() {
     document.getElementById('main-menu-modal').classList.remove('hidden');
     document.getElementById('faq-modal').classList.add('hidden');
     document.getElementById('modal').classList.add('hidden');
+    showView('main-menu');
 }
 
 let faqSource = 'menu'; // 'menu' or 'game'
@@ -336,18 +390,304 @@ window.closeFAQ = () => {
     }
 };
 
-window.startGame = () => {
+window.startGame = (mode = GAME_MODES.SANDBOX) => {
     document.getElementById('main-menu-modal').classList.add('hidden');
-    resetGame();
+    resetGame(mode === GAME_MODES.CAMPAIGN ? 'campaign' : 'survival');
 };
 
 window.startSandbox = () => {
-    currentGameMode = GAME_MODES.SANDBOX;
-    startGame();
+    GameContext.mode = GAME_MODES.SANDBOX;
+    GameContext.currentLevelId = null;
+    setTrafficProfile(null);
+    showLevelInstructionsPanel(false);
+    showView('sandbox');
+    startGame(GAME_MODES.SANDBOX);
 };
 
+function isCampaignMode() {
+    return GameContext.mode === GAME_MODES.CAMPAIGN;
+}
+window.isCampaignMode = isCampaignMode;
+
+function getCurrentLevelId() {
+    return GameContext.currentLevelId;
+}
+window.getCurrentLevelId = getCurrentLevelId;
+
 window.startCampaign = () => {
-    alert("Campaign mode is not implemented yet.");
+    GameContext.mode = GAME_MODES.CAMPAIGN;
+    showView('campaign');
+};
+
+function startCampaignLevel(levelId) {
+    const level = LEVELS[levelId];
+    if (!level) {
+        console.error('Unknown levelId', levelId);
+        return;
+    }
+    GameContext.mode = GAME_MODES.CAMPAIGN;
+    GameContext.currentLevelId = levelId;
+    showLevelInstructionsPanel(true);
+    showView('sandbox');
+    startGame(GAME_MODES.CAMPAIGN);
+    loadLevelConfig(levelId);
+    markLevelComplete(levelId);
+    renderCampaignLevels();
+}
+window.startCampaignLevel = startCampaignLevel;
+
+function showLevelInstructionsPanel(visible) {
+    const panel = document.getElementById('level-instructions-panel');
+    if (!panel) return;
+    panel.classList.toggle('hidden', !visible);
+}
+
+function resetSimulationState() {
+    STATE.spawnTimer = 0;
+    STATE.currentRPS = CONFIG.survival.baseRPS;
+    STATE.requestsProcessed = 0;
+    STATE.timeScale = 1;
+    STATE.isRunning = true;
+    STATE.internetNode.connections = [];
+    STATE.money = 0;
+    STATE.reputation = 100;
+    STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
+    updateScoreUI();
+    const repBar = document.getElementById('rep-bar');
+    if (repBar) {
+        repBar.style.width = '100%';
+        repBar.classList.remove('bg-red-500');
+        repBar.classList.add('bg-yellow-500');
+    }
+    clearAllNodesAndLinks();
+}
+
+function clearAllNodesAndLinks() {
+    STATE.services.forEach(s => {
+        if (s && typeof s.destroy === 'function') s.destroy();
+    });
+    STATE.requests.forEach(r => {
+        if (r && typeof r.destroy === 'function') r.destroy();
+    });
+    STATE.connections.forEach(link => {
+        if (link.mesh) {
+            connectionGroup.remove(link.mesh);
+            if (link.mesh.geometry) link.mesh.geometry.dispose();
+            if (link.mesh.material) link.mesh.material.dispose();
+        }
+    });
+
+    while (serviceGroup.children.length) {
+        serviceGroup.remove(serviceGroup.children[0]);
+    }
+    while (connectionGroup.children.length) {
+        const child = connectionGroup.children[0];
+        connectionGroup.remove(child);
+    }
+    while (requestGroup.children.length) {
+        requestGroup.remove(requestGroup.children[0]);
+    }
+
+    STATE.services = [];
+    STATE.requests = [];
+    STATE.connections = [];
+    STATE.internetNode.connections = [];
+}
+
+function spawnNodeFromConfig(nodeConfig) {
+    console.info('Spawning campaign node', nodeConfig);
+}
+
+function applyToolbarWhitelist(list = []) {
+    GameContext.toolbarWhitelist = list;
+    document.querySelectorAll('[data-tool-name]').forEach(btn => {
+        const name = btn.dataset.toolName;
+        if (!name) return;
+        const allowed = list.length === 0 || list.includes(name);
+        btn.disabled = !allowed;
+        btn.classList.toggle('opacity-40', !allowed);
+    });
+}
+
+function setBudget(value) {
+    STATE.money = value;
+    const display = document.getElementById('money-display');
+    if (display) {
+        display.innerText = `$${STATE.money.toFixed(2)}`;
+    }
+}
+
+function resetSatisfaction() {
+    STATE.reputation = 100;
+    const repBar = document.getElementById('rep-bar');
+    if (repBar) {
+        repBar.style.width = '100%';
+        repBar.classList.remove('bg-red-500');
+        repBar.classList.add('bg-yellow-500');
+    }
+}
+
+function resetScore() {
+    STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
+    updateScoreUI();
+}
+
+function setTrafficProfile(profile) {
+    if (!profile) {
+        GameContext.trafficProfile = null;
+        STATE.currentRPS = CONFIG.survival.baseRPS;
+        STATE.spawnTimer = 0;
+        return;
+    }
+
+    const normalized = {
+        userToInternetPps: profile.userToInternetPps !== undefined ? profile.userToInternetPps : DEFAULT_TRAFFIC_PROFILE.userToInternetPps,
+        maliciousRate: profile.maliciousRate !== undefined ? profile.maliciousRate : DEFAULT_TRAFFIC_PROFILE.maliciousRate
+    };
+
+    GameContext.trafficProfile = normalized;
+    STATE.currentRPS = normalized.userToInternetPps + normalized.maliciousRate;
+    STATE.spawnTimer = 0;
+}
+
+function setLevelHeader(title, subtitle) {
+    const titleEl = document.getElementById('level-instructions-title');
+    const subEl = document.getElementById('level-instructions-subtitle');
+    if (titleEl) titleEl.innerText = title || 'Campaign Objectives';
+    if (subEl) subEl.innerText = subtitle || '';
+}
+
+function setLevelDescription(text) {
+    const desc = document.getElementById('level-description');
+    if (desc) desc.innerText = text || '';
+}
+
+function setLevelInstructions(instructions = []) {
+    const list = document.getElementById('level-instructions');
+    if (!list) return;
+    list.innerHTML = '';
+    instructions.forEach((instr) => {
+        const li = document.createElement('li');
+        li.textContent = instr;
+        list.appendChild(li);
+    });
+}
+
+function setCurrentLevelContext(levelId) {
+    GameContext.currentLevelId = levelId;
+}
+
+function loadLevelConfig(levelId) {
+    const level = LEVELS[levelId];
+    if (!level) {
+        console.error('Attempted to load missing level', levelId);
+        return;
+    }
+
+    resetSimulationState();
+    if (level.preplacedNodes) level.preplacedNodes.forEach(spawnNodeFromConfig);
+    applyToolbarWhitelist(level.toolbarWhitelist);
+    setBudget(level.startingBudget !== undefined ? level.startingBudget : 0);
+    resetSatisfaction();
+    resetScore();
+    setTrafficProfile(level.trafficProfile);
+    setLevelHeader(level.title, level.subtitle);
+    setLevelDescription(level.description);
+    setLevelInstructions(level.instructions);
+    setCurrentLevelContext(levelId);
+}
+
+function resetLevel() {
+    if (!isCampaignMode() || !getCurrentLevelId()) return;
+    loadLevelConfig(getCurrentLevelId());
+}
+window.resetLevel = resetLevel;
+
+function exitLevelToCampaignHub() {
+    if (!isCampaignMode()) return;
+    GameContext.mode = GAME_MODES.CAMPAIGN;
+    GameContext.currentLevelId = null;
+    resetSimulationState();
+    setTrafficProfile(null);
+    showLevelInstructionsPanel(false);
+    showView('campaign');
+    STATE.isRunning = false;
+}
+window.exitLevelToCampaignHub = exitLevelToCampaignHub;
+
+function getCampaignStorageKey(levelId) {
+    return `campaign_${levelId}_complete`;
+}
+
+function markLevelComplete(levelId) {
+    try {
+        localStorage.setItem(getCampaignStorageKey(levelId), 'true');
+    } catch (error) {
+        console.warn('Unable to skip localStorage write', error);
+    }
+}
+
+function isLevelComplete(levelId) {
+    try {
+        return localStorage.getItem(getCampaignStorageKey(levelId)) === 'true';
+    } catch (error) {
+        return false;
+    }
+}
+
+function isLevelUnlocked(level) {
+    if (!level) return false;
+    if (level.id === 'baby-1') return true;
+    const prerequisite = LEVEL_UNLOCK_CHAIN[level.id];
+    return prerequisite ? isLevelComplete(prerequisite) : true;
+}
+
+function renderCampaignLevels() {
+    const list = document.getElementById('campaign-level-list');
+    if (!list) return;
+    list.innerHTML = '';
+    BABYS_FIRST_NETWORK_LEVELS.forEach((level) => {
+        const unlocked = isLevelUnlocked(level);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.disabled = !unlocked;
+        btn.className = `w-full text-left rounded-2xl border p-5 transition ${unlocked ? 'border-white/30 hover:border-blue-400 hover:shadow-[0_0_20px_rgba(66,153,225,0.25)]' : 'border-gray-700 text-gray-400 opacity-70 cursor-not-allowed bg-gray-900/40'}`;
+        btn.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] uppercase tracking-[0.5em] text-gray-500 font-mono">baby's first network</p>
+                    <p class="text-xl font-semibold text-white">${level.title || level.name}</p>
+                    <p class="text-sm text-gray-400 mt-1">${level.subtitle || ''}</p>
+                </div>
+                <span class="text-xs font-bold uppercase ${unlocked ? 'text-blue-300' : 'text-gray-500'}">${unlocked ? 'Play' : 'Locked'}</span>
+            </div>
+        `;
+        btn.addEventListener('click', () => {
+            if (!unlocked) return;
+            window.startCampaignLevel(level.id);
+        });
+        list.appendChild(btn);
+    });
+}
+
+function setCampaignLevelsVisible(visible) {
+    const levelsSection = document.getElementById('campaign-levels');
+    const worlds = document.getElementById('campaign-worlds');
+    if (!levelsSection || !worlds) return;
+    levelsSection.classList.toggle('hidden', !visible);
+    worlds.classList.toggle('hidden', visible);
+    if (visible) renderCampaignLevels();
+}
+
+function hideCampaignLevels() {
+    setCampaignLevelsVisible(false);
+}
+
+window.hideCampaignLevels = hideCampaignLevels;
+
+window.enterCampaignWorld = (worldId) => {
+    console.info(`[Campaign] viewing levels for ${worldId}`);
+    setCampaignLevelsVisible(true);
 };
 
 function createService(type, pos) {
