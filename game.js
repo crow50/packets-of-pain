@@ -24,6 +24,45 @@ const LEVEL_UNLOCK_CHAIN = {
     "baby-3": "baby-2",
 };
 
+const CAMPAIGN_HIGHLIGHT_MAP = {
+    "baby-1": ["time-control-panel", "statsPanel", "shop-panel", "tool-connect", "tool-modem"]
+};
+const CAMPAIGN_HIGHLIGHT_IDS = (() => {
+    const ref = [];
+    Object.values(CAMPAIGN_HIGHLIGHT_MAP).forEach(list => ref.push(...list));
+    return [...new Set(ref)];
+})();
+
+function updateCampaignHighlights(levelId) {
+    const active = new Set(CAMPAIGN_HIGHLIGHT_MAP[levelId] || []);
+    CAMPAIGN_HIGHLIGHT_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('campaign-highlight', active.has(id));
+    });
+}
+
+function updateGameModeLabel(isCampaign) {
+    const label = document.getElementById('game-mode-label');
+    if (!label) return;
+    label.innerText = isCampaign ? 'CAMPAIGN' : 'SURVIVAL';
+    label.classList.toggle('text-blue-400', isCampaign);
+    label.classList.toggle('text-red-500', !isCampaign);
+}
+
+function setCampaignUIActive(active) {
+    document.body.classList.toggle('campaign-mode', active);
+    const objectivesPanel = document.getElementById('objectivesPanel');
+    if (objectivesPanel) {
+        objectivesPanel.classList.toggle('hidden', active);
+    }
+    updateGameModeLabel(active);
+    if (!active) {
+        showLevelInstructionsPanel(false);
+        updateCampaignHighlights(null);
+    }
+}
+
 const DEFAULT_TRAFFIC_PROFILE = {
     userToInternetPps: CONFIG.survival.baseRPS || 0.5,
     maliciousRate: 0
@@ -358,6 +397,9 @@ function showMainMenu() {
     // Ensure sound is initialized if possible (browsers might block until interaction)
     if (!STATE.sound.ctx) STATE.sound.init();
     STATE.sound.playMenuBGM();
+    setCampaignUIActive(false);
+    setSandboxObjectivesPanel();
+    setSandboxShop();
 
     document.getElementById('main-menu-modal').classList.remove('hidden');
     document.getElementById('faq-modal').classList.add('hidden');
@@ -397,6 +439,9 @@ window.startGame = (mode = GAME_MODES.SANDBOX) => {
 
 window.startSandbox = () => {
     GameContext.mode = GAME_MODES.SANDBOX;
+    setCampaignUIActive(false);
+    setSandboxObjectivesPanel();
+    setSandboxShop();
     GameContext.currentLevelId = null;
     setTrafficProfile(null);
     showLevelInstructionsPanel(false);
@@ -416,7 +461,10 @@ window.getCurrentLevelId = getCurrentLevelId;
 
 window.startCampaign = () => {
     GameContext.mode = GAME_MODES.CAMPAIGN;
+    setCampaignUIActive(true);
+    setCampaignShop();
     showView('campaign');
+    setCampaignIntroObjectives();
 };
 
 function startCampaignLevel(levelId) {
@@ -427,6 +475,7 @@ function startCampaignLevel(levelId) {
     }
     GameContext.mode = GAME_MODES.CAMPAIGN;
     GameContext.currentLevelId = levelId;
+    setCampaignUIActive(true);
     showLevelInstructionsPanel(true);
     showView('sandbox');
     startGame(GAME_MODES.CAMPAIGN);
@@ -500,10 +549,11 @@ function spawnNodeFromConfig(nodeConfig) {
 
 function applyToolbarWhitelist(list = []) {
     GameContext.toolbarWhitelist = list;
+    const normalized = list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
     document.querySelectorAll('[data-tool-name]').forEach(btn => {
-        const name = btn.dataset.toolName;
-        if (!name) return;
-        const allowed = list.length === 0 || list.includes(name);
+        const name = btn.dataset.toolName ? btn.dataset.toolName.toLowerCase() : '';
+        const id = btn.dataset.toolId ? btn.dataset.toolId.toLowerCase() : '';
+        const allowed = list.length === 0 || normalized.includes(name) || normalized.includes(id);
         btn.disabled = !allowed;
         btn.classList.toggle('opacity-40', !allowed);
     });
@@ -577,6 +627,144 @@ function setCurrentLevelContext(levelId) {
     GameContext.currentLevelId = levelId;
 }
 
+const SHOP_DEFAULT_ORDER = ['modem', 'firewall', 'switch', 'waf', 'loadBalancer', 'compute', 'database', 'objectStorage'];
+const CAMPAIGN_HUB_SHOP_ORDER = ['modem', 'firewall', 'waf'];
+const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['modem', 'waf'];
+const SERVICE_SUBTITLES = {
+    modem: 'Edge',
+    firewall: 'Perimeter',
+    switch: 'Aggregator',
+    waf: 'Security',
+    loadBalancer: 'Routing',
+    compute: 'CPU',
+    database: 'Persistence',
+    objectStorage: 'Files'
+};
+const SERVICE_ICON = {
+    modem: '⌂',
+    firewall: '⛨',
+    switch: '⇄',
+    waf: '🛡️',
+    loadBalancer: '⚙',
+    compute: '☐',
+    database: '◯',
+    objectStorage: '⬡'
+};
+
+function buildShopButton(type) {
+    const service = CONFIG.services[type];
+    if (!service) return null;
+    const button = document.createElement('button');
+    button.id = `tool-${type}`;
+    button.dataset.toolId = type;
+    button.dataset.toolName = service.name;
+    button.className = 'service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent relative transition hover:border-white/40';
+    button.onclick = () => setTool(type);
+    const icon = SERVICE_ICON[type] || type.charAt(0).toUpperCase();
+    button.innerHTML = `
+        <div class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">$${service.cost}</div>
+        <div class="text-2xl leading-none">${icon}</div>
+        <span class="text-[10px] font-bold mt-1 leading-tight">${service.name}</span>
+        <span class="text-[8px] text-gray-400 leading-tight">${SERVICE_SUBTITLES[type] || 'Service'}</span>
+    `;
+    return button;
+}
+
+function renderShopItems(serviceTypes = []) {
+    const container = document.getElementById('shop-items');
+    if (!container) return;
+    container.innerHTML = '';
+    serviceTypes.forEach(type => {
+        const btn = buildShopButton(type);
+        if (btn) container.appendChild(btn);
+    });
+}
+
+function setShopForServiceList(serviceList) {
+    const uniqueList = Array.from(new Set(serviceList));
+    renderShopItems(uniqueList);
+    applyToolbarWhitelist(GameContext.toolbarWhitelist || []);
+}
+
+function mapWhitelistToServices(list = []) {
+    const normalized = new Set(list.map(item => typeof item === 'string' ? item.toLowerCase() : item));
+    const services = [];
+    SHOP_DEFAULT_ORDER.forEach(type => {
+        if (normalized.has(type.toLowerCase())) services.push(type);
+    });
+    return services;
+}
+
+function setSandboxShop() {
+    setShopForServiceList(SHOP_DEFAULT_ORDER);
+}
+
+function setCampaignShop() {
+    setShopForServiceList(CAMPAIGN_HUB_SHOP_ORDER);
+}
+
+function setShopForLevel(levelId) {
+    const level = LEVELS[levelId];
+    const derived = level ? mapWhitelistToServices(level.toolbarWhitelist) : [];
+    setShopForServiceList(derived.length ? derived : CAMPAIGN_LEVEL_FALLBACK_SHOP);
+}
+
+const SANDBOX_OBJECTIVES = [
+    { text: 'Survive Endless Traffic', colorClass: 'bg-red-500', pulse: true },
+    { text: 'Route WEB traffic to Object Storage', colorClass: 'bg-green-500' },
+    { text: 'Route API traffic to Database', colorClass: 'bg-yellow-500' },
+    { text: 'Block FRAUD traffic with WAF', colorClass: 'bg-purple-500' }
+];
+
+const CAMPAIGN_INTRO_OBJECTIVES = [
+    { text: "Choose the tutorial level to begin Baby's First Network.", colorClass: 'bg-blue-500', pulse: true },
+    { text: 'Follow each mission briefing carefully to unlock the next node.', colorClass: 'bg-slate-500' }
+];
+
+function setObjectivesTitle(text) {
+    const title = document.getElementById('objectives-title');
+    if (title) title.innerText = text;
+}
+
+function renderObjectives(entries) {
+    const list = document.getElementById('objectives-list');
+    if (!list) return;
+    list.innerHTML = '';
+    entries.forEach(entry => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center';
+        const dot = document.createElement('span');
+        dot.className = `w-2 h-2 rounded-full mr-2 ${entry.colorClass || 'bg-gray-500'}`;
+        if (entry.pulse) dot.classList.add('animate-pulse');
+        li.appendChild(dot);
+        const text = document.createElement('span');
+        text.innerText = entry.text;
+        li.appendChild(text);
+        list.appendChild(li);
+    });
+}
+
+function setSandboxObjectivesPanel() {
+    setObjectivesTitle('Current Objectives');
+    renderObjectives(SANDBOX_OBJECTIVES);
+}
+
+function setCampaignIntroObjectives() {
+    setObjectivesTitle('Campaign Briefing');
+    renderObjectives(CAMPAIGN_INTRO_OBJECTIVES);
+}
+
+function setCampaignLevelObjectives(levelId) {
+    const level = LEVELS[levelId];
+    if (!level) {
+        setCampaignIntroObjectives();
+        return;
+    }
+    const instructions = (level.instructions || []).map(text => ({ text, colorClass: 'bg-blue-500' }));
+    setObjectivesTitle(level.title || 'Campaign Objectives');
+    renderObjectives(instructions.length ? instructions : [{ text: 'Follow the briefing to succeed.', colorClass: 'bg-blue-500' }]);
+}
+
 function loadLevelConfig(levelId) {
     const level = LEVELS[levelId];
     if (!level) {
@@ -595,6 +783,9 @@ function loadLevelConfig(levelId) {
     setLevelDescription(level.description);
     setLevelInstructions(level.instructions);
     setCurrentLevelContext(levelId);
+    setShopForLevel(levelId);
+    setCampaignLevelObjectives(levelId);
+    updateCampaignHighlights(levelId);
 }
 
 function resetLevel() {
@@ -607,9 +798,13 @@ function exitLevelToCampaignHub() {
     if (!isCampaignMode()) return;
     GameContext.mode = GAME_MODES.CAMPAIGN;
     GameContext.currentLevelId = null;
+    setCampaignUIActive(true);
     resetSimulationState();
     setTrafficProfile(null);
+    updateCampaignHighlights(null);
     showLevelInstructionsPanel(false);
+    setCampaignIntroObjectives();
+    setCampaignShop();
     showView('campaign');
     STATE.isRunning = false;
 }

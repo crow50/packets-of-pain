@@ -19,7 +19,7 @@
         <!-- Stats Panel (Top Left) -->
         <div id="statsPanel" class="absolute top-4 left-4 glass-panel rounded-xl p-5 w-80 pointer-events-auto">
             <div class="flex justify-between items-end mb-3 border-b border-gray-700 pb-2">
-                <h1 class="text-2xl font-bold text-red-500 tracking-widest animate-pulse">SURVIVAL</h1>
+                <h1 id="game-mode-label" class="text-2xl font-bold text-red-500 tracking-widest animate-pulse">SURVIVAL</h1>
                 <span class="text-xs text-gray-500 font-mono">v0.01</span>
             </div>
 
@@ -40,6 +40,7 @@
                         </div>
                     </div>
                 </div>
+                <div class="text-[10px] tracking-[0.4em] text-gray-500 uppercase mt-2">Satisfaction</div>
                 <div class="flex justify-between items-center pt-1">
                     <span class="text-gray-400 text-sm">LOAD (RPS)</span>
                     <span id="rps-display" class="text-blue-300 font-mono text-sm">0.0 req/s</span>
@@ -86,7 +87,7 @@
 
 
         <!-- Time Control Panel (Top Center) -->
-        <div
+        <div id="time-control-panel"
             class="absolute top-4 left-1/2 transform -translate-x-1/2 glass-panel rounded-xl p-2 pointer-events-auto flex gap-2">
             <button onclick="restartGame()" id="btn-restart"
                 class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-red-500 hover:text-red-400 flex items-center justify-center mr-2"
@@ -122,28 +123,11 @@
         <div id="objectivesPanel"
             class="absolute bottom-24 left-4 glass-panel rounded-xl p-4 pointer-events-auto max-w-xs">
             <div class="flex justify-between items-center mb-2">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Objectives</h3>
+                <h3 id="objectives-title" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Objectives</h3>
                 <span
                     class="text-[10px] bg-red-900/50 px-2 py-0.5 rounded text-red-400 border border-red-800 animate-pulse">LIVE</span>
             </div>
-            <ul class="text-xs text-gray-300 space-y-2 font-mono">
-                <li class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse"></span>
-                    Survive Endless Traffic
-                </li>
-                <li id="goal-web" class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                    Route WEB traffic to Object Storage
-                </li>
-                <li id="goal-api" class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-yellow-500 mr-2"></span>
-                    Route API traffic to Database
-                </li>
-                <li id="goal-waf" class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-purple-500 mr-2"></span>
-                    Block FRAUD traffic with WAF
-                </li>
-            </ul>
+            <ul id="objectives-list" class="text-xs text-gray-300 space-y-2 font-mono"></ul>
         </div>
     </div>
 
@@ -206,83 +190,8 @@
             </div>
 
             <!-- Shop -->
-            <div class="flex gap-2 pl-2">
-                <!-- WAF -->
-                <button id="tool-waf" data-tool-name="WAF"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('waf')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $50</div>
-                    <svg class="w-8 h-8 mb-1 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] font-bold mt-1 leading-tight">WAF</span>
-                    <span class="text-[8px] text-gray-400 leading-tight">Security</span>
-                </button>
-
-                <button id="tool-lb" data-tool-name="LoadBalancer"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('loadBalancer')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $50</div>
-                    <svg class="w-8 h-8 mb-1 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] font-bold mt-1 leading-tight">Load Balancer</span>
-                    <span class="text-[8px] text-gray-400 leading-tight">Routing</span>
-                </button>
-
-                <button id="tool-compute" data-tool-name="Compute"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('compute')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $100</div>
-                    <svg class="w-8 h-8 mb-1 text-orange-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] font-bold mt-1 leading-tight">Compute Node</span>
-                    <span class="text-[8px] text-gray-400 leading-tight">CPU</span>
-                </button>
-
-                <button id="tool-db" data-tool-name="Database"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('database')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $200</div>
-                    <svg class="w-8 h-8 mb-1 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] font-bold mt-1 leading-tight">Database</span>
-                    <span class="text-[8px] text-gray-400 leading-tight">Data</span>
-                </button>
-
-                <!-- Object Storage -->
-                <button id="tool-objstore" data-tool-name="ObjectStorage"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('objectStorage')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $25</div>
-                    <svg class="w-8 h-8 mb-1 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] font-bold mt-1 leading-tight">Object Storage</span>
-                    <span class="text-[8px] text-gray-400 leading-tight">Files</span>
-                </button>
+            <div id="shop-panel" class="flex gap-2 pl-2">
+                <div id="shop-items" class="flex gap-2"></div>
             </div>
         </div>
     </div>
