@@ -13,6 +13,48 @@ const FAILURE_COPY = {
     }
 };
 
+function createInitialState(config = {}) {
+    const simulation = {
+        time: 0,
+        reputation: config.startReputation ?? 100,
+        money: config.startBudget ?? 0,
+        score: {
+            total: 0,
+            web: 0,
+            api: 0,
+            fraudBlocked: 0
+        },
+        services: [],
+        requests: [],
+        connections: [],
+        internetNode: {
+            id: 'internet',
+            type: 'internet',
+            position: new THREE.Vector3(-40, 0, 0),
+            connections: []
+        },
+        spawnTimer: 0,
+        currentRPS: config.baseRPS ?? 0.5,
+        requestsProcessed: 0,
+        trafficProfile: config.trafficProfile ?? null,
+        metrics: {
+            droppedByReason: {}
+        }
+    };
+
+    const ui = {
+        activeTool: 'select',
+        selectedNodeId: null,
+        hovered: null,
+        timeScale: config.initialTimeScale ?? 1,
+        isRunning: true,
+        gameMode: config.mode ?? 'survival',
+        sound: null
+    };
+
+    return { simulation, ui };
+}
+
 function evaluateFailure(state) {
     if (!state) return null;
     if (state.reputation <= 0) {
@@ -46,18 +88,22 @@ function upgradeServiceById(serviceId) {
     }
 }
 
-export function createEngine() {
+export function createEngine(config = {}) {
+    const state = createInitialState(config);
     let running = true;
 
     function step(deltaSeconds) {
-        if (!running || !STATE.isRunning) {
-            return { status: STATE.isRunning ? "paused" : "stopped" };
+        if (!running || !state.ui.isRunning) {
+            return { status: state.ui.isRunning ? "paused" : "stopped" };
         }
 
+        state.simulation.time += deltaSeconds;
         gameTick(deltaSeconds);
+        
         const failure = evaluateFailure(STATE);
         if (failure) {
             running = false;
+            state.ui.isRunning = false;
             STATE.isRunning = false;
             return { status: "gameover", failure };
         }
@@ -66,11 +112,15 @@ export function createEngine() {
     }
 
     return {
+        _state: state,
         getState: () => STATE,
+        getSimulation: () => state.simulation,
+        getUIState: () => state.ui,
         step,
-        isRunning: () => running && STATE.isRunning,
+        isRunning: () => running && state.ui.isRunning,
         setRunning(value) {
             running = Boolean(value);
+            state.ui.isRunning = Boolean(value);
             STATE.isRunning = Boolean(value);
         },
         placeService(type, position) {

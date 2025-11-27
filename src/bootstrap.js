@@ -28,6 +28,18 @@ function handleFrameSideEffects(engine, stepResult) {
     }
 }
 
+function buildEngineConfig(modeConfig) {
+    const isCampaign = modeConfig.mode === GAME_MODES.CAMPAIGN;
+    return {
+        mode: modeConfig.mode || GAME_MODES.SANDBOX,
+        startBudget: isCampaign ? 0 : CONFIG.survival.startBudget,
+        startReputation: 100,
+        baseRPS: CONFIG.survival.baseRPS,
+        initialTimeScale: isCampaign ? 0 : 1,
+        trafficProfile: modeConfig.trafficProfile || null
+    };
+}
+
 function hydrateModeState(modeConfig) {
     if (!modeConfig) return;
     const menu = document.getElementById('main-menu-modal');
@@ -58,7 +70,8 @@ function createRuntime() {
             initInteractions();
             resetCamera();
 
-            const engine = createEngine(modeConfig.engineConfig);
+            const engineConfig = buildEngineConfig(modeConfig);
+            const engine = createEngine(engineConfig);
             engine.setRunning(true);
             const input = createInputController({ container });
             const loop = createLoop({
