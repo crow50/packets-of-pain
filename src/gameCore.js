@@ -1,4 +1,3 @@
-import { LEVELS } from "./levels.js";
 import {
     initScene,
     resetCamera,
@@ -22,7 +21,6 @@ import {
     plane
 } from "./render/interactions.js";
 import {
-    updateScore,
     gameTick,
     initTrafficForMode
 } from "./sim/traffic.js";
@@ -32,60 +30,41 @@ import {
     setBudget,
     resetSatisfaction,
     resetScore,
-    setTrafficProfile,
-    applyToolbarWhitelist
+    setTrafficProfile
 } from "./sim/economy.js";
 import {
     showView,
     showMainMenu,
     showFAQ,
     closeFAQ,
-    setObjectivesTitle,
-    renderObjectives,
     setSandboxObjectivesPanel,
-    setCampaignIntroObjectives,
 } from "./ui/hud.js";
 import {
-    setSandboxShop,
-    setCampaignShop,
-    setShopForLevel
+    setSandboxShop
 } from "./ui/shop.js";
+import {
+    GAME_MODES,
+    startCampaign,
+    startCampaignLevel,
+    resetLevel,
+    exitLevelToCampaignHub,
+    hideCampaignLevels,
+    enterCampaignWorld,
+    updateCampaignHighlights,
+    showLevelInstructionsPanel
+} from "./ui/campaign.js";
 
 window.showView = showView;
 window.showMainMenu = showMainMenu;
 window.showFAQ = showFAQ;
 window.closeFAQ = closeFAQ;
+window.startCampaign = startCampaign;
+window.startCampaignLevel = startCampaignLevel;
+window.resetLevel = resetLevel;
+window.exitLevelToCampaignHub = exitLevelToCampaignHub;
+window.hideCampaignLevels = hideCampaignLevels;
+window.enterCampaignWorld = enterCampaignWorld;
 
-const GAME_MODES = {
-    SANDBOX: "sandbox",
-    CAMPAIGN: "campaign",
-};
-
-const BABY_LEVEL_IDS = ["baby-1", "baby-2", "baby-3"];
-const BABYS_FIRST_NETWORK_LEVELS = BABY_LEVEL_IDS.map(id => LEVELS[id]).filter(Boolean);
-
-const LEVEL_UNLOCK_CHAIN = {
-    "baby-2": "baby-1",
-    "baby-3": "baby-2",
-};
-
-const CAMPAIGN_HIGHLIGHT_MAP = {
-    "baby-1": ["time-control-panel", "statsPanel", "shop-panel", "tool-connect", "tool-modem"]
-};
-const CAMPAIGN_HIGHLIGHT_IDS = (() => {
-    const ref = [];
-    Object.values(CAMPAIGN_HIGHLIGHT_MAP).forEach(list => ref.push(...list));
-    return [...new Set(ref)];
-})();
-
-function updateCampaignHighlights(levelId) {
-    const active = new Set(CAMPAIGN_HIGHLIGHT_MAP[levelId] || []);
-    CAMPAIGN_HIGHLIGHT_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.classList.toggle('campaign-highlight', active.has(id));
-    });
-}
 
 function updateGameModeLabel(isCampaign) {
     const label = document.getElementById('game-mode-label');
@@ -201,43 +180,12 @@ function getCurrentLevelId() {
 }
 window.getCurrentLevelId = getCurrentLevelId;
 
-window.startCampaign = () => {
-    GameContext.mode = GAME_MODES.CAMPAIGN;
-    setCampaignUIActive(true);
-    setCampaignShop();
-    showView('campaign');
-    setCampaignIntroObjectives();
-};
-
-function startCampaignLevel(levelId) {
-    const level = LEVELS[levelId];
-    if (!level) {
-        console.error('Unknown levelId', levelId);
-        return;
-    }
-    GameContext.mode = GAME_MODES.CAMPAIGN;
-    GameContext.currentLevelId = levelId;
-    setCampaignUIActive(true);
-    showLevelInstructionsPanel(true);
-    showView('sandbox');
-    startGame(GAME_MODES.CAMPAIGN);
-    loadLevelConfig(levelId);
-    markLevelComplete(levelId);
-    renderCampaignLevels();
-}
-window.startCampaignLevel = startCampaignLevel;
-
-function showLevelInstructionsPanel(visible) {
-    const panel = document.getElementById('level-instructions-panel');
-    if (!panel) return;
-    panel.classList.toggle('hidden', !visible);
-}
-
 function resetSimulationState() {
     initTrafficForMode('survival');
     resetEconomyForMode('survival', { startBudget: 0, initialTimeScale: 1 });
     clearAllNodesAndLinks();
 }
+window.resetSimulationState = resetSimulationState;
 
 function clearAllNodesAndLinks() {
     STATE.services.forEach(s => {
@@ -270,169 +218,6 @@ function clearAllNodesAndLinks() {
     STATE.connections = [];
     STATE.internetNode.connections = [];
 }
-
-function spawnNodeFromConfig(nodeConfig) {
-    console.info('Spawning campaign node', nodeConfig);
-}
-
-function setLevelHeader(title, subtitle) {
-    const titleEl = document.getElementById('level-instructions-title');
-    const subEl = document.getElementById('level-instructions-subtitle');
-    if (titleEl) titleEl.innerText = title || 'Campaign Objectives';
-    if (subEl) subEl.innerText = subtitle || '';
-}
-
-function setLevelDescription(text) {
-    const desc = document.getElementById('level-description');
-    if (desc) desc.innerText = text || '';
-}
-
-function setLevelInstructions(instructions = []) {
-    const list = document.getElementById('level-instructions');
-    if (!list) return;
-    list.innerHTML = '';
-    instructions.forEach((instr) => {
-        const li = document.createElement('li');
-        li.textContent = instr;
-        list.appendChild(li);
-    });
-}
-
-function setCurrentLevelContext(levelId) {
-    GameContext.currentLevelId = levelId;
-}
-
-function setCampaignLevelObjectives(levelId) {
-    const level = LEVELS[levelId];
-    if (!level) {
-        setCampaignIntroObjectives();
-        return;
-    }
-    const instructions = (level.instructions || []).map(text => ({ text, colorClass: 'bg-blue-500' }));
-    setObjectivesTitle(level.title || 'Campaign Objectives');
-    renderObjectives(instructions.length ? instructions : [{ text: 'Follow the briefing to succeed.', colorClass: 'bg-blue-500' }]);
-}
-
-function loadLevelConfig(levelId) {
-    const level = LEVELS[levelId];
-    if (!level) {
-        console.error('Attempted to load missing level', levelId);
-        return;
-    }
-
-    resetSimulationState();
-    if (level.preplacedNodes) level.preplacedNodes.forEach(spawnNodeFromConfig);
-    applyToolbarWhitelist(level.toolbarWhitelist);
-    setBudget(level.startingBudget !== undefined ? level.startingBudget : 0);
-    resetSatisfaction();
-    resetScore();
-    updateScore();
-    setTrafficProfile(level.trafficProfile);
-    setLevelHeader(level.title, level.subtitle);
-    setLevelDescription(level.description);
-    setLevelInstructions(level.instructions);
-    setCurrentLevelContext(levelId);
-    setShopForLevel(levelId);
-    setCampaignLevelObjectives(levelId);
-    updateCampaignHighlights(levelId);
-}
-
-function resetLevel() {
-    if (!isCampaignMode() || !getCurrentLevelId()) return;
-    loadLevelConfig(getCurrentLevelId());
-}
-window.resetLevel = resetLevel;
-
-function exitLevelToCampaignHub() {
-    if (!isCampaignMode()) return;
-    GameContext.mode = GAME_MODES.CAMPAIGN;
-    GameContext.currentLevelId = null;
-    setCampaignUIActive(true);
-    resetSimulationState();
-    setTrafficProfile(null);
-    updateCampaignHighlights(null);
-    showLevelInstructionsPanel(false);
-    setCampaignIntroObjectives();
-    setCampaignShop();
-    showView('campaign');
-    STATE.isRunning = false;
-}
-window.exitLevelToCampaignHub = exitLevelToCampaignHub;
-
-function getCampaignStorageKey(levelId) {
-    return `campaign_${levelId}_complete`;
-}
-
-function markLevelComplete(levelId) {
-    try {
-        localStorage.setItem(getCampaignStorageKey(levelId), 'true');
-    } catch (error) {
-        console.warn('Unable to skip localStorage write', error);
-    }
-}
-
-function isLevelComplete(levelId) {
-    try {
-        return localStorage.getItem(getCampaignStorageKey(levelId)) === 'true';
-    } catch (error) {
-        return false;
-    }
-}
-
-function isLevelUnlocked(level) {
-    if (!level) return false;
-    if (level.id === 'baby-1') return true;
-    const prerequisite = LEVEL_UNLOCK_CHAIN[level.id];
-    return prerequisite ? isLevelComplete(prerequisite) : true;
-}
-
-function renderCampaignLevels() {
-    const list = document.getElementById('campaign-level-list');
-    if (!list) return;
-    list.innerHTML = '';
-    BABYS_FIRST_NETWORK_LEVELS.forEach((level) => {
-        const unlocked = isLevelUnlocked(level);
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.disabled = !unlocked;
-        btn.className = `w-full text-left rounded-2xl border p-5 transition ${unlocked ? 'border-white/30 hover:border-blue-400 hover:shadow-[0_0_20px_rgba(66,153,225,0.25)]' : 'border-gray-700 text-gray-400 opacity-70 cursor-not-allowed bg-gray-900/40'}`;
-        btn.innerHTML = `
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-[11px] uppercase tracking-[0.5em] text-gray-500 font-mono">baby's first network</p>
-                    <p class="text-xl font-semibold text-white">${level.title || level.name}</p>
-                    <p class="text-sm text-gray-400 mt-1">${level.subtitle || ''}</p>
-                </div>
-                <span class="text-xs font-bold uppercase ${unlocked ? 'text-blue-300' : 'text-gray-500'}">${unlocked ? 'Play' : 'Locked'}</span>
-            </div>
-        `;
-        btn.addEventListener('click', () => {
-            if (!unlocked) return;
-            window.startCampaignLevel(level.id);
-        });
-        list.appendChild(btn);
-    });
-}
-
-function setCampaignLevelsVisible(visible) {
-    const levelsSection = document.getElementById('campaign-levels');
-    const worlds = document.getElementById('campaign-worlds');
-    if (!levelsSection || !worlds) return;
-    levelsSection.classList.toggle('hidden', !visible);
-    worlds.classList.toggle('hidden', visible);
-    if (visible) renderCampaignLevels();
-}
-
-function hideCampaignLevels() {
-    setCampaignLevelsVisible(false);
-}
-
-window.hideCampaignLevels = hideCampaignLevels;
-
-window.enterCampaignWorld = (worldId) => {
-    console.info(`[Campaign] viewing levels for ${worldId}`);
-    setCampaignLevelsVisible(true);
-};
 
 function createService(type, pos) {
     const service = CONFIG.services[type];
