@@ -55,12 +55,12 @@ function createInitialState(config = {}) {
     return { simulation, ui };
 }
 
-function evaluateFailure(state) {
-    if (!state) return null;
-    if (state.reputation <= 0) {
+function evaluateFailure(simulation) {
+    if (!simulation) return null;
+    if (simulation.reputation <= 0) {
         return { type: "reputation", ...FAILURE_COPY.reputation };
     }
-    if (state.money <= -1000) {
+    if (simulation.money <= -1000) {
         return { type: "budget", ...FAILURE_COPY.budget };
     }
     return null;
@@ -74,10 +74,11 @@ function asVector(position = {}) {
     return new THREE.Vector3(x, y, z);
 }
 
-function deleteLinkById(linkId) {
-    const target = (STATE.connections || []).find(link => link.id === linkId);
+function deleteLinkById(state, linkId) {
+    const sim = state.simulation || STATE;
+    const target = (sim.connections || []).find(link => link.id === linkId);
     if (target) {
-        removeLink(target);
+        removeLink(state, target);
     }
 }
 
@@ -98,13 +99,15 @@ export function createEngine(config = {}) {
         }
 
         state.simulation.time += deltaSeconds;
-        gameTick(deltaSeconds);
-        
-        const failure = evaluateFailure(STATE);
+
+        // TODO: update gameTick signature to accept state
+        gameTick(state, deltaSeconds);
+
+        const failure = evaluateFailure(state.simulation);
         if (failure) {
             running = false;
             state.ui.isRunning = false;
-            STATE.isRunning = false;
+            STATE.isRunning = false; // keep until STATE is removed
             return { status: "gameover", failure };
         }
 
@@ -125,16 +128,16 @@ export function createEngine(config = {}) {
         },
         placeService(type, position) {
             if (!type) return;
-            createService(type, asVector(position));
+            createService(state, type, asVector(position));
         },
         connectNodes(fromId, toId) {
-            createConnection(fromId, toId);
+            createConnection(state, fromId, toId);
         },
         deleteNode(id) {
-            deleteObject(id);
+            deleteObject(state, id);
         },
         deleteLink(linkId) {
-            deleteLinkById(linkId);
+            deleteLinkById(state, linkId);
         },
         upgradeService(id) {
             upgradeServiceById(id);
@@ -151,18 +154,19 @@ export function createEngine(config = {}) {
             }
         },
         getStats() {
+            const sim = state.simulation;
             return {
-                reputation: STATE.reputation,
-                budget: STATE.money,
+                reputation: sim.reputation,
+                budget: sim.money,
                 processedByType: {
-                    WEB: STATE.score?.web ?? 0,
-                    API: STATE.score?.api ?? 0,
-                    FRAUD: STATE.score?.fraudBlocked ?? 0
+                    WEB: sim.score?.web ?? 0,
+                    API: sim.score?.api ?? 0,
+                    FRAUD: sim.score?.fraudBlocked ?? 0
                 },
                 blockedByType: {
-                    FRAUD: STATE.score?.fraudBlocked ?? 0
+                    FRAUD: sim.score?.fraudBlocked ?? 0
                 },
-                droppedByReason: STATE.metrics?.droppedByReason ?? {}
+                droppedByReason: sim.metrics?.droppedByReason ?? {}
             };
         },
         getFailureCopy(reasonType) {
