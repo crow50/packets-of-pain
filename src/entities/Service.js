@@ -68,16 +68,27 @@ function getQueuePenalty(node) {
     return (node.queue.length / capacity) * 10;
 }
 
-function computeRoutingScore(neighbor, req) {
+function computeRoutingScore(neighbor, req, currentService) {
     const base = ROUTING_BASE_PRIORITY[req.type]?.[neighbor.type] ?? 0;
     let score = base;
 
     const terminalTypes = ROUTING_TERMINALS[req.type] || [];
     if (terminalTypes.length) {
-        const leadsToTerminal = hasTerminalPath(neighbor, terminalTypes);
+        // Seed visited with current service + last hop so we don't
+        // "discover" terminals by going backwards through the node we came from.
+        const visited = new Set();
+        if (currentService && currentService.id) {
+            visited.add(currentService.id);
+        }
+        if (req.lastNodeId) {
+            visited.add(req.lastNodeId);
+        }
+
+        const leadsToTerminal = hasTerminalPath(neighbor, terminalTypes, 3, visited);
         score += leadsToTerminal ? 90 : -60; // strong bias for correct terminal
     }
 
+    // Bonus for having already passed compute and now hitting the right terminal
     if (req.type === TRAFFIC_TYPES.WEB && req.hasCompute && neighbor.type === 'objectStorage') {
         score += 25;
     }
@@ -85,8 +96,10 @@ function computeRoutingScore(neighbor, req) {
         score += 25;
     }
 
+    // Penalize congestion and over-connected hubs a bit
     score -= getQueuePenalty(neighbor);
     score -= neighbor.connections.length * 0.1;
+
     return score;
 }
 
@@ -100,18 +113,28 @@ function getNextHopForRequest(service, req) {
 
     const scored = neighbors.map(node => ({
         node,
-        score: computeRoutingScore(node, req)
+        score: computeRoutingScore(node, req, service)
     }));
 
-    scored.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if ((a.node.queue?.length || 0) !== (b.node.queue?.length || 0)) {
-            return (a.node.queue?.length || 0) - (b.node.queue?.length || 0);
-        }
-        return a.node.id.localeCompare(b.node.id);
-    });
+    // Find the best score
+    const maxScore = scored.reduce((max, s) => Math.max(max, s.score), -Infinity);
+    if (!isFinite(maxScore)) return null;
 
-    return scored[0].node;
+    // Treat scores within EPS of the best as "equally good" and randomize between them
+    const EPS = 5; // tweak if needed
+    let candidates = scored
+        .filter(s => s.score >= maxScore - EPS)
+        .map(s => s.node);
+
+    // Fallback: if something went weird and candidates got emptied, use the strict best
+    if (!candidates.length) {
+        candidates = scored
+            .filter(s => s.score === maxScore)
+            .map(s => s.node);
+    }
+
+    const choice = candidates[Math.floor(Math.random() * candidates.length)];
+    return choice || null;
 }
 
 class Service {
