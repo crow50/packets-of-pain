@@ -1,10 +1,3 @@
-import { initGame, gameFrame } from "./gameCore.js";
+import { bootstrap } from "./bootstrap.js";
 
-initGame();
-
-function loop(timestamp) {
-    gameFrame(timestamp);
-    requestAnimationFrame(loop);
-}
-
-requestAnimationFrame(loop);
+bootstrap();
