@@ -9,6 +9,7 @@ export let internetMesh;
 const d = 50;
 let cameraTarget = new THREE.Vector3(0, 0, 0);
 let isIsometric = true;
+let resizeHandlerAttached = false;
 
 function handleResize() {
     if (!camera || !renderer) return;
@@ -21,7 +22,17 @@ function handleResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-window.addEventListener('resize', handleResize);
+function attachResizeHandler() {
+    if (resizeHandlerAttached) return;
+    window.addEventListener('resize', handleResize);
+    resizeHandlerAttached = true;
+}
+
+function detachResizeHandler() {
+    if (!resizeHandlerAttached) return;
+    window.removeEventListener('resize', handleResize);
+    resizeHandlerAttached = false;
+}
 
 export function initScene(containerEl) {
     if (!containerEl) {
@@ -84,6 +95,7 @@ export function initScene(containerEl) {
     STATE.internetNode.mesh = internetMesh;
 
     handleResize();
+    attachResizeHandler();
 }
 
 export function resetCamera() {
@@ -100,4 +112,58 @@ export function resetCamera() {
 export function toggleCameraMode() {
     isIsometric = !isIsometric;
     resetCamera();
+}
+
+function disposeObject(obj) {
+    if (!obj) return;
+    if (obj.geometry) obj.geometry.dispose();
+    if (obj.material) {
+        if (Array.isArray(obj.material)) {
+            obj.material.forEach(mat => mat?.dispose());
+        } else if (typeof obj.material.dispose === 'function') {
+            obj.material.dispose();
+        }
+    }
+}
+
+function disposeGroup(group) {
+    if (!group) return;
+    group.traverse(child => disposeObject(child));
+    if (scene) scene.remove(group);
+}
+
+export function disposeScene() {
+    detachResizeHandler();
+
+    disposeGroup(serviceGroup);
+    disposeGroup(connectionGroup);
+    disposeGroup(requestGroup);
+    disposeObject(internetMesh);
+
+    if (scene && internetMesh) {
+        scene.remove(internetMesh);
+    }
+
+    if (renderer) {
+        if (typeof renderer.dispose === 'function') {
+            renderer.dispose();
+        }
+        const canvas = renderer.domElement;
+        if (canvas?.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+        }
+    }
+
+    scene = undefined;
+    camera = undefined;
+    renderer = undefined;
+    serviceGroup = undefined;
+    connectionGroup = undefined;
+    requestGroup = undefined;
+    internetMesh = undefined;
+    STATE.internetNode.mesh = undefined;
+
+    window.serviceGroup = undefined;
+    window.connectionGroup = undefined;
+    window.requestGroup = undefined;
 }
