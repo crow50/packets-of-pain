@@ -8,7 +8,20 @@ const TOOL_ID_MAP = {
     objectStorage: 'tool-objstore'
 };
 
-const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
+// Resolve state from overloaded args - supports both legacy and engine-aware calls
+function resolveState(arg1) {
+    if (arg1 && arg1.simulation && arg1.ui) {
+        return arg1;
+    }
+    return STATE;
+}
+
+function getEntityFromState(state, id) {
+    const sim = state.simulation || state;
+    return id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id);
+}
+
+const getEntity = (id) => getEntityFromState(STATE, id);
 
 export function getToolId(toolName) {
     return TOOL_ID_MAP[toolName] || `tool-${toolName}`;
@@ -34,24 +47,44 @@ export { flashMoney };
 
 window.flashMoney = flashMoney;
 
-export function createService(type, pos) {
-    const service = CONFIG.services[type];
-    if (!service) return;
-    if (STATE.money < service.cost) {
+export function createService(arg1, arg2, arg3) {
+    // Overload: createService(type, pos) OR createService(state, type, pos)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const type = hasState ? arg2 : arg1;
+    const pos = hasState ? arg3 : arg2;
+
+    const sim = state.simulation || state;
+    const ui = state.ui || state;
+
+    const serviceConfig = CONFIG.services[type];
+    if (!serviceConfig) return;
+
+    if (sim.money < serviceConfig.cost) {
         flashMoney();
         return;
     }
-    if (STATE.services.find(s => s.position.distanceTo(pos) < 1)) return;
+    if (sim.services.find(s => s.position.distanceTo(pos) < 1)) return;
 
-    STATE.money -= service.cost;
-    STATE.services.push(new Service(type, pos));
-    STATE.sound.playPlace();
+    sim.money -= serviceConfig.cost;
+    sim.services.push(new Service(type, pos));
+    (ui.sound || STATE.sound)?.playPlace?.();
 }
 
-export function createConnection(fromId, toId) {
+export function createConnection(arg1, arg2, arg3) {
+    // Overload: createConnection(fromId, toId) OR createConnection(state, fromId, toId)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const fromId = hasState ? arg2 : arg1;
+    const toId = hasState ? arg3 : arg2;
+
     if (fromId === toId) return;
-    const from = getEntity(fromId);
-    const to = getEntity(toId);
+
+    const sim = state.simulation || state;
+    const ui = state.ui || state;
+
+    const from = getEntityFromState(state, fromId);
+    const to = getEntityFromState(state, toId);
     if (!from || !to || from.connections.includes(toId)) return;
 
     new Audio('assets/sounds/click-5.mp3').play();
@@ -66,19 +99,27 @@ export function createConnection(fromId, toId) {
     connectionGroup.add(line);
 
     const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
-    STATE.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
-    STATE.sound.playConnect();
+    sim.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
+    (ui.sound || STATE.sound)?.playConnect?.();
 }
 
-export function deleteLink(link) {
+export function deleteLink(arg1, arg2) {
+    // Overload: deleteLink(link) OR deleteLink(state, link)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const link = hasState ? arg2 : arg1;
+
     if (!link) return;
 
-    const fromNode = getEntity(link.from);
+    const sim = state.simulation || state;
+    const ui = state.ui || state;
+
+    const fromNode = getEntityFromState(state, link.from);
     if (fromNode) {
         fromNode.connections = fromNode.connections.filter(id => id !== link.to);
     }
 
-    const toNode = getEntity(link.to);
+    const toNode = getEntityFromState(state, link.to);
     if (toNode) {
         toNode.connections = toNode.connections.filter(id => id !== link.from);
     }
@@ -87,19 +128,27 @@ export function deleteLink(link) {
     link.mesh.geometry.dispose();
     link.mesh.material.dispose();
 
-    STATE.connections = STATE.connections.filter(c => c.id !== link.id);
-    STATE.sound.playDelete();
+    sim.connections = sim.connections.filter(c => c.id !== link.id);
+    (ui.sound || STATE.sound)?.playDelete?.();
 }
 
-export function deleteObject(id) {
-    const svc = STATE.services.find(s => s.id === id);
+export function deleteObject(arg1, arg2) {
+    // Overload: deleteObject(id) OR deleteObject(state, id)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const id = hasState ? arg2 : arg1;
+
+    const sim = state.simulation || state;
+    const ui = state.ui || state;
+
+    const svc = sim.services.find(s => s.id === id);
     if (!svc) return;
 
-    const linksToRemove = STATE.connections.filter(c => c.from === id || c.to === id);
-    linksToRemove.forEach(link => deleteLink(link));
+    const linksToRemove = sim.connections.filter(c => c.from === id || c.to === id);
+    linksToRemove.forEach(link => deleteLink(state, link));
 
     svc.destroy();
-    STATE.services = STATE.services.filter(s => s.id !== id);
-    STATE.money += Math.floor(svc.config.cost / 2);
-    STATE.sound.playDelete();
+    sim.services = sim.services.filter(s => s.id !== id);
+    sim.money += Math.floor(svc.config.cost / 2);
+    (ui.sound || STATE.sound)?.playDelete?.();
 }

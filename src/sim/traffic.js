@@ -131,7 +131,14 @@ export function initTrafficForMode(mode) {
     }
 }
 
-export function gameTick(delta) {
+export function gameTick(arg1, arg2) {
+    // Overload: gameTick(delta) OR gameTick(state, delta)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const delta = hasState ? arg2 : arg1;
+    
+    // For now, still use STATE until full migration is complete
+    // TODO: use state.simulation instead of STATE throughout
+    
     STATE.spawnTimer += delta * STATE.timeScale;
     if (STATE.currentRPS > 0 && STATE.spawnTimer > 1 / STATE.currentRPS) {
         spawnRequest();
