@@ -22,17 +22,19 @@ import {
     plane
 } from "./render/interactions.js";
 import {
+    updateScore,
     gameTick,
-    initTrafficForMode,
-    updateScore
+    initTrafficForMode
 } from "./sim/traffic.js";
-
-const GameContext = {
-    mode: "sandbox",
-    currentLevelId: null,
-    trafficProfile: null
-};
-window.GameContext = GameContext;
+import {
+    GameContext,
+    resetEconomyForMode,
+    setBudget,
+    resetSatisfaction,
+    resetScore,
+    setTrafficProfile,
+    applyToolbarWhitelist
+} from "./sim/economy.js";
 
 const GAME_MODES = {
     SANDBOX: "sandbox",
@@ -88,11 +90,6 @@ function setCampaignUIActive(active) {
     }
 }
 
-const DEFAULT_TRAFFIC_PROFILE = {
-    userToInternetPps: CONFIG.survival.baseRPS || 0.5,
-    maliciousRate: 0
-};
-
 let container;
 let isPanning = false;
 let lastMouseX = 0;
@@ -124,18 +121,7 @@ export function initGame() {
 function resetGame(mode = 'survival') {
     STATE.sound.init();
     STATE.sound.playGameBGM();
-    STATE.gameMode = mode;
-    STATE.money = CONFIG.survival.startBudget;
-    STATE.reputation = 100;
-    STATE.requestsProcessed = 0;
-    STATE.services = [];
-    STATE.requests = [];
-    STATE.connections = [];
-    STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
-    STATE.isRunning = true;
-    STATE.lastTime = performance.now();
-    STATE.timeScale = 0;
-    STATE.hovered = null;
+    resetEconomyForMode(mode);
 
     initTrafficForMode(mode);
 
@@ -152,23 +138,6 @@ function resetGame(mode = 'survival') {
         requestGroup.remove(requestGroup.children[0]);
     }
     STATE.internetNode.connections = [];
-
-    // Reset UI
-    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn-pause').classList.add('active');
-    document.getElementById('btn-play').classList.add('pulse-green');
-
-    // Update UI displays
-    updateScore();
-
-    // Reset Reputation Bar
-    const repBar = document.getElementById('rep-bar');
-    if (repBar) {
-        repBar.style.width = '100%';
-        repBar.classList.remove('bg-red-500');
-        repBar.classList.add('bg-yellow-500');
-    }
-
 }
 
 function restartGame() {
@@ -310,20 +279,7 @@ function showLevelInstructionsPanel(visible) {
 
 function resetSimulationState() {
     initTrafficForMode('survival');
-    STATE.requestsProcessed = 0;
-    STATE.timeScale = 1;
-    STATE.isRunning = true;
-    STATE.internetNode.connections = [];
-    STATE.money = 0;
-    STATE.reputation = 100;
-    STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
-    updateScore();
-    const repBar = document.getElementById('rep-bar');
-    if (repBar) {
-        repBar.style.width = '100%';
-        repBar.classList.remove('bg-red-500');
-        repBar.classList.add('bg-yellow-500');
-    }
+    resetEconomyForMode('survival', { startBudget: 0, initialTimeScale: 1 });
     clearAllNodesAndLinks();
 }
 
@@ -361,59 +317,6 @@ function clearAllNodesAndLinks() {
 
 function spawnNodeFromConfig(nodeConfig) {
     console.info('Spawning campaign node', nodeConfig);
-}
-
-function applyToolbarWhitelist(list = []) {
-    GameContext.toolbarWhitelist = list;
-    const normalized = list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
-    document.querySelectorAll('[data-tool-name]').forEach(btn => {
-        const name = btn.dataset.toolName ? btn.dataset.toolName.toLowerCase() : '';
-        const id = btn.dataset.toolId ? btn.dataset.toolId.toLowerCase() : '';
-        const allowed = list.length === 0 || normalized.includes(name) || normalized.includes(id);
-        btn.disabled = !allowed;
-        btn.classList.toggle('opacity-40', !allowed);
-    });
-}
-
-function setBudget(value) {
-    STATE.money = value;
-    const display = document.getElementById('money-display');
-    if (display) {
-        display.innerText = `$${STATE.money.toFixed(2)}`;
-    }
-}
-
-function resetSatisfaction() {
-    STATE.reputation = 100;
-    const repBar = document.getElementById('rep-bar');
-    if (repBar) {
-        repBar.style.width = '100%';
-        repBar.classList.remove('bg-red-500');
-        repBar.classList.add('bg-yellow-500');
-    }
-}
-
-function resetScore() {
-    STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
-    updateScore();
-}
-
-function setTrafficProfile(profile) {
-    if (!profile) {
-        GameContext.trafficProfile = null;
-        STATE.currentRPS = CONFIG.survival.baseRPS;
-        STATE.spawnTimer = 0;
-        return;
-    }
-
-    const normalized = {
-        userToInternetPps: profile.userToInternetPps !== undefined ? profile.userToInternetPps : DEFAULT_TRAFFIC_PROFILE.userToInternetPps,
-        maliciousRate: profile.maliciousRate !== undefined ? profile.maliciousRate : DEFAULT_TRAFFIC_PROFILE.maliciousRate
-    };
-
-    GameContext.trafficProfile = normalized;
-    STATE.currentRPS = normalized.userToInternetPps + normalized.maliciousRate;
-    STATE.spawnTimer = 0;
 }
 
 function setLevelHeader(title, subtitle) {
@@ -595,6 +498,7 @@ function loadLevelConfig(levelId) {
     setBudget(level.startingBudget !== undefined ? level.startingBudget : 0);
     resetSatisfaction();
     resetScore();
+    updateScore();
     setTrafficProfile(level.trafficProfile);
     setLevelHeader(level.title, level.subtitle);
     setLevelDescription(level.description);
@@ -804,22 +708,6 @@ window.setTool = (t) => {
     document.querySelectorAll('.service-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(getToolId(t)).classList.add('active');
     new Audio('assets/sounds/click-9.mp3').play();
-};
-
-window.setTimeScale = (s) => {
-    STATE.timeScale = s;
-    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-
-    if (s === 0) {
-        document.getElementById('btn-pause').classList.add('active');
-        document.getElementById('btn-play').classList.add('pulse-green');
-    } else if (s === 1) {
-        document.getElementById('btn-play').classList.add('active');
-        document.getElementById('btn-play').classList.remove('pulse-green');
-    } else if (s === 3) {
-        document.getElementById('btn-fast').classList.add('active');
-        document.getElementById('btn-play').classList.remove('pulse-green');
-    }
 };
 
 window.toggleMute = () => {
