@@ -1,6 +1,26 @@
-import { LEVELS } from "./src/levels.js";
-
-STATE.sound = new SoundService();
+import { LEVELS } from "./levels.js";
+import {
+    initScene,
+    resetCamera,
+    toggleCameraMode,
+    scene,
+    camera,
+    renderer,
+    serviceGroup,
+    connectionGroup,
+    requestGroup,
+    internetMesh
+} from "./render/scene.js";
+import {
+    initInteractions,
+    getIntersect,
+    snapToGrid,
+    updateLinkVisuals,
+    updateTooltip,
+    raycaster,
+    mouse,
+    plane
+} from "./render/interactions.js";
 
 const GameContext = {
     mode: "sandbox",
@@ -68,95 +88,32 @@ const DEFAULT_TRAFFIC_PROFILE = {
     maliciousRate: 0
 };
 
-
-const container = document.getElementById('canvas-container');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(CONFIG.colors.bg);
-scene.fog = new THREE.FogExp2(CONFIG.colors.bg, 0.008);
-
-const aspect = window.innerWidth / window.innerHeight;
-const d = 50;
-const camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, 1, 1000);
-const cameraTarget = new THREE.Vector3(0, 0, 0);
-let isIsometric = true;
-
-function resetCamera() {
-    if (isIsometric) {
-        camera.position.set(20, 20, 20);
-        camera.lookAt(cameraTarget);
-    } else {
-        camera.position.set(0, 50, 0);
-        camera.lookAt(cameraTarget);
-    }
-    camera.updateProjectionMatrix();
-}
-
-resetCamera();
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-container.appendChild(renderer.domElement);
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(20, 50, 20);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-scene.add(dirLight);
-
-const gridHelper = new THREE.GridHelper(CONFIG.gridSize * CONFIG.tileSize, CONFIG.gridSize, CONFIG.colors.grid, CONFIG.colors.grid);
-scene.add(gridHelper);
-
-const serviceGroup = new THREE.Group();
-const connectionGroup = new THREE.Group();
-const requestGroup = new THREE.Group();
-scene.add(serviceGroup);
-scene.add(connectionGroup);
-scene.add(requestGroup);
-
-const internetGeo = new THREE.BoxGeometry(6, 1, 10);
-const internetMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00ffff, emissiveIntensity: 0.2, roughness: 0.2 });
-const internetMesh = new THREE.Mesh(internetGeo, internetMat);
-internetMesh.position.copy(STATE.internetNode.position);
-internetMesh.castShadow = true;
-internetMesh.receiveShadow = true;
-scene.add(internetMesh);
-STATE.internetNode.mesh = internetMesh;
-
-
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-
+let container;
 let isPanning = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
 const panSpeed = 0.1;
-
 let isDraggingNode = false;
 let draggedNode = null;
 
-function updateLinkVisuals(nodeId) {
-    const links = STATE.connections.filter(c => c.from === nodeId || c.to === nodeId);
-    links.forEach(link => {
-        const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
-        const from = getEntity(link.from);
-        const to = getEntity(link.to);
-        
-        if (from && to) {
-            const positions = link.mesh.geometry.attributes.position.array;
-            positions[0] = from.position.x;
-            positions[1] = 1; // y is fixed
-            positions[2] = from.position.z;
-            positions[3] = to.position.x;
-            positions[4] = 1;
-            positions[5] = to.position.z;
-            link.mesh.geometry.attributes.position.needsUpdate = true;
-        }
-    });
+export function initGame() {
+    STATE.sound = new SoundService();
+
+    container = document.getElementById('canvas-container');
+    initScene(container);
+    initInteractions();
+
+    isPanning = false;
+    lastMouseX = 0;
+    lastMouseY = 0;
+    isDraggingNode = false;
+    draggedNode = null;
+
+    resetCamera();
+
+    setTimeout(() => {
+        showMainMenu();
+    }, 100);
 }
 
 function resetGame(mode = 'survival') {
@@ -197,7 +154,7 @@ function resetGame(mode = 'survival') {
     document.getElementById('btn-play').classList.add('pulse-green');
 
     // Update UI displays
-    updateScoreUI();
+    updateScore();
 
     // Reset Reputation Bar
     const repBar = document.getElementById('rep-bar');
@@ -207,60 +164,15 @@ function resetGame(mode = 'survival') {
         repBar.classList.add('bg-yellow-500');
     }
 
-    // Ensure loop is running
-    if (!STATE.animationId) {
-        animate(performance.now());
-    }
 }
 
 function restartGame() {
     document.getElementById('modal').classList.add('hidden');
     resetGame();
 }
-
-// Initial setup - show menu, don't start game loop yet
-setTimeout(() => {
-    showMainMenu();
-}, 100);
+window.restartGame = restartGame;
 
 
-function getIntersect(clientX, clientY) {
-    mouse.x = (clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera);
-
-    const intersects = raycaster.intersectObjects(serviceGroup.children, true);
-    if (intersects.length > 0) {
-        let obj = intersects[0].object;
-        while (obj.parent && obj.parent !== serviceGroup) obj = obj.parent;
-        return { type: 'service', id: obj.userData.id, obj: obj };
-    }
-
-    // Check for links
-    raycaster.params.Line.threshold = 1;
-    const linkIntersects = raycaster.intersectObjects(connectionGroup.children, true);
-    if (linkIntersects.length > 0) {
-        const mesh = linkIntersects[0].object;
-        const link = STATE.connections.find(c => c.mesh === mesh);
-        if (link) return { type: 'link', id: link.id, obj: mesh, link: link };
-    }
-
-    const intInter = raycaster.intersectObject(STATE.internetNode.mesh);
-    if (intInter.length > 0) return { type: 'internet', id: 'internet', obj: STATE.internetNode.mesh };
-
-    const target = new THREE.Vector3();
-    raycaster.ray.intersectPlane(plane, target);
-    return { type: 'ground', pos: target };
-}
-
-function snapToGrid(vec) {
-    const s = CONFIG.tileSize;
-    return new THREE.Vector3(
-        Math.round(vec.x / s) * s,
-        0,
-        Math.round(vec.z / s) * s
-    );
-}
 
 function getTrafficType() {
     const r = Math.random();
@@ -297,46 +209,12 @@ function spawnRequest() {
     } else failRequest(req);
 }
 
-function updateScore(req, outcome) {
-    const points = CONFIG.survival.SCORE_POINTS;
 
-    if (outcome === 'FRAUD_BLOCKED') {
-        STATE.score.fraudBlocked += points.FRAUD_BLOCKED_SCORE;
-        STATE.score.total += points.FRAUD_BLOCKED_SCORE;
-        STATE.reputation += 1; // Reward for blocking fraud
-        STATE.sound.playFraudBlocked();
-    } else if (req.type === TRAFFIC_TYPES.FRAUD && outcome === 'FRAUD_PASSED') {
-        STATE.reputation += points.FRAUD_PASSED_REPUTATION;
-        console.warn(`FRAUD PASSED: ${points.FRAUD_PASSED_REPUTATION} Rep. (Critical Failure)`);
-    } else if (outcome === 'COMPLETED') {
-        if (req.type === TRAFFIC_TYPES.WEB) {
-            STATE.score.web += points.WEB_SCORE;
-            STATE.score.total += points.WEB_SCORE;
-            STATE.money += points.WEB_REWARD;
-            STATE.reputation += 0.1; // Small rep gain for success
-        } else if (req.type === TRAFFIC_TYPES.API) {
-            STATE.score.api += points.API_SCORE;
-            STATE.score.total += points.API_SCORE;
-            STATE.money += points.API_REWARD;
-            STATE.reputation += 0.1; // Small rep gain for success
-        }
-    } else if (outcome === 'FAILED') {
-        STATE.reputation += points.FAIL_REPUTATION;
-        STATE.score.total -= (req.type === TRAFFIC_TYPES.API ? points.API_SCORE : points.WEB_SCORE) / 2;
+function removeRequest(req) {
+    if (req && typeof req.destroy === 'function') {
+        req.destroy();
     }
-
-    // Cap reputation at 100
-    if (STATE.reputation > 100) STATE.reputation = 100;
-
-    // Update Reputation Bar
-    const repBar = document.getElementById('rep-bar');
-    if (repBar) {
-        repBar.style.width = `${Math.max(0, STATE.reputation)}%`;
-        if (STATE.reputation < 30) repBar.classList.replace('bg-yellow-500', 'bg-red-500');
-        else repBar.classList.replace('bg-red-500', 'bg-yellow-500');
-    }
-
-    updateScoreUI();
+    STATE.requests = STATE.requests.filter(r => r !== req);
 }
 
 function finishRequest(req) {
@@ -349,21 +227,69 @@ function failRequest(req) {
     const failType = req.type === TRAFFIC_TYPES.FRAUD ? 'FRAUD_PASSED' : 'FAILED';
     updateScore(req, failType);
     STATE.sound.playFail();
-    req.mesh.material.color.setHex(CONFIG.colors.requestFail);
+    if (req.mesh && req.mesh.material) {
+        req.mesh.material.color.setHex(CONFIG.colors.requestFail);
+    }
     setTimeout(() => removeRequest(req), 500);
 }
 
-function removeRequest(req) {
-    req.destroy();
-    STATE.requests = STATE.requests.filter(r => r !== req);
+function updateScoreUI() {
+    const updateElement = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = value;
+    };
+    updateElement('total-score-display', STATE.score.total);
+    updateElement('score-web', STATE.score.web);
+    updateElement('score-api', STATE.score.api);
+    updateElement('score-fraud', STATE.score.fraudBlocked);
+    updateReputationBar();
 }
 
-function updateScoreUI() {
-    document.getElementById('total-score-display').innerText = STATE.score.total;
-    document.getElementById('score-web').innerText = STATE.score.web;
-    document.getElementById('score-api').innerText = STATE.score.api;
-    document.getElementById('score-fraud').innerText = STATE.score.fraudBlocked;
+function updateReputationBar() {
+    const bar = document.getElementById('rep-bar');
+    if (!bar) return;
+    const clamped = Math.max(0, Math.min(100, STATE.reputation));
+    bar.style.width = `${clamped}%`;
+    bar.classList.toggle('bg-red-500', clamped <= 30);
+    bar.classList.toggle('bg-yellow-500', clamped > 30 && clamped <= 70);
+    bar.classList.toggle('bg-green-500', clamped > 70);
 }
+
+function updateScore(req, outcome) {
+    const points = CONFIG.survival.SCORE_POINTS;
+    if (req && outcome) {
+        switch (outcome) {
+            case 'COMPLETED':
+                if (req.type === TRAFFIC_TYPES.WEB) {
+                    STATE.score.web += points.WEB_SCORE;
+                    STATE.money += points.WEB_REWARD;
+                } else if (req.type === TRAFFIC_TYPES.API) {
+                    STATE.score.api += points.API_SCORE;
+                    STATE.money += points.API_REWARD;
+                }
+                break;
+            case 'FAILED':
+                STATE.reputation += points.FAIL_REPUTATION;
+                break;
+            case 'FRAUD_PASSED':
+                STATE.reputation += points.FRAUD_PASSED_REPUTATION;
+                break;
+            case 'FRAUD_BLOCKED':
+                STATE.score.fraudBlocked += points.FRAUD_BLOCKED_SCORE;
+                break;
+        }
+        STATE.reputation = Math.min(100, Math.max(0, STATE.reputation));
+        STATE.score.total = STATE.score.web + STATE.score.api + STATE.score.fraudBlocked;
+    } else {
+        STATE.score.total = STATE.score.web + STATE.score.api + STATE.score.fraudBlocked;
+    }
+    updateScoreUI();
+}
+
+window.removeRequest = removeRequest;
+window.finishRequest = finishRequest;
+window.failRequest = failRequest;
+window.updateScore = updateScore;
 
 function flashMoney() {
     const el = document.getElementById('money-display');
@@ -392,6 +318,8 @@ function showView(viewName) {
 
     currentView = viewName;
 }
+window.showView = showView;
+
 
 function showMainMenu() {
     // Ensure sound is initialized if possible (browsers might block until interaction)
@@ -405,6 +333,7 @@ function showMainMenu() {
     document.getElementById('faq-modal').classList.add('hidden');
     document.getElementById('modal').classList.add('hidden');
     showView('main-menu');
+    window.setTool('select');
 }
 
 let faqSource = 'menu'; // 'menu' or 'game'
@@ -446,6 +375,7 @@ window.startSandbox = () => {
     setTrafficProfile(null);
     showLevelInstructionsPanel(false);
     showView('sandbox');
+    window.setTool('select');  
     startGame(GAME_MODES.SANDBOX);
 };
 
@@ -501,7 +431,7 @@ function resetSimulationState() {
     STATE.money = 0;
     STATE.reputation = 100;
     STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
-    updateScoreUI();
+    updateScore();
     const repBar = document.getElementById('rep-bar');
     if (repBar) {
         repBar.style.width = '100%';
@@ -579,7 +509,7 @@ function resetSatisfaction() {
 
 function resetScore() {
     STATE.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
-    updateScoreUI();
+    updateScore();
 }
 
 function setTrafficProfile(profile) {
@@ -696,6 +626,7 @@ function mapWhitelistToServices(list = []) {
 }
 
 function setSandboxShop() {
+    GameContext.toolbarWhitelist = [];
     setShopForServiceList(SHOP_DEFAULT_ORDER);
 }
 
@@ -886,6 +817,8 @@ window.enterCampaignWorld = (worldId) => {
 };
 
 function createService(type, pos) {
+    const service = CONFIG.services[type];
+    if (!service) return;
     if (STATE.money < CONFIG.services[type].cost) { flashMoney(); return; }
     if (STATE.services.find(s => s.position.distanceTo(pos) < 1)) return;
     STATE.money -= CONFIG.services[type].cost;
@@ -963,9 +896,11 @@ function deleteObject(id) {
  * @returns {number} chance of failure (0 to 1)
  */
 function calculateFailChanceBasedOnLoad(load) {
-    if (load <= 0.5) return 0;
-    return 2 * (load - 0.5);
+    const clamped = Math.max(0, Math.min(1, load));
+    if (clamped <= 0.8) return 0;
+    return (clamped - 0.8) / 0.2;
 }
+window.calculateFailChanceBasedOnLoad = calculateFailChanceBasedOnLoad;
 
 function getToolId(t) {
     const map = {
@@ -1025,10 +960,12 @@ window.toggleMute = () => {
 };
 
 document.addEventListener('mousemove', (e) => {
+    if (!renderer) return;
+
     if (isPanning) {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
-        
+    
         // Adjust panning direction based on camera rotation
         // For isometric view (45 deg rotation), we need to rotate the input vector
         // But since we are using an orthographic camera with lookAt(0,0,0), simple X/Z panning relative to camera works best
@@ -1046,6 +983,7 @@ document.addEventListener('mousemove', (e) => {
     }
 
     if (isDraggingNode && draggedNode) {
+        const i = getIntersect(e.clientX, e.clientY);
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
@@ -1082,55 +1020,9 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-function updateTooltip() {
-    const tooltip = document.getElementById('tooltip');
-    if (!STATE.hovered || tooltip.style.display === 'none') return;
-
-    const i = STATE.hovered;
-    if (i.type === 'service' || i.type === 'link') {
-        const id = i.id;
-        let content = `<div class="font-bold border-b border-gray-500 pb-1 mb-1 text-xs">${id}</div>`;
-
-        if (i.type === 'service') {
-            const svc = STATE.services.find(s => s.id === id);
-            if (svc) {
-                const loadPct = Math.round(svc.totalLoad * 100);
-                const loadColor = loadPct > 80 ? 'text-red-400' : (loadPct > 50 ? 'text-yellow-400' : 'text-green-400');
-                
-                content += `
-                    <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
-                        <span class="text-gray-400">Type:</span> <span class="text-white capitalize">${svc.type}</span>
-                        <span class="text-gray-400">Tier:</span> <span class="text-white">${svc.tier || 1}</span>
-                        <span class="text-gray-400">Load:</span> <span class="${loadColor}">${loadPct}%</span>
-                        <span class="text-gray-400">Queue:</span> <span class="text-white">${svc.queue.length}/20</span>
-                        <span class="text-gray-400">Proc:</span> <span class="text-white">${svc.processing.length}/${svc.config.capacity}</span>
-                        <span class="text-gray-400">Links:</span> <span class="text-white">${svc.connections.length}</span>
-                    </div>
-                `;
-            }
-        } else if (i.type === 'link') {
-            const link = i.link;
-            // Calculate traffic on this link
-            const traffic = STATE.requests.filter(r => 
-                r.isMoving && r.target && (
-                    (r.lastNodeId === link.from && r.target.id === link.to) ||
-                    (r.lastNodeId === link.to && r.target.id === link.from)
-                )
-            ).length;
-
-            content += `
-                <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
-                    <span class="text-gray-400">Type:</span> <span class="text-white">Wired</span>
-                    <span class="text-gray-400">Traffic:</span> <span class="text-white">${traffic} pkts</span>
-                </div>
-            `;
-        }
-
-        tooltip.innerHTML = content;
-    }
-}
-
 document.addEventListener('mousedown', (e) => {
+    if (!renderer) return;
+
     if (e.target !== renderer.domElement) return;
 
     if (e.button === 2 || e.button === 1) { // Right or Middle click
@@ -1177,6 +1069,8 @@ document.addEventListener('mousedown', (e) => {
 });
 
 document.addEventListener('mouseup', (e) => {
+    if (!renderer) return;
+
     if (e.button === 0) { // Left mouse button
         isDraggingNode = false;
         draggedNode = null;
@@ -1195,13 +1089,13 @@ document.addEventListener('mouseup', (e) => {
     }
 });
 
-function animate(time) {
-    STATE.animationId = requestAnimationFrame(animate);
-
-    const delta = (time - STATE.lastTime) / 1000;
+export function gameFrame(time) {
+    const lastTime = STATE.lastTime ?? time;
+    const delta = (time - lastTime) / 1000;
     STATE.lastTime = time;
 
     if (!STATE.isRunning) {
+        if (!renderer) return;
         renderer.render(scene, camera);
         return;
     }
@@ -1242,23 +1136,12 @@ function animate(time) {
     renderer.render(scene, camera);
 }
 
-window.addEventListener('resize', () => {
-    const aspect = window.innerWidth / window.innerHeight;
-    camera.left = -d * aspect;
-    camera.right = d * aspect;
-    camera.top = d;
-    camera.bottom = -d;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
 document.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'r') {
         resetCamera();
     }
     if (e.key.toLowerCase() === 't') {
-        isIsometric = !isIsometric;
-        resetCamera();
+        toggleCameraMode();
     }
     if (e.key.toLowerCase() === 'h') {
         const ui = document.getElementById('statsPanel');
