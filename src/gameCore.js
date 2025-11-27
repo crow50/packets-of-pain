@@ -15,13 +15,11 @@ import {
     getIntersect,
     snapToGrid,
     updateLinkVisuals,
-    updateTooltip,
     raycaster,
     mouse,
     plane
 } from "./render/interactions.js";
 import {
-    gameTick,
     initTrafficForMode
 } from "./sim/traffic.js";
 import {
@@ -137,6 +135,14 @@ function resetGame(mode = 'survival') {
     initTrafficForMode(mode);
 
     resetCamera();
+
+    const runtime = window.__POP_RUNTIME__;
+    if (runtime?.engine) {
+        runtime.engine.setRunning(true);
+    }
+    if (runtime?.loop && typeof runtime.loop.start === 'function' && !runtime.loop.isRunning?.()) {
+        runtime.loop.start();
+    }
 
     // Clear visual elements
     while (serviceGroup.children.length > 0) {
@@ -391,38 +397,7 @@ document.addEventListener('mouseup', (e) => {
     }
 });
 
-export function gameFrame(time) {
-    const lastTime = STATE.lastTime ?? time;
-    const delta = (time - lastTime) / 1000;
-    STATE.lastTime = time;
-
-    if (!STATE.isRunning) {
-        if (!renderer) return;
-        renderer.render(scene, camera);
-        return;
-    }
-
-    gameTick(delta);
-
-    // Update UI
-    document.getElementById('rps-display').innerText = `${STATE.currentRPS.toFixed(1)} req/s`;
-    document.getElementById('money-display').innerText = `$${STATE.money.toFixed(2)}`;
-
-    const totalUpkeep = STATE.services.reduce((sum, s) => sum + (s.config.upkeep / 60), 0);
-    document.getElementById('upkeep-display').innerText = `-$${totalUpkeep.toFixed(2)}/s`;
-    
-    updateTooltip();
-
-    // Check game over
-    if (STATE.reputation <= 0 || STATE.money <= -1000) {
-        STATE.isRunning = false;
-        document.getElementById('modal').classList.remove('hidden');
-        document.getElementById('modal-title').innerText = STATE.reputation <= 0 ? 'REPUTATION LOST' : 'BANKRUPT';
-        document.getElementById('modal-desc').innerText = STATE.reputation <= 0 ? 'Users have abandoned your platform.' : 'Funding has been cut.';
-    }
-
-    renderer.render(scene, camera);
-}
+// Game update loop handled by src/bootstrap.js and src/core/loop.js
 
 document.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() === 'r') {
