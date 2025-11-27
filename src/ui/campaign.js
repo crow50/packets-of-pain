@@ -131,7 +131,7 @@ export function renderCampaignLevels() {
         `;
         btn.addEventListener('click', () => {
             if (!unlocked) return;
-            startCampaignLevel(level.id);
+            window.POP?.startCampaignLevel?.(level.id);
         });
         list.appendChild(btn);
     });
@@ -198,7 +198,6 @@ export function startCampaignLevel(levelId) {
     window.setCampaignUIActive?.(true);
     showLevelInstructionsPanel(true);
     showView('sandbox');
-    window.startGame?.(GAME_MODES.CAMPAIGN);
     loadLevelConfig(levelId);
     markLevelComplete(levelId);
     renderCampaignLevels();
