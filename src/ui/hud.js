@@ -1,3 +1,5 @@
+import { setSandboxShop } from "./shop.js";
+
 const SANDBOX_OBJECTIVES = [
     { text: 'Survive Endless Traffic', colorClass: 'bg-red-500', pulse: true },
     { text: 'Route WEB traffic to Object Storage', colorClass: 'bg-green-500' },
@@ -40,7 +42,7 @@ export function showMainMenu() {
     STATE.sound.playMenuBGM();
     window.setCampaignUIActive?.(false);
     setSandboxObjectivesPanel();
-    window.setSandboxShop?.();
+    setSandboxShop();
 
     document.getElementById('main-menu-modal')?.classList.remove('hidden');
     document.getElementById('faq-modal')?.classList.add('hidden');
