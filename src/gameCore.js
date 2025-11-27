@@ -35,13 +35,26 @@ import {
     setTrafficProfile,
     applyToolbarWhitelist
 } from "./sim/economy.js";
+import {
+    showView,
+    showMainMenu,
+    showFAQ,
+    closeFAQ,
+    setObjectivesTitle,
+    renderObjectives,
+    setSandboxObjectivesPanel,
+    setCampaignIntroObjectives,
+} from "./ui/hud.js";
+
+window.showView = showView;
+window.showMainMenu = showMainMenu;
+window.showFAQ = showFAQ;
+window.closeFAQ = closeFAQ;
 
 const GAME_MODES = {
     SANDBOX: "sandbox",
     CAMPAIGN: "campaign",
 };
-
-let currentView = 'main-menu';
 
 const BABY_LEVEL_IDS = ["baby-1", "baby-2", "baby-3"];
 const BABYS_FIRST_NETWORK_LEVELS = BABY_LEVEL_IDS.map(id => LEVELS[id]).filter(Boolean);
@@ -89,6 +102,7 @@ function setCampaignUIActive(active) {
         updateCampaignHighlights(null);
     }
 }
+window.setCampaignUIActive = setCampaignUIActive;
 
 let container;
 let isPanning = false;
@@ -153,69 +167,6 @@ function flashMoney() {
     setTimeout(() => el.classList.remove('text-red-500'), 300);
 }
 
-function showView(viewName) {
-    const sandboxEl = document.getElementById('sandbox-ui');
-    const campaignEl = document.getElementById('campaign-hub');
-    const menuEl = document.getElementById('main-menu-modal');
-    if (!sandboxEl || !campaignEl || !menuEl) return;
-
-    const setOverlayState = (el, isActive) => {
-        el.classList.toggle('hidden', !isActive);
-        el.style.pointerEvents = isActive ? 'auto' : 'none';
-    };
-
-    setOverlayState(sandboxEl, viewName === 'sandbox');
-    setOverlayState(campaignEl, viewName === 'campaign');
-    setOverlayState(menuEl, viewName === 'main-menu');
-
-    if (viewName !== 'campaign') {
-        hideCampaignLevels();
-    }
-
-    currentView = viewName;
-}
-window.showView = showView;
-
-
-function showMainMenu() {
-    // Ensure sound is initialized if possible (browsers might block until interaction)
-    if (!STATE.sound.ctx) STATE.sound.init();
-    STATE.sound.playMenuBGM();
-    setCampaignUIActive(false);
-    setSandboxObjectivesPanel();
-    setSandboxShop();
-
-    document.getElementById('main-menu-modal').classList.remove('hidden');
-    document.getElementById('faq-modal').classList.add('hidden');
-    document.getElementById('modal').classList.add('hidden');
-    showView('main-menu');
-    window.setTool('select');
-}
-
-let faqSource = 'menu'; // 'menu' or 'game'
-
-window.showFAQ = (source = 'menu') => {
-    faqSource = source;
-    // If called from button (onclick="showFAQ()"), it defaults to 'menu' effectively unless we change the HTML.
-    // But wait, the button in index.html just calls showFAQ(). 
-    // We can check if main menu is visible.
-
-    if (!document.getElementById('main-menu-modal').classList.contains('hidden')) {
-        faqSource = 'menu';
-        document.getElementById('main-menu-modal').classList.add('hidden');
-    } else {
-        faqSource = 'game';
-    }
-
-    document.getElementById('faq-modal').classList.remove('hidden');
-};
-
-window.closeFAQ = () => {
-    document.getElementById('faq-modal').classList.add('hidden');
-    if (faqSource === 'menu') {
-        document.getElementById('main-menu-modal').classList.remove('hidden');
-    }
-};
 
 window.startGame = (mode = GAME_MODES.SANDBOX) => {
     document.getElementById('main-menu-modal').classList.add('hidden');
@@ -418,6 +369,7 @@ function setSandboxShop() {
     GameContext.toolbarWhitelist = [];
     setShopForServiceList(SHOP_DEFAULT_ORDER);
 }
+window.setSandboxShop = setSandboxShop;
 
 function setCampaignShop() {
     setShopForServiceList(CAMPAIGN_HUB_SHOP_ORDER);
@@ -427,51 +379,6 @@ function setShopForLevel(levelId) {
     const level = LEVELS[levelId];
     const derived = level ? mapWhitelistToServices(level.toolbarWhitelist) : [];
     setShopForServiceList(derived.length ? derived : CAMPAIGN_LEVEL_FALLBACK_SHOP);
-}
-
-const SANDBOX_OBJECTIVES = [
-    { text: 'Survive Endless Traffic', colorClass: 'bg-red-500', pulse: true },
-    { text: 'Route WEB traffic to Object Storage', colorClass: 'bg-green-500' },
-    { text: 'Route API traffic to Database', colorClass: 'bg-yellow-500' },
-    { text: 'Block FRAUD traffic with WAF', colorClass: 'bg-purple-500' }
-];
-
-const CAMPAIGN_INTRO_OBJECTIVES = [
-    { text: "Choose the tutorial level to begin Baby's First Network.", colorClass: 'bg-blue-500', pulse: true },
-    { text: 'Follow each mission briefing carefully to unlock the next node.', colorClass: 'bg-slate-500' }
-];
-
-function setObjectivesTitle(text) {
-    const title = document.getElementById('objectives-title');
-    if (title) title.innerText = text;
-}
-
-function renderObjectives(entries) {
-    const list = document.getElementById('objectives-list');
-    if (!list) return;
-    list.innerHTML = '';
-    entries.forEach(entry => {
-        const li = document.createElement('li');
-        li.className = 'flex items-center';
-        const dot = document.createElement('span');
-        dot.className = `w-2 h-2 rounded-full mr-2 ${entry.colorClass || 'bg-gray-500'}`;
-        if (entry.pulse) dot.classList.add('animate-pulse');
-        li.appendChild(dot);
-        const text = document.createElement('span');
-        text.innerText = entry.text;
-        li.appendChild(text);
-        list.appendChild(li);
-    });
-}
-
-function setSandboxObjectivesPanel() {
-    setObjectivesTitle('Current Objectives');
-    renderObjectives(SANDBOX_OBJECTIVES);
-}
-
-function setCampaignIntroObjectives() {
-    setObjectivesTitle('Campaign Briefing');
-    renderObjectives(CAMPAIGN_INTRO_OBJECTIVES);
 }
 
 function setCampaignLevelObjectives(levelId) {
