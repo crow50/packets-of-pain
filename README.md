@@ -1,71 +1,29 @@
-# Packets of Pain 🖥️🔥
+# Packets of Pain - Cloud Chaos Simulator
 
-**Packets of Pain** is an interactive 3D simulation game where you play as a **Cloud Architect**. Your mission is to build and scale a resilient cloud infrastructure to handle increasing traffic loads while fighting off DDoS attacks and managing your budget.
+Packets of Pain is a browser-based 3D strategy/simulation game where you play a freshly-minted “cloud architect” tossed into the deep end of infrastructure design. The job is simple on paper: keep the budget positive, keep reputation intact, and keep your infrastructure from melting when the internet sneezes.
 
-## 🎮 How to Play
+The game teaches real cloud concepts through systems, not lectures. You wire together WAFs, load balancers, compute fleets, databases, and storage while shaping traffic flows (Web, API, Fraud/DDoS). Each tick pushes your design harder. Mistakes become visible the honest way: queues overflow, packets die, reputational shame ensues.
 
-### Objective
-Survive as long as possible! Manage your **Budget ($)** and **Reputation (%)**.
-- **Earn Money** by successfully processing legitimate traffic (Web & API).
-- **Lose Reputation** if requests fail or if Fraud traffic slips through.
-- **Game Over** if Reputation hits 0% or you go bankrupt.
+### Core Ideas
 
-### Traffic Types
-- 🟢 **Web Traffic (Green):** Needs to be stored in **Object Storage**.
-- 🟠 **API Traffic (Orange):** Needs to be processed and saved to a **Database**.
-- 🟣 **Fraud/DDoS (Pink):** Must be blocked by a **WAF**.
+* **Traffic has opinions.** Web traffic wants Object Storage. API traffic wants Compute + Database. Fraud wants to ruin your day unless you block it.
+* **Systems push back.** Every component has cost, capacity, queues, and failure modes. Mis-routes and bottlenecks punish complacency.
+* **Topology is your canvas.** Build conventionally... or get weird. If it’s technically valid, the game lets you try it.
+* **Difficulty ramps naturally.** The campaign (“Multi-Domain”) starts with *Baby’s First Network*-a tongue-in-cheek intro to cameras, controls, routing, and the first WAF-to-ALB chain.
 
-### Infrastructure & Services
-Build your architecture using the toolbar. Each service has a cost and upkeep:
+### Tech Stack
 
-| Service | Cost | Upkeep | Function |
-| :--- | :--- | :--- | :--- |
-| **WAF** | $50 | Low | **Firewall.** The first line of defense. Blocks Fraud traffic. |
-| **Load Balancer** | $50 | Medium | **Load Balancer.** Distributes traffic to multiple Compute instances. |
-| **Compute** | $100 | High | **Compute Node.** Processes requests. **Upgradeable (Tiers 1-3).** |
-| **Database** | $200 | Very High | **Database.** Destination for API traffic. **Upgradeable (Tiers 1-3).** |
-| **Object Storage** | $25 | Low | **Storage.** Destination for Web traffic. |
+* Vanilla JavaScript (ES6+)
+* Three.js for the 3D world
+* Glass-UI overlays with minimal utility CSS
+* No backend; everything runs directly via `index.html`
 
-### Scoring & Economy
-- **Web Request:** +$1.25 / +5 Score
-- **API Request:** +$1.25 / +5 Score
-- **Fraud Blocked:** +5 Score
-- **Fraud Leak:** -5 Reputation
+### Status
 
-### Last Features 🌟
-- **Service Upgrades:** Click on **Compute** or **Database** instances with their respective tools to upgrade them.
-    - **Tier 2:** Increased capacity (Cost: $200/$400).
-    - **Tier 3:** Maximum capacity (Cost: $250/$600).
-- **Smart Load Balancing:** Load Balancers now use **Round Robin** to distribute traffic evenly across all connected instances.
-- **Visual Feedback:** Upgradeable services glow when hovered, and rings indicate their current tier.
+Actively modularizing the engine, separating campaign logic, simplifying the rendering loop, and expanding node interactions (free-form linking, movable nodes, extended routing rules). Tutorial system under construction.
 
-### Controls
-- **Left Click:** Select tools, place services, and connect nodes.
-- **Right Click + Drag:** Pan the camera.
-- **Camera Reset:** Press `R` to reset the camera position.
-- **Birds-Eye View:** Press `T` to switch between isometric and top-down view
-- **Connect Tool:** Click two nodes to create a connection (flow direction matters!).
-    - *Valid Flows:* Internet -> WAF -> Load Balancer -> Compute -> (Database/Object Storage)
-- **Delete Tool:** Remove services to recover 50% of the cost.
-- **Time Controls:** Pause, Play (1x), and Fast Forward (3x).
+### Vision
 
-## 🧠 Strategy Tips
-1.  **Block Fraud First:** Always place a WAF immediately connected to the Internet. Fraud leaks destroy reputation fast.
-2.  **Scale Compute:** As traffic increases, a single Compute node won't be enough. Use a Load Balancer to split traffic across multiple Compute nodes.
-3.  **Watch Your Queues:** If a service's queue fills up (red ring), requests will fail. Add more capacity!
-4.  **Budget Wisely:** Databases are expensive. Don't over-provision them early on.
-
-## 🛠️ Tech Stack
-
-- **Core:** Vanilla JavaScript (ES6+)
-- **Rendering:** [Three.js](https://threejs.org/) for 3D visualization.
-- **Styling:** [Tailwind CSS](https://tailwindcss.com/) for the glassmorphism UI.
-- **Build:** No build step required! Just standard HTML/CSS/JS.
-
-## 🚀 Getting Started
-
-1.  Clone the repository.
-2.  Open `index.html` in your modern web browser.
-3.  Start building your cloud empire!
+A game that teaches practical cloud and security intuition—capacity, scaling, queues, blast radius, backpressure—without the drudgery of textbooks. Learn by designing, breaking, and fixing.
 
 ---
