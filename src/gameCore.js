@@ -1,35 +1,8 @@
-import {
-    initScene,
-    resetCamera,
-    toggleCameraMode,
-    scene,
-    camera,
-    renderer,
-    serviceGroup,
-    connectionGroup,
-    requestGroup,
-    internetMesh
-} from "./render/scene.js";
-import {
-    initInteractions,
-    getIntersect,
-    snapToGrid,
-    updateLinkVisuals,
-    raycaster,
-    mouse,
-    plane
-} from "./render/interactions.js";
-import {
-    initTrafficForMode
-} from "./sim/traffic.js";
-import {
-    GameContext,
-    resetEconomyForMode,
-    setBudget,
-    resetSatisfaction,
-    resetScore,
-    setTrafficProfile
-} from "./sim/economy.js";
+import { resetCamera, serviceGroup, connectionGroup, requestGroup } from "./render/scene.js";
+import { GameContext, resetEconomyForMode, setTrafficProfile } from "./sim/economy.js";
+import { initTrafficForMode } from "./sim/traffic.js";
+
+const SoundService = typeof window !== "undefined" ? window.SoundService : undefined;
 import {
     showView,
     showMainMenu,
@@ -42,8 +15,6 @@ import {
 } from "./ui/shop.js";
 import {
     GAME_MODES,
-    startCampaign,
-    startCampaignLevel,
     resetLevel,
     exitLevelToCampaignHub,
     hideCampaignLevels,
@@ -56,16 +27,13 @@ import {
     createService,
     createConnection,
     deleteLink,
-    deleteObject,
-    flashMoney
+    deleteObject
 } from "./sim/tools.js";
 
 window.showView = showView;
 window.showMainMenu = showMainMenu;
 window.showFAQ = showFAQ;
 window.closeFAQ = closeFAQ;
-window.startCampaign = startCampaign;
-window.startCampaignLevel = startCampaignLevel;
 window.resetLevel = resetLevel;
 window.exitLevelToCampaignHub = exitLevelToCampaignHub;
 window.hideCampaignLevels = hideCampaignLevels;
@@ -99,35 +67,16 @@ function setCampaignUIActive(active) {
 }
 window.setCampaignUIActive = setCampaignUIActive;
 
-let container;
-let isPanning = false;
-let lastMouseX = 0;
-let lastMouseY = 0;
-const panSpeed = 0.1;
-let isDraggingNode = false;
-let draggedNode = null;
-
 export function initGame() {
-    STATE.sound = new SoundService();
-
-    container = document.getElementById('canvas-container');
-    initScene(container);
-    initInteractions();
-
-    isPanning = false;
-    lastMouseX = 0;
-    lastMouseY = 0;
-    isDraggingNode = false;
-    draggedNode = null;
-
-    resetCamera();
-
+    if (!STATE.sound) {
+        STATE.sound = new SoundService();
+    }
     setTimeout(() => {
         showMainMenu();
     }, 100);
 }
 
-function resetGame(mode = 'survival') {
+export function resetGame(mode = 'survival') {
     STATE.sound.init();
     STATE.sound.playGameBGM();
     resetEconomyForMode(mode);
@@ -135,14 +84,6 @@ function resetGame(mode = 'survival') {
     initTrafficForMode(mode);
 
     resetCamera();
-
-    const runtime = window.__POP_RUNTIME__;
-    if (runtime?.engine) {
-        runtime.engine.setRunning(true);
-    }
-    if (runtime?.loop && typeof runtime.loop.start === 'function' && !runtime.loop.isRunning?.()) {
-        runtime.loop.start();
-    }
 
     // Clear visual elements
     while (serviceGroup.children.length > 0) {
@@ -157,17 +98,12 @@ function resetGame(mode = 'survival') {
     STATE.internetNode.connections = [];
 }
 
-function restartGame() {
+export function restartGame() {
     document.getElementById('modal').classList.add('hidden');
-    resetGame();
+    window.POP?.restartCurrentMode?.();
 }
 window.restartGame = restartGame;
 
-
-window.startGame = (mode = GAME_MODES.SANDBOX) => {
-    document.getElementById('main-menu-modal').classList.add('hidden');
-    resetGame(mode === GAME_MODES.CAMPAIGN ? 'campaign' : 'survival');
-};
 
 export function startSandbox() {
     GameContext.mode = GAME_MODES.SANDBOX;
@@ -179,9 +115,7 @@ export function startSandbox() {
     showLevelInstructionsPanel(false);
     showView('sandbox');
     window.setTool('select');  
-    startGame(GAME_MODES.SANDBOX);
 }
-window.startSandbox = startSandbox;
 
 function isCampaignMode() {
     return GameContext.mode === GAME_MODES.CAMPAIGN;
@@ -266,151 +200,3 @@ window.toggleMute = () => {
         if (menuMuteBtn) menuMuteBtn.classList.remove('pulse-green');
     }
 };
-
-document.addEventListener('mousemove', (e) => {
-    if (!renderer) return;
-
-    if (isPanning) {
-        const dx = e.clientX - lastMouseX;
-        const dy = e.clientY - lastMouseY;
-    
-        // Adjust panning direction based on camera rotation
-        // For isometric view (45 deg rotation), we need to rotate the input vector
-        // But since we are using an orthographic camera with lookAt(0,0,0), simple X/Z panning relative to camera works best
-        
-        // Move camera opposite to mouse movement
-        camera.position.x -= dx * panSpeed;
-        camera.position.z -= dy * panSpeed;
-        // Also move target to keep looking at same relative point if needed, 
-        // but for Ortho camera looking at 0,0,0, moving position is enough if we don't re-lookAt every frame
-        // However, resetCamera() calls lookAt. Let's just move position.
-        
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
-        return;
-    }
-
-    if (isDraggingNode && draggedNode) {
-        const i = getIntersect(e.clientX, e.clientY);
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-        
-        const target = new THREE.Vector3();
-        raycaster.ray.intersectPlane(plane, target);
-        
-        const snapped = snapToGrid(target);
-        draggedNode.position.copy(snapped);
-        draggedNode.mesh.position.x = snapped.x;
-        draggedNode.mesh.position.z = snapped.z;
-        
-        updateLinkVisuals(draggedNode.id);
-        return;
-    }
-
-    if (e.target !== renderer.domElement) {
-        document.getElementById('tooltip').style.display = 'none';
-        STATE.hovered = null;
-        return;
-    }
-
-    const i = getIntersect(e.clientX, e.clientY);
-    STATE.hovered = i;
-
-    // Tooltip logic
-    const tooltip = document.getElementById('tooltip');
-    if (i.type === 'service' || i.type === 'link') {
-        tooltip.style.left = `${e.clientX + 15}px`;
-        tooltip.style.top = `${e.clientY + 15}px`;
-        tooltip.style.display = 'block';
-    } else {
-        tooltip.style.display = 'none';
-    }
-});
-
-document.addEventListener('mousedown', (e) => {
-    if (!renderer) return;
-
-    if (e.target !== renderer.domElement) return;
-
-    if (e.button === 2 || e.button === 1) { // Right or Middle click
-        isPanning = true;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
-        container.style.cursor = 'move';
-    }
-
-    if (e.button === 0) { // Left mouse button
-        const i = getIntersect(e.clientX, e.clientY);
-
-        if (STATE.activeTool === 'select') {
-            if (i.type === 'service') {
-                isDraggingNode = true;
-                draggedNode = STATE.services.find(s => s.id === i.id);
-                container.style.cursor = 'grabbing';
-                STATE.selectedNodeId = i.id;
-            } else {
-                STATE.selectedNodeId = null;
-            }
-        } else if (STATE.activeTool === 'delete') {
-            if (i.type === 'service') deleteObject(i.id);
-            else if (i.type === 'link') deleteLink(i.link);
-        } else if (STATE.activeTool === 'connect') {
-            if (i.type === 'service' || i.type === 'internet') {
-                if (!STATE.selectedNodeId) {
-                    STATE.selectedNodeId = i.id;
-                    // Optional: Add visual feedback for source selection here
-                } else {
-                    createConnection(STATE.selectedNodeId, i.id);
-                    STATE.selectedNodeId = null;
-                }
-            } else {
-                STATE.selectedNodeId = null;
-            }
-        } else {
-            // Placement tools
-            if (i.type === 'ground') {
-                createService(STATE.activeTool, snapToGrid(i.pos));
-            }
-        }
-    }
-});
-
-document.addEventListener('mouseup', (e) => {
-    if (!renderer) return;
-
-    if (e.button === 0) { // Left mouse button
-        isDraggingNode = false;
-        draggedNode = null;
-        container.style.cursor = 'auto';
-    }
-    
-    if (e.button === 2 || e.button === 1) {
-        isPanning = false;
-        container.style.cursor = 'default';
-    }
-    
-    if (isDraggingNode) {
-        isDraggingNode = false;
-        draggedNode = null;
-        container.style.cursor = 'default';
-    }
-});
-
-// Game update loop handled by src/bootstrap.js and src/core/loop.js
-
-document.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === 'r') {
-        resetCamera();
-    }
-    if (e.key.toLowerCase() === 't') {
-        toggleCameraMode();
-    }
-    if (e.key.toLowerCase() === 'h') {
-        const ui = document.getElementById('statsPanel');
-        ui.classList.toggle('hidden');
-    }
-});
-
-// Prevent context menu on right click
-document.addEventListener('contextmenu', event => event.preventDefault());
