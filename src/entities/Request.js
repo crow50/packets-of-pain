@@ -1,3 +1,5 @@
+const MAX_HOPS = 16;
+
 class Request {
     constructor(type) {
         this.id = Math.random().toString(36);
@@ -24,16 +26,32 @@ class Request {
         this.origin.y = 2;
         this.progress = 0;
         this.isMoving = false;
+        this.hops = 0;
+        this.path = [];
+        this._ttlFailed = false;
+        this.hasCompute = false;
+        this.lastNodeId = null;
     }
 
     flyTo(service) {
+        if (!service) return;
         this.origin.copy(this.mesh.position);
         this.target = service;
         this.progress = 0;
         this.isMoving = true;
+        this.hops += 1;
+        this.path.push(service.id);
     }
 
     update(dt) {
+        if (this.hops > MAX_HOPS) {
+            if (!this._ttlFailed) {
+                this._ttlFailed = true;
+                failRequest(this);
+            }
+            return;
+        }
+
         if (this.isMoving && this.target) {
             this.progress += dt * 2;
             if (this.progress >= 1) {
@@ -42,10 +60,11 @@ class Request {
                 this.mesh.position.copy(this.target.position);
                 this.mesh.position.y = 2;
 
-                if (this.target.queue.length < 20) {
-                    this.target.queue.push(this);
-                } else {
+                const node = this.target;
+                if (!node || !Array.isArray(node.queue) || node.queue.length >= 20) {
                     failRequest(this);
+                } else {
+                    node.queue.push(this);
                 }
             } else {
                 const dest = this.target.position.clone();

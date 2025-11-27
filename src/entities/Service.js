@@ -8,6 +8,112 @@ function normalizeServiceType(type) {
     }
 }
 
+const ROUTING_BASE_PRIORITY = {
+    [TRAFFIC_TYPES.WEB]: {
+        objectStorage: 120,
+        loadBalancer: 80,
+        compute: 60,
+        switch: 40,
+        firewall: 20,
+        database: -40
+    },
+    [TRAFFIC_TYPES.API]: {
+        database: 120,
+        loadBalancer: 80,
+        compute: 60,
+        switch: 40,
+        objectStorage: -40
+    },
+    [TRAFFIC_TYPES.FRAUD]: {
+        waf: 140,
+        firewall: 100,
+        loadBalancer: 70,
+        switch: 40,
+        compute: 0,
+        database: -40,
+        objectStorage: -40
+    }
+};
+
+const ROUTING_TERMINALS = {
+    [TRAFFIC_TYPES.WEB]: ['objectStorage'],
+    [TRAFFIC_TYPES.API]: ['database']
+};
+
+function getServiceEntity(id) {
+    return id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
+}
+
+function hasTerminalPath(node, targetTypes, depth = 3, visited = new Set()) {
+    if (!node || depth < 0) return false;
+    if (targetTypes.includes(node.type)) return true;
+    visited.add(node.id);
+
+    for (const nextId of node.connections) {
+        if (nextId === 'internet') continue;
+        const nextNode = getServiceEntity(nextId);
+        if (!nextNode || visited.has(nextNode.id)) continue;
+        const nextVisited = new Set(visited);
+        if (hasTerminalPath(nextNode, targetTypes, depth - 1, nextVisited)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function getQueuePenalty(node) {
+    if (!node || !Array.isArray(node.queue)) return 0;
+    const capacity = node.config?.capacity || 1;
+    return (node.queue.length / capacity) * 10;
+}
+
+function computeRoutingScore(neighbor, req) {
+    const base = ROUTING_BASE_PRIORITY[req.type]?.[neighbor.type] ?? 0;
+    let score = base;
+
+    const terminalTypes = ROUTING_TERMINALS[req.type] || [];
+    if (terminalTypes.length) {
+        const leadsToTerminal = hasTerminalPath(neighbor, terminalTypes);
+        score += leadsToTerminal ? 90 : -60; // strong bias for correct terminal
+    }
+
+    if (req.type === TRAFFIC_TYPES.WEB && req.hasCompute && neighbor.type === 'objectStorage') {
+        score += 25;
+    }
+    if (req.type === TRAFFIC_TYPES.API && req.hasCompute && neighbor.type === 'database') {
+        score += 25;
+    }
+
+    score -= getQueuePenalty(neighbor);
+    score -= neighbor.connections.length * 0.1;
+    return score;
+}
+
+function getNextHopForRequest(service, req) {
+    const neighbors = service.connections
+        .map(getServiceEntity)
+        .filter(Boolean)
+        .filter(n => n.id !== req.lastNodeId && n.id !== 'internet');
+
+    if (!neighbors.length) return null;
+
+    const scored = neighbors.map(node => ({
+        node,
+        score: computeRoutingScore(node, req)
+    }));
+
+    scored.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if ((a.node.queue?.length || 0) !== (b.node.queue?.length || 0)) {
+            return (a.node.queue?.length || 0) - (b.node.queue?.length || 0);
+        }
+        return a.node.id.localeCompare(b.node.id);
+    });
+
+    return scored[0].node;
+}
+
 class Service {
     constructor(type, pos) {
         this.id = 'svc_' + Math.random().toString(36).substr(2, 9);
@@ -85,7 +191,6 @@ class Service {
 
         this.tier = 1;
         this.tierRings = [];
-        this.rrIndex = 0;
 
         serviceGroup.add(this.mesh);
     }
@@ -120,7 +225,7 @@ class Service {
 
             if (this.type === 'waf' && req.type === TRAFFIC_TYPES.FRAUD) {
                 updateScore(req, 'FRAUD_BLOCKED');
-                req.destroy();
+                removeRequest(req);
                 continue;
             }
 
@@ -157,133 +262,34 @@ class Service {
                     continue;
                 }
 
-                if (this.type === 'database' || this.type === 'objectStorage') {
-                    const expectedType = this.type === 'database' ? TRAFFIC_TYPES.API : TRAFFIC_TYPES.WEB;
-                    if (job.req.type === expectedType) {
-                        finishRequest(job.req);
-                    } else {
-                        failRequest(job.req);
-                    }
+                if (this.type === 'objectStorage' && job.req.type === TRAFFIC_TYPES.WEB) {
+                    finishRequest(job.req);
+                    continue;
+                }
+
+                if (this.type === 'database' && job.req.type === TRAFFIC_TYPES.API) {
+                    finishRequest(job.req);
+                    continue;
+                }
+
+                if ((this.type === 'database' && job.req.type === TRAFFIC_TYPES.WEB) ||
+                    (this.type === 'objectStorage' && job.req.type === TRAFFIC_TYPES.API)) {
+                    failRequest(job.req);
                     continue;
                 }
 
                 if (this.type === 'compute') {
                     job.req.hasCompute = true;
-                    const requiredType = job.req.type === TRAFFIC_TYPES.API ? 'database' : (job.req.type === TRAFFIC_TYPES.WEB ? 'objectStorage' : null);
-                    let target = null;
-
-                    if (requiredType) {
-                        // Try to find preferred target
-                        target = STATE.services.find(s =>
-                            this.connections.includes(s.id) && s.type === requiredType && s.id !== job.req.lastNodeId
-                        );
-                    }
-
-                    // Fallback to Round Robin if no preferred target found (allows arbitrary chains)
-                    if (!target && this.connections.length > 0) {
-                        let candidates = this.connections
-                            .filter(id => id !== job.req.lastNodeId)
-                            .map(id => STATE.services.find(s => s.id === id))
-                            .filter(s => s !== undefined);
-
-                        if (candidates.length === 0) {
-                            // If no valid targets (dead end), allow backtracking
-                            candidates = this.connections
-                                .map(id => STATE.services.find(s => s.id === id))
-                                .filter(s => s !== undefined);
-                        }
-
-                        if (candidates.length > 0) {
-                            target = candidates[this.rrIndex % candidates.length];
-                            this.rrIndex++;
-                        }
-                    }
-
-                    if (target) {
-                        job.req.lastNodeId = this.id;
-                        job.req.flyTo(target);
-                    } else {
-                        failRequest(job.req);
-                    }
-                } else {
-                    // Smart Routing (Prioritize downstream)
-                    let candidates = this.connections
-                        .filter(id => id !== job.req.lastNodeId)
-                        .map(id => STATE.services.find(s => s.id === id))
-                        .filter(s => s !== undefined);
-
-                    // Define preferred types to avoid upstream flow
-                    let preferredTypes = [];
-                    let avoidTypes = [];
-
-                    if (job.req.type === TRAFFIC_TYPES.FRAUD) {
-                        preferredTypes = ['waf', 'loadBalancer'];
-                    } else if (job.req.type === TRAFFIC_TYPES.WEB) {
-                        if (job.req.hasCompute) {
-                            preferredTypes = ['objectStorage', 'loadBalancer'];
-                            avoidTypes = ['compute', 'database'];
-                        } else {
-                            preferredTypes = ['compute', 'loadBalancer'];
-                            avoidTypes = ['objectStorage', 'database'];
-                        }
-                    } else if (job.req.type === TRAFFIC_TYPES.API) {
-                        if (job.req.hasCompute) {
-                            preferredTypes = ['database', 'loadBalancer'];
-                            avoidTypes = ['compute', 'objectStorage'];
-                        } else {
-                            preferredTypes = ['compute', 'loadBalancer'];
-                            avoidTypes = ['database', 'objectStorage'];
-                        }
-                    }
-
-                    let finalCandidates = candidates.filter(s => preferredTypes.includes(s.type));
-                    
-                    if (finalCandidates.length === 0) {
-                        finalCandidates = candidates.filter(s => !avoidTypes.includes(s.type));
-                    }
-
-                    if (finalCandidates.length === 0) {
-                        finalCandidates = candidates;
-                    }
-
-                    // Hard filter for wrong storage types
-                    if (job.req.type === TRAFFIC_TYPES.WEB) {
-                        finalCandidates = finalCandidates.filter(s => s.type !== 'database');
-                    } else if (job.req.type === TRAFFIC_TYPES.API) {
-                        finalCandidates = finalCandidates.filter(s => s.type !== 'objectStorage');
-                    }
-
-                    if (finalCandidates.length === 0) {
-                        // If no valid targets (dead end), allow backtracking
-                        finalCandidates = this.connections
-                            .map(id => STATE.services.find(s => s.id === id))
-                            .filter(s => s !== undefined);
-
-                        // Re-apply Hard filter for wrong storage types on backtracked candidates
-                        if (job.req.type === TRAFFIC_TYPES.WEB) {
-                            finalCandidates = finalCandidates.filter(s => s.type !== 'database');
-                        } else if (job.req.type === TRAFFIC_TYPES.API) {
-                            finalCandidates = finalCandidates.filter(s => s.type !== 'objectStorage');
-                        }
-                    }
-
-                    if (finalCandidates.length > 0) {
-                        // Load Balancing: Prefer targets with available queue space
-                        // Sort by queue length (ascending) to find the least loaded target
-                        finalCandidates.sort((a, b) => a.queue.length - b.queue.length);
-                        
-                        // Pick the best candidate (least loaded)
-                        const target = finalCandidates[0];
-                        
-                        // If the best candidate is full (>= 20), we still send it (and it will fail),
-                        // but this ensures we fill up empty queues first.
-
-                        job.req.lastNodeId = this.id;
-                        job.req.flyTo(target);
-                    } else {
-                        failRequest(job.req);
-                    }
                 }
+
+                const next = getNextHopForRequest(this, job.req);
+                if (!next) {
+                    failRequest(job.req);
+                    continue;
+                }
+
+                job.req.lastNodeId = this.id;
+                job.req.flyTo(next);
             }
         }
 
