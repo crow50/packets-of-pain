@@ -53,6 +53,14 @@ import {
     updateCampaignHighlights,
     showLevelInstructionsPanel
 } from "./ui/campaign.js";
+import {
+    setTool,
+    createService,
+    createConnection,
+    deleteLink,
+    deleteObject,
+    flashMoney
+} from "./sim/tools.js";
 
 window.showView = showView;
 window.showMainMenu = showMainMenu;
@@ -64,6 +72,11 @@ window.resetLevel = resetLevel;
 window.exitLevelToCampaignHub = exitLevelToCampaignHub;
 window.hideCampaignLevels = hideCampaignLevels;
 window.enterCampaignWorld = enterCampaignWorld;
+window.setTool = setTool;
+window.createService = createService;
+window.createConnection = createConnection;
+window.deleteLink = deleteLink;
+window.deleteObject = deleteObject;
 
 
 function updateGameModeLabel(isCampaign) {
@@ -145,19 +158,12 @@ function restartGame() {
 window.restartGame = restartGame;
 
 
-function flashMoney() {
-    const el = document.getElementById('money-display');
-    el.classList.add('text-red-500');
-    setTimeout(() => el.classList.remove('text-red-500'), 300);
-}
-
-
 window.startGame = (mode = GAME_MODES.SANDBOX) => {
     document.getElementById('main-menu-modal').classList.add('hidden');
     resetGame(mode === GAME_MODES.CAMPAIGN ? 'campaign' : 'survival');
 };
 
-window.startSandbox = () => {
+export function startSandbox() {
     GameContext.mode = GAME_MODES.SANDBOX;
     setCampaignUIActive(false);
     setSandboxObjectivesPanel();
@@ -168,7 +174,8 @@ window.startSandbox = () => {
     showView('sandbox');
     window.setTool('select');  
     startGame(GAME_MODES.SANDBOX);
-};
+}
+window.startSandbox = startSandbox;
 
 function isCampaignMode() {
     return GameContext.mode === GAME_MODES.CAMPAIGN;
@@ -219,80 +226,6 @@ function clearAllNodesAndLinks() {
     STATE.internetNode.connections = [];
 }
 
-function createService(type, pos) {
-    const service = CONFIG.services[type];
-    if (!service) return;
-    if (STATE.money < CONFIG.services[type].cost) { flashMoney(); return; }
-    if (STATE.services.find(s => s.position.distanceTo(pos) < 1)) return;
-    STATE.money -= CONFIG.services[type].cost;
-    STATE.services.push(new Service(type, pos));
-    STATE.sound.playPlace();
-}
-
-function createConnection(fromId, toId) {
-    if (fromId === toId) return;
-    const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
-    const from = getEntity(fromId), to = getEntity(toId);
-    if (!from || !to || from.connections.includes(toId)) return;
-
-    // Relaxed connection rules: Allow any connection between distinct nodes
-    // Removed hardcoded topology checks
-
-    new Audio('assets/sounds/click-5.mp3').play();
-
-    from.connections.push(toId);
-    to.connections.push(fromId);
-    const pts = [from.position.clone(), to.position.clone()];
-    pts[0].y = pts[1].y = 1;
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color: CONFIG.colors.line });
-    const line = new THREE.Line(geo, mat);
-    connectionGroup.add(line);
-    
-    const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
-    STATE.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
-    STATE.sound.playConnect();
-}
-
-function deleteLink(link) {
-    if (!link) return;
-    
-    // Remove from source node's connections list
-    const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
-    const fromNode = getEntity(link.from);
-    if (fromNode) {
-        fromNode.connections = fromNode.connections.filter(id => id !== link.to);
-    }
-
-    const toNode = getEntity(link.to);
-    if (toNode) {
-        toNode.connections = toNode.connections.filter(id => id !== link.from);
-    }
-
-    // Remove mesh
-    connectionGroup.remove(link.mesh);
-    link.mesh.geometry.dispose();
-    link.mesh.material.dispose();
-
-    // Remove from state
-    STATE.connections = STATE.connections.filter(c => c.id !== link.id);
-    STATE.sound.playDelete();
-}
-
-function deleteObject(id) {
-    const svc = STATE.services.find(s => s.id === id);
-    if (!svc) return;
-
-    // Find all links connected to this node
-    const linksToRemove = STATE.connections.filter(c => c.from === id || c.to === id);
-    linksToRemove.forEach(link => deleteLink(link));
-
-    svc.destroy();
-    STATE.services = STATE.services.filter(s => s.id !== id);
-    STATE.money += Math.floor(svc.config.cost / 2);
-    STATE.sound.playDelete();
-}
-
 /**
  * Calculates the percentage if failure based on the load of the node.
  * @param {number} load fractions of 1 (0 to 1) of how loaded the node is
@@ -304,24 +237,6 @@ function calculateFailChanceBasedOnLoad(load) {
     return (clamped - 0.8) / 0.2;
 }
 window.calculateFailChanceBasedOnLoad = calculateFailChanceBasedOnLoad;
-
-function getToolId(t) {
-    const map = {
-        'waf': 'tool-waf',
-        'loadBalancer': 'tool-lb',
-        'compute': 'tool-compute',
-        'database': 'tool-db',
-        'objectStorage': 'tool-objstore'
-    };
-    return map[t] || `tool-${t}`;
-}
-
-window.setTool = (t) => {
-    STATE.activeTool = t; STATE.selectedNodeId = null;
-    document.querySelectorAll('.service-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById(getToolId(t)).classList.add('active');
-    new Audio('assets/sounds/click-9.mp3').play();
-};
 
 window.toggleMute = () => {
     const muted = STATE.sound.toggleMute();
