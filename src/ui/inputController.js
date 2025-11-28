@@ -177,7 +177,8 @@ export function createInputController({ container }) {
                 'detailsPanel', 
                 'time-control-panel',
                 'objectivesPanel',
-                'bottom-toolbar'
+                'bottom-toolbar',
+                'topology-warnings-panel'
             ];
             
             // Panels that have their own visibility logic (campaign-specific)

@@ -22,6 +22,65 @@ export function updateSimulationHud(state) {
         }, 0);
         upkeepDisplay.innerText = `-$${upkeepPerSecond.toFixed(2)}/s`;
     }
+    
+    // Update topology warnings
+    updateTopologyWarnings(sim);
+    
+    // Update bottleneck display
+    updateBottleneckDisplay();
+}
+
+/**
+ * Update the topology warnings panel based on sim.topologyWarnings
+ */
+function updateTopologyWarnings(sim) {
+    const panel = document.getElementById('topology-warnings-panel');
+    const list = document.getElementById('topology-warnings-list');
+    if (!panel || !list) return;
+    
+    const warnings = sim?.topologyWarnings?.warnings || [];
+    
+    if (warnings.length === 0) {
+        panel.classList.add('hidden');
+        return;
+    }
+    
+    panel.classList.remove('hidden');
+    list.innerHTML = warnings.map(w => `<li class="flex items-start gap-1"><span class="text-red-500">•</span>${w}</li>`).join('');
+}
+
+/**
+ * Update the bottleneck/hottest node display
+ */
+function updateBottleneckDisplay() {
+    const container = document.getElementById('bottleneck-display');
+    const nameEl = document.getElementById('bottleneck-name');
+    const barEl = document.getElementById('bottleneck-bar');
+    if (!container || !nameEl || !barEl) return;
+    
+    const mostLoaded = window.Routing?.getMostLoadedService?.();
+    
+    if (!mostLoaded || mostLoaded.utilization < 0.1) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+    const utilPct = Math.round(mostLoaded.utilization * 100);
+    nameEl.innerText = `${mostLoaded.displayName} (${utilPct}%)`;
+    barEl.style.width = `${utilPct}%`;
+    
+    // Color based on utilization
+    if (utilPct > 80) {
+        barEl.classList.remove('bg-orange-500', 'bg-yellow-500');
+        barEl.classList.add('bg-red-500');
+    } else if (utilPct > 50) {
+        barEl.classList.remove('bg-red-500', 'bg-yellow-500');
+        barEl.classList.add('bg-orange-500');
+    } else {
+        barEl.classList.remove('bg-red-500', 'bg-orange-500');
+        barEl.classList.add('bg-yellow-500');
+    }
 }
 
 export function showGameOverModal(copy) {
