@@ -1,4 +1,5 @@
 import { camera, renderer, serviceGroup, connectionGroup, internetMesh } from "./scene.js";
+import { updateConnectionGeometry } from "./connectionManager.js";
 
 const { getServiceType, getCapacityForTier } = window.ServiceCatalog;
 
@@ -45,9 +46,12 @@ export function getIntersect(clientX, clientY) {
     const linkIntersects = raycaster.intersectObjects(connectionGroup.children, true);
     if (linkIntersects.length > 0) {
         const mesh = linkIntersects[0].object;
-        const connections = getEngine()?.getSimulation()?.connections || [];
-        const link = connections.find(c => c.mesh === mesh);
-        if (link) return { type: 'link', id: link.id, obj: mesh, link: link };
+        const linkId = mesh.userData?.linkId;
+        if (linkId) {
+            const connections = getEngine()?.getSimulation()?.connections || [];
+            const link = connections.find(c => c.id === linkId);
+            if (link) return { type: 'link', id: link.id, obj: mesh, link };
+        }
     }
 
     const intInter = internetMesh ? raycaster.intersectObject(internetMesh) : [];
@@ -77,14 +81,7 @@ export function updateLinkVisuals(nodeId) {
         const to = getEntity(link.to);
 
         if (from && to) {
-            const positions = link.mesh.geometry.attributes.position.array;
-            positions[0] = from.position.x;
-            positions[1] = 1;
-            positions[2] = from.position.z;
-            positions[3] = to.position.x;
-            positions[4] = 1;
-            positions[5] = to.position.z;
-            link.mesh.geometry.attributes.position.needsUpdate = true;
+            updateConnectionGeometry(link.id, from.position, to.position);
         }
     });
 }

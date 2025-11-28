@@ -100,6 +100,7 @@ function upgradeServiceById(state, serviceId) {
 export function createEngine(config = {}) {
     const state = createInitialState(config);
     let running = true;
+    const _listeners = new Map();
 
     function step(deltaSeconds) {
         if (!running || !state.ui.isRunning) {
@@ -123,11 +124,37 @@ export function createEngine(config = {}) {
         return { status: "running" };
     }
 
+    function emit(event, payload) {
+        const handlers = _listeners.get(event);
+        if (!handlers) return;
+        handlers.forEach(fn => fn(payload));
+    }
+
+    function on(event, handler) {
+        if (!event || typeof handler !== 'function') return;
+        const handlers = _listeners.get(event) || new Set();
+        handlers.add(handler);
+        _listeners.set(event, handlers);
+        return () => off(event, handler);
+    }
+
+    function off(event, handler) {
+        const handlers = _listeners.get(event);
+        if (!handlers) return;
+        handlers.delete(handler);
+        if (handlers.size === 0) {
+            _listeners.delete(event);
+        }
+    }
+
     return {
         _state: state,
         getState: () => state,
         getSimulation: () => state.simulation,
         getUIState: () => state.ui,
+        emit,
+        on,
+        off,
         step,
         isRunning: () => running && state.ui.isRunning,
 
