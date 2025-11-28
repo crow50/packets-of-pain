@@ -30,12 +30,13 @@ function handleFrameSideEffects(engine, stepResult) {
 
 function buildEngineConfig(modeConfig) {
     const isCampaign = modeConfig.mode === GAME_MODES.CAMPAIGN;
+    const initialTimeScale = typeof modeConfig.initialTimeScale === "number" ? modeConfig.initialTimeScale : 0;
     return {
         mode: modeConfig.mode || GAME_MODES.SANDBOX,
         startBudget: isCampaign ? 0 : CONFIG.survival.startBudget,
         startReputation: 100,
         baseRPS: CONFIG.survival.baseRPS,
-        initialTimeScale: isCampaign ? 0 : 1,
+        initialTimeScale,
         trafficProfile: modeConfig.trafficProfile || null
     };
 }
