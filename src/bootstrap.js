@@ -11,7 +11,9 @@ import {
     renderer
 } from "./render/scene.js";
 import { initInteractions, updateTooltip, init as initInteractionsModule } from "./render/interactions.js";
+import { initRenderManagers, disposeRenderManagers, syncRenderState } from "./render/renderManagers.js";
 import { updateSimulationHud, showGameOverModal, init as initHudController } from "./ui/hudController.js";
+import { initToolSync, disposeToolSync } from "./ui/toolSync.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
 import { initHudMenu } from "./ui/menuController.js";
@@ -19,6 +21,7 @@ import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 
 function renderScene() {
+    syncRenderState();
     if (!renderer || !scene || !camera) return;
     renderer.render(scene, camera);
 }
@@ -99,6 +102,8 @@ function createRuntime() {
             initHudController(engine);
             initInputController(engine);
             initSandboxControls(engine); // Initialize sandbox controls (shows panel only in sandbox mode)
+            initRenderManagers(engine);
+            initToolSync(engine);
             
             // Link the internet mesh to engine's internetNode after both exist
             linkInternetMesh(engine.getSimulation()?.internetNode);
@@ -120,6 +125,8 @@ function createRuntime() {
             if (!this.current) return;
             this.current.loop.stop();
             this.current.input.detach();
+            disposeToolSync();
+            disposeRenderManagers();
             disposeScene();
             this.current = null;
         },

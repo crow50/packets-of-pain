@@ -1,8 +1,17 @@
+import { copyPosition, toPlainPosition } from "../sim/vectorUtils.js";
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
 
 const MAX_HOPS = 16;
+const DEFAULT_HEIGHT = 2;
+
+function clonePosition(source) {
+    const base = toPlainPosition(source);
+    base.y = DEFAULT_HEIGHT;
+    return base;
+}
 
 class Request {
     constructor(type) {
@@ -10,25 +19,13 @@ class Request {
         this.value = 10;
         this.type = type;
 
-        let color;
-        switch (this.type) {
-            case TRAFFIC_TYPES.WEB: color = CONFIG.colors.requestWeb; break;
-            case TRAFFIC_TYPES.API: color = CONFIG.colors.requestApi; break;
-            case TRAFFIC_TYPES.FRAUD: color = CONFIG.colors.requestFraud; break;
-        }
-
-        const geo = new THREE.SphereGeometry(0.4, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({ color: color });
-        this.mesh = new THREE.Mesh(geo, mat);
-
         const internetNode = getEngine()?.getSimulation()?.internetNode;
-        this.mesh.position.copy(internetNode?.position || new THREE.Vector3(0, 2, 0));
-        this.mesh.position.y = 2;
-        requestGroup.add(this.mesh);
+        const startPos = clonePosition(internetNode?.position);
+
+        this.position = { ...startPos };
+        this.origin = { ...startPos };
 
         this.target = null;
-        this.origin = internetNode?.position?.clone() || new THREE.Vector3(0, 2, 0);
-        this.origin.y = 2;
         this.progress = 0;
         this.isMoving = false;
         this.hops = 0;
@@ -40,7 +37,7 @@ class Request {
 
     flyTo(service) {
         if (!service) return;
-        this.origin.copy(this.mesh.position);
+        copyPosition(this.origin, this.position);
         this.target = service;
         this.progress = 0;
         this.isMoving = true;
@@ -62,8 +59,8 @@ class Request {
             if (this.progress >= 1) {
                 this.progress = 1;
                 this.isMoving = false;
-                this.mesh.position.copy(this.target.position);
-                this.mesh.position.y = 2;
+                copyPosition(this.position, this.target.position ?? this.position);
+                this.position.y = DEFAULT_HEIGHT;
 
                 const node = this.target;
                 if (!node || !Array.isArray(node.queue) || node.queue.length >= 20) {
@@ -72,17 +69,21 @@ class Request {
                     node.queue.push(this);
                 }
             } else {
-                const dest = this.target.position.clone();
-                dest.y = 2;
-                this.mesh.position.lerpVectors(this.origin, dest, this.progress);
-                this.mesh.position.y += Math.sin(this.progress * Math.PI) * 2;
+                const dest = clonePosition(this.target.position);
+                const t = Math.min(1, this.progress);
+                this.position.x = this.origin.x + (dest.x - this.origin.x) * t;
+                this.position.z = this.origin.z + (dest.z - this.origin.z) * t;
+                const baseY = this.origin.y + (dest.y - this.origin.y) * t;
+                this.position.y = baseY + Math.sin(t * Math.PI) * 2;
             }
         }
     }
 
     destroy() {
-        requestGroup.remove(this.mesh);
-        this.mesh.geometry.dispose();
-        this.mesh.material.dispose();
+        this.target = null;
+        this.isMoving = false;
+        this.path.length = 0;
     }
 }
+
+export default Request;

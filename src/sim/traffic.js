@@ -1,3 +1,6 @@
+import Request from "../entities/Request.js";
+import { toPlainPosition } from "./vectorUtils.js";
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -6,6 +9,11 @@ function resolveState(arg) {
     if (arg && (arg.simulation || arg.ui)) return arg;
     const engine = getEngine();
     return engine ? engine.getState() : null;
+}
+
+function emitEvent(event, payload) {
+    const engine = getEngine();
+    engine?.emit?.(event, payload);
 }
 
 
@@ -71,6 +79,7 @@ export function finishRequest(arg1, arg2) {
 
     sim.requestsProcessed++;
     updateScore(state, req, 'COMPLETED');
+    emitEvent('requestFinished', { requestId: req.id });
     removeRequest(state, req);
 }
 
@@ -96,9 +105,7 @@ export function failRequest(arg1, arg2, arg3) {
     }
     
     ui.sound?.playFail?.();
-    if (req.mesh && req.mesh.material) {
-        req.mesh.material.color.setHex(CONFIG.colors.requestFail);
-    }
+    emitEvent('requestFailed', { requestId: req.id, reason: reason || 'unknown' });
     setTimeout(() => removeRequest(state, req), 500);
 }
 
@@ -144,6 +151,7 @@ function spawnRequest(state) {
     }
     const req = new Request(type);
     sim.requests.push(req);
+    emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
     const conns = sim.internetNode.connections;
     if (conns.length > 0) {
         const entryNodes = conns.map(id => sim.services.find(s => s.id === id));
@@ -165,6 +173,7 @@ export function spawnBurstOfType(state, type, count) {
     for (let i = 0; i < count; i++) {
         const req = new Request(type);
         sim.requests.push(req);
+        emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
         
         if (conns.length > 0) {
             const entryNodes = conns.map(id => sim.services.find(s => s.id === id));
