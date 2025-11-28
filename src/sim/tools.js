@@ -84,6 +84,9 @@ export function createService(arg1, arg2, arg3) {
     sim.money -= baseCost;
     sim.services.push(new Service(type, pos));
     ui.sound?.playPlace?.();
+    
+    // Validate topology after adding service
+    window.Routing?.validateTopology?.();
 }
 
 export function createConnection(arg1, arg2, arg3) {
@@ -117,6 +120,9 @@ export function createConnection(arg1, arg2, arg3) {
     const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
     sim.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
     ui.sound?.playConnect?.();
+    
+    // Validate topology after adding connection
+    window.Routing?.validateTopology?.();
 }
 
 export function deleteLink(arg1, arg2) {
@@ -146,6 +152,9 @@ export function deleteLink(arg1, arg2) {
 
     sim.connections = sim.connections.filter(c => c.id !== link.id);
     ui.sound?.playDelete?.();
+    
+    // Validate topology after removing connection
+    window.Routing?.validateTopology?.();
 }
 
 export function deleteObject(arg1, arg2) {
@@ -168,4 +177,7 @@ export function deleteObject(arg1, arg2) {
     sim.services = sim.services.filter(s => s.id !== id);
     sim.money += Math.floor(svc.config.cost / 2);
     ui.sound?.playDelete?.();
+    
+    // Validate topology after removing service
+    window.Routing?.validateTopology?.();
 }

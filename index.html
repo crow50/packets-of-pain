@@ -70,6 +70,24 @@
                     <span id="score-fraud" class="text-purple-300">0</span>
                 </div>
             </div>
+            <!-- Most Loaded Service -->
+            <div id="bottleneck-display" class="mt-2 pt-2 border-t border-gray-800 hidden">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-gray-500">Hottest Node</span>
+                    <span id="bottleneck-name" class="text-orange-400 font-mono">-</span>
+                </div>
+                <div class="w-full h-1.5 bg-gray-800 rounded-full mt-1 overflow-hidden">
+                    <div id="bottleneck-bar" class="h-full bg-orange-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Topology Warnings Panel -->
+        <div id="topology-warnings-panel" class="absolute top-48 right-4 glass-panel rounded-xl p-3 w-60 pointer-events-auto hidden border border-red-500/50 bg-gradient-to-b from-red-900/30 to-slate-900/30">
+            <h3 class="text-xs font-bold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <span class="animate-pulse">⚠</span> Network Issues
+            </h3>
+            <ul id="topology-warnings-list" class="space-y-1 text-xs text-red-300"></ul>
         </div>
 
         <div id="level-instructions-panel" class="absolute top-44 right-4 glass-panel rounded-xl p-4 w-72 pointer-events-auto hidden space-y-3 border border-blue-500/30 bg-gradient-to-b from-slate-900/80 to-slate-900/30">
