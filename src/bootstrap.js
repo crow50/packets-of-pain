@@ -14,6 +14,7 @@ import { initInteractions, updateTooltip, init as initInteractionsModule } from 
 import { updateSimulationHud, showGameOverModal, init as initHudController } from "./ui/hudController.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
+import { initHudMenu } from "./ui/menuController.js";
 
 function renderScene() {
     if (!renderer || !scene || !camera) return;
@@ -75,6 +76,11 @@ function createRuntime() {
             const engineConfig = buildEngineConfig(modeConfig);
             const engine = createEngine(engineConfig);
             
+            // Use shared sound service from menu (preserves mute state)
+            if (window.__menuSound) {
+                engine.setSoundService(window.__menuSound);
+            }
+            
             // Initialize modules with engine reference (removes global reach-through)
             initInteractionsModule(engine);
             initHudController(engine);
@@ -114,6 +120,7 @@ function createRuntime() {
 
 export function bootstrap() {
     initGame();
+    initHudMenu(); // Initialize hamburger menu
     const runtime = createRuntime();
 
     window.__POP_RUNTIME__ = runtime;

@@ -40,7 +40,8 @@ const SERVICE_TYPES = {
         blocks: [],
         category: 'device',
         subtitle: 'Edge',
-        icon: '⌂'
+        icon: '⌂',
+        tip: 'Entry point from the internet. Connect directly to your firewall or WAF.'
     },
     SWITCH: {
         key: 'switch',
@@ -56,7 +57,8 @@ const SERVICE_TYPES = {
         blocks: [],
         category: 'device',
         subtitle: 'Aggregator',
-        icon: '⇄'
+        icon: '⇄',
+        tip: 'Aggregates multiple connections. Good for branching traffic to different paths.'
     },
     FIREWALL: {
         key: 'firewall',
@@ -72,7 +74,8 @@ const SERVICE_TYPES = {
         blocks: ['MALICIOUS'],
         category: 'device',
         subtitle: 'Perimeter',
-        icon: '⛨'
+        icon: '⛨',
+        tip: 'First line of defense. Place near internet entry to block malicious traffic early.'
     },
 
     // === Cloud Services ===
@@ -90,7 +93,8 @@ const SERVICE_TYPES = {
         blocks: ['FRAUD'],
         category: 'cloud',
         subtitle: 'Security',
-        icon: '🛡️'
+        icon: '🛡️',
+        tip: 'Blocks fraud attempts. Place before compute nodes to protect your backend.'
     },
     LOAD_BALANCER: {
         key: 'loadBalancer',
@@ -106,7 +110,8 @@ const SERVICE_TYPES = {
         blocks: [],
         category: 'cloud',
         subtitle: 'Routing',
-        icon: '⚙'
+        icon: '⚙',
+        tip: 'Distributes traffic to multiple compute nodes. Essential for scaling under heavy load.'
     },
     COMPUTE: {
         key: 'compute',
@@ -124,7 +129,8 @@ const SERVICE_TYPES = {
         blocks: [],
         category: 'cloud',
         subtitle: 'CPU',
-        icon: '☐'
+        icon: '☐',
+        tip: 'Processes requests before storage. Connect between load balancer and database/storage.'
     },
     DATABASE: {
         key: 'database',
@@ -142,7 +148,8 @@ const SERVICE_TYPES = {
         blocks: [],
         category: 'cloud',
         subtitle: 'Persistence',
-        icon: '◯'
+        icon: '◯',
+        tip: 'Terminal for API requests. Ensure compute nodes connect here for API traffic completion.'
     },
     OBJECT_STORAGE: {
         key: 'objectStorage',
@@ -158,7 +165,8 @@ const SERVICE_TYPES = {
         blocks: [],
         category: 'cloud',
         subtitle: 'Files',
-        icon: '⬡'
+        icon: '⬡',
+        tip: 'Terminal for WEB requests. Low cost, high capacity. Place after compute for web traffic.'
     }
 };
 

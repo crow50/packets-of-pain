@@ -44,6 +44,12 @@ window.createConnection = createConnection;
 window.deleteLink = deleteLink;
 window.deleteObject = deleteObject;
 
+// Centralized return to main menu function
+window.returnToMainMenu = function() {
+    window.__POP_RUNTIME__?.stop?.();
+    showView('main-menu');
+};
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -87,10 +93,10 @@ export function resetGame(mode = 'survival') {
     const ui = engine?.getUIState();
     const sim = engine?.getSimulation();
     
-    // Initialize sound service if needed
-    if (!ui?.sound && typeof SoundService !== 'undefined') {
-        const soundSvc = new SoundService();
-        engine?.setSoundService(soundSvc);
+    // Reuse the menu sound service instead of creating a new one
+    // This ensures sound state persists between menu and game
+    if (!ui?.sound && window.__menuSound) {
+        engine?.setSoundService(window.__menuSound);
     }
     
     const sound = ui?.sound || window.__menuSound;
@@ -212,23 +218,23 @@ window.toggleMute = () => {
     if (!sound) return;
     
     const muted = sound.toggleMute();
-    const icon = document.getElementById('mute-icon');
+    
+    // Update main menu mute button
     const menuIcon = document.getElementById('menu-mute-icon');
-
+    const menuMuteBtn = document.getElementById('menu-mute-btn');
+    
     const iconText = muted ? '🔇' : '🔊';
-    if (icon) icon.innerText = iconText;
     if (menuIcon) menuIcon.innerText = iconText;
 
-    const muteBtn = document.getElementById('tool-mute');
-    const menuMuteBtn = document.getElementById('menu-mute-btn'); // We need to add ID to menu button
-
     if (muted) {
-        muteBtn.classList.add('bg-red-900');
-        muteBtn.classList.add('pulse-green');
         if (menuMuteBtn) menuMuteBtn.classList.add('pulse-green');
     } else {
-        muteBtn.classList.remove('bg-red-900');
-        muteBtn.classList.remove('pulse-green');
         if (menuMuteBtn) menuMuteBtn.classList.remove('pulse-green');
     }
+    
+    // Update hamburger menu sound status
+    const hudSoundIcon = document.getElementById('hud-menu-sound-icon');
+    const hudSoundStatus = document.getElementById('hud-menu-sound-status');
+    if (hudSoundIcon) hudSoundIcon.innerText = iconText;
+    if (hudSoundStatus) hudSoundStatus.textContent = muted ? 'Off' : 'On';
 };
