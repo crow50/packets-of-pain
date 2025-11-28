@@ -122,6 +122,7 @@ export function updateTooltip() {
                 const accepts = catalogEntry?.accepts?.join(', ') || 'All';
                 const blocks = catalogEntry?.blocks?.length ? catalogEntry.blocks.join(', ') : 'None';
                 const terminalFor = catalogEntry?.terminalFor?.length ? catalogEntry.terminalFor.join(', ') : 'None';
+                const tip = catalogEntry?.tip || null;
 
                 content += `
                     <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
@@ -140,6 +141,7 @@ export function updateTooltip() {
                         ${blocks !== 'None' ? `<div><span class="text-gray-400">Blocks:</span> <span class="text-red-300">${blocks}</span></div>` : ''}
                         ${terminalFor !== 'None' ? `<div><span class="text-gray-400">Terminal:</span> <span class="text-green-300">${terminalFor}</span></div>` : ''}
                     </div>
+                    ${tip ? `<div class="mt-1 pt-1 border-t border-gray-600 text-[9px] text-blue-300 italic">💡 ${tip}</div>` : ''}
                 `;
             }
         } else if (i.type === 'link') {
