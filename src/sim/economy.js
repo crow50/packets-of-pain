@@ -1,4 +1,12 @@
-import { resolveState, syncLegacyState } from "../core/stateBridge.js";
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
+function resolveState(arg) {
+    if (arg && (arg.simulation || arg.ui)) return arg;
+    const engine = getEngine();
+    return engine ? engine.getState() : null;
+}
 
 const DEFAULT_TRAFFIC_PROFILE = {
     userToInternetPps: CONFIG.survival.baseRPS || 0.5,
@@ -33,6 +41,7 @@ export function resetEconomyForMode(arg1, arg2, arg3) {
     const mode = hasState ? (arg2 || 'survival') : (arg1 || 'survival');
     const options = hasState ? (arg3 || {}) : (arg2 || {});
 
+    if (!state) return;
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
@@ -55,7 +64,6 @@ export function resetEconomyForMode(arg1, arg2, arg3) {
 
     const targetTimeScale = options.initialTimeScale ?? 0;
     setTimeScale(state, targetTimeScale);
-    syncLegacyState(state);
 }
 
 export function setBudget(arg1, arg2) {
@@ -71,34 +79,43 @@ export function setBudget(arg1, arg2) {
     if (display) {
         display.innerText = `$${sim.money.toFixed(2)}`;
     }
-    syncLegacyState(state);
 }
 
 export function resetSatisfaction(arg1) {
     // Overload: resetSatisfaction() OR resetSatisfaction(state)
     const state = resolveState(arg1);
+    if (!state) return;
     const sim = state.simulation || state;
 
     sim.reputation = 100;
     const repBar = getRepBar();
     if (repBar) {
         repBar.style.width = '100%';
-        repBar.classList.remove('bg-red-500');
-        repBar.classList.add('bg-yellow-500');
+        repBar.classList.remove('bg-red-500', 'bg-yellow-500');
+        repBar.classList.add('bg-green-500');
     }
-    syncLegacyState(state);
 }
 
 export function resetScore(arg1) {
     // Overload: resetScore() OR resetScore(state)
     const state = resolveState(arg1);
+    if (!state) return;
     const sim = state.simulation || state;
 
     sim.score.total = 0;
     sim.score.web = 0;
     sim.score.api = 0;
     sim.score.fraudBlocked = 0;
-    syncLegacyState(state);
+    
+    // Update UI
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = value;
+    };
+    setText('total-score-display', 0);
+    setText('score-web', 0);
+    setText('score-api', 0);
+    setText('score-fraud', 0);
 }
 
 
@@ -127,7 +144,6 @@ export function setTimeScale(arg1, arg2) {
         btnFast?.classList.add('active');
         btnPlay?.classList.remove('pulse-green');
     }
-    syncLegacyState(state);
 }
 window.setTimeScale = setTimeScale;
 
@@ -150,16 +166,19 @@ export function setTrafficProfile(arg1, arg2) {
     const state = resolveState(arg1);
     const profile = hasState ? arg2 : arg1;
 
-    const sim = state.simulation || state;
-
     if (!profile) {
         GameContext.trafficProfile = null;
-        sim.trafficProfile = null;
-        sim.currentRPS = CONFIG.survival.baseRPS;
-        sim.spawnTimer = 0;
-        syncLegacyState(state);
+        if (state) {
+            const sim = state.simulation || state;
+            sim.trafficProfile = null;
+            sim.currentRPS = CONFIG.survival.baseRPS;
+            sim.spawnTimer = 0;
+        }
         return;
     }
+
+    if (!state) return;
+    const sim = state.simulation || state;
 
     const normalized = {
         userToInternetPps: profile.userToInternetPps !== undefined ? profile.userToInternetPps : DEFAULT_TRAFFIC_PROFILE.userToInternetPps,
@@ -170,7 +189,6 @@ export function setTrafficProfile(arg1, arg2) {
     sim.trafficProfile = normalized;
     sim.currentRPS = normalized.userToInternetPps + normalized.maliciousRate;
     sim.spawnTimer = 0;
-    syncLegacyState(state);
 }
 
 export { GameContext };

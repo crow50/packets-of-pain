@@ -1,3 +1,7 @@
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
 function normalizeServiceType(type) {
     switch (type) {
         case 'alb': return 'loadBalancer';
@@ -41,7 +45,9 @@ const ROUTING_TERMINALS = {
 };
 
 function getServiceEntity(id) {
-    return id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
+    const sim = getEngine()?.getSimulation();
+    if (!sim) return null;
+    return id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id);
 }
 
 function hasTerminalPath(node, targetTypes, depth = 3, visited = new Set()) {
@@ -223,13 +229,18 @@ class Service {
         const tiers = CONFIG.services[this.type].tiers;
         if (this.tier >= tiers.length) return;
 
-        const nextTier = tiers[this.tier];
-        if (STATE.money < nextTier.cost) { flashMoney(); return; }
+        const engine = getEngine();
+        const sim = engine?.getSimulation();
+        const ui = engine?.getUIState();
+        if (!sim) return;
 
-        STATE.money -= nextTier.cost;
+        const nextTier = tiers[this.tier];
+        if (sim.money < nextTier.cost) { flashMoney(); return; }
+
+        sim.money -= nextTier.cost;
         this.tier++;
         this.config = { ...this.config, capacity: nextTier.capacity };
-        STATE.sound.playPlace();
+        ui?.sound?.playPlace?.();
 
         // Visuals
         const ringGeo = new THREE.TorusGeometry(this.type === 'database' ? 2.2 : 1.3, 0.1, 8, 32);
@@ -263,7 +274,8 @@ class Service {
     }
 
     update(dt) {
-        STATE.money -= (this.config.upkeep / 60) * dt;
+        const sim = getEngine()?.getSimulation();
+        if (sim) sim.money -= (this.config.upkeep / 60) * dt;
 
         this.processQueue();
 

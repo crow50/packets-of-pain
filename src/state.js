@@ -1,34 +1,43 @@
+// Legacy STATE object - DEPRECATED
+// All state now lives in the Engine (window.__POP_RUNTIME__.current.engine)
+// This file is kept only for backwards compatibility during transition
+// Access state via: engine.getSimulation() and engine.getUIState()
+
 const STATE = {
-    money: 0,
-    reputation: 0,
-    requestsProcessed: 0,
-
-    score: {
-        total: 0,
-        web: 0,
-        api: 0,
-        fraudBlocked: 0
+    // Minimal stub - engine is now the source of truth
+    get services() {
+        return window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.services || [];
     },
-
-    activeTool: 'select',
-    selectedNodeId: null,
-    services: [],
-    requests: [],
-    connections: [],
-
-    lastTime: 0,
-    spawnTimer: 0,
-    currentRPS: 0.5,
-    timeScale: 1,
-    isRunning: true,
-    animationId: null,
-
-    internetNode: {
-        id: 'internet',
-        type: 'internet',
-        position: new THREE.Vector3(-40, 0, 0),
-        connections: []
+    get requests() {
+        return window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.requests || [];
     },
-
-    sound: null
+    get connections() {
+        return window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.connections || [];
+    },
+    get internetNode() {
+        return window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.internetNode || {
+            id: 'internet',
+            type: 'internet',
+            position: new THREE.Vector3(-40, 0, 0),
+            connections: []
+        };
+    },
+    get money() {
+        return window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.money || 0;
+    },
+    get sound() {
+        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.sound || null;
+    },
+    get timeScale() {
+        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.timeScale || 1;
+    },
+    get activeTool() {
+        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.activeTool || 'select';
+    },
+    get selectedNodeId() {
+        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.selectedNodeId || null;
+    },
+    get hovered() {
+        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.hovered || null;
+    }
 };

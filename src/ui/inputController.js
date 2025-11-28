@@ -14,16 +14,18 @@ import {
     deleteObject
 } from "../sim/tools.js";
 import { resetCamera, toggleCameraMode } from "../render/scene.js";
-import { resolveState, syncLegacyState } from "../core/stateBridge.js";
+
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
 
 const PAN_SPEED = 0.1;
 
 function updateUIState(partial) {
-    const resolved = resolveState();
-    const ui = resolved?.ui || resolved;
-    if (!ui) return;
-    Object.assign(ui, partial);
-    syncLegacyState(resolved);
+    const engine = getEngine();
+    if (!engine) return;
+    if ('hovered' in partial) engine.setHovered(partial.hovered);
+    if ('selectedNodeId' in partial) engine.setSelectedNode(partial.selectedNodeId);
 }
 
 export function createInputController({ container }) {
@@ -75,13 +77,11 @@ export function createInputController({ container }) {
         if (e.target !== renderer.domElement) {
             const tooltip = document.getElementById('tooltip');
             if (tooltip) tooltip.style.display = 'none';
-            STATE.hovered = null;
             updateUIState({ hovered: null });
             return;
         }
 
         const intersect = getIntersect(e.clientX, e.clientY);
-        STATE.hovered = intersect;
         updateUIState({ hovered: intersect });
 
         const tooltip = document.getElementById('tooltip');
@@ -111,36 +111,36 @@ export function createInputController({ container }) {
             const intersect = getIntersect(e.clientX, e.clientY);
             if (!intersect) return;
 
-            if (STATE.activeTool === 'select') {
+            const engine = getEngine();
+            const activeTool = engine?.getUIState()?.activeTool || 'select';
+            const services = engine?.getSimulation()?.services || [];
+            const selectedNodeId = engine?.getUIState()?.selectedNodeId;
+
+            if (activeTool === 'select') {
                 if (intersect.type === 'service') {
                     isDraggingNode = true;
-                    draggedNode = STATE.services.find(s => s.id === intersect.id);
+                    draggedNode = services.find(s => s.id === intersect.id);
                     container.style.cursor = 'grabbing';
-                    STATE.selectedNodeId = intersect.id;
                     updateUIState({ selectedNodeId: intersect.id });
                 } else {
-                    STATE.selectedNodeId = null;
                     updateUIState({ selectedNodeId: null });
                 }
-            } else if (STATE.activeTool === 'delete') {
+            } else if (activeTool === 'delete') {
                 if (intersect.type === 'service') deleteObject(intersect.id);
                 else if (intersect.type === 'link') deleteLink(intersect.link);
-            } else if (STATE.activeTool === 'connect') {
+            } else if (activeTool === 'connect') {
                 if (intersect.type === 'service' || intersect.type === 'internet') {
-                    if (!STATE.selectedNodeId) {
-                        STATE.selectedNodeId = intersect.id;
+                    if (!selectedNodeId) {
                         updateUIState({ selectedNodeId: intersect.id });
                     } else {
-                        createConnection(STATE.selectedNodeId, intersect.id);
-                        STATE.selectedNodeId = null;
+                        createConnection(selectedNodeId, intersect.id);
                         updateUIState({ selectedNodeId: null });
                     }
                 } else {
-                    STATE.selectedNodeId = null;
                     updateUIState({ selectedNodeId: null });
                 }
             } else if (intersect.type === 'ground') {
-                createService(STATE.activeTool, snapToGrid(intersect.pos));
+                createService(activeTool, snapToGrid(intersect.pos));
             }
         }
     }
@@ -166,8 +166,19 @@ export function createInputController({ container }) {
         } else if (key === 't') {
             toggleCameraMode();
         } else if (key === 'h') {
-            const panel = document.getElementById('statsPanel');
-            panel?.classList.toggle('hidden');
+            // Toggle all HUD panels
+            const panels = [
+                'statsPanel',
+                'detailsPanel', 
+                'level-instructions-panel',
+                'time-control-panel',
+                'objectivesPanel',
+                'shop-panel'
+            ];
+            panels.forEach(id => {
+                const panel = document.getElementById(id);
+                panel?.classList.toggle('hidden');
+            });
         }
     }
 
