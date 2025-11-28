@@ -6,6 +6,13 @@ export let connectionGroup;
 export let requestGroup;
 export let internetMesh;
 
+export function linkInternetMesh(internetNode) {
+    if (internetNode && internetMesh) {
+        internetMesh.position.copy(internetNode.position);
+        internetNode.mesh = internetMesh;
+    }
+}
+
 const d = 50;
 let cameraTarget = new THREE.Vector3(0, 0, 0);
 let isIsometric = true;
@@ -88,11 +95,16 @@ export function initScene(containerEl) {
         roughness: 0.2
     });
     internetMesh = new THREE.Mesh(internetGeo, internetMat);
-    internetMesh.position.copy(STATE.internetNode.position);
+    // Position the internet mesh - use engine state if available, fallback to default
+    const internetNode = window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.internetNode;
+    const defaultPosition = new THREE.Vector3(-40, 0, 0);
+    internetMesh.position.copy(internetNode?.position || defaultPosition);
+    if (internetNode) {
+        internetNode.mesh = internetMesh;
+    }
     internetMesh.castShadow = true;
     internetMesh.receiveShadow = true;
     scene.add(internetMesh);
-    STATE.internetNode.mesh = internetMesh;
 
     handleResize();
     attachResizeHandler();
@@ -161,7 +173,8 @@ export function disposeScene() {
     connectionGroup = undefined;
     requestGroup = undefined;
     internetMesh = undefined;
-    STATE.internetNode.mesh = undefined;
+    const internetNode = window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.internetNode;
+    if (internetNode) internetNode.mesh = undefined;
 
     window.serviceGroup = undefined;
     window.connectionGroup = undefined;

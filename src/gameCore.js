@@ -44,6 +44,10 @@ window.createConnection = createConnection;
 window.deleteLink = deleteLink;
 window.deleteObject = deleteObject;
 
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
 
 function updateGameModeLabel(isCampaign) {
     const label = document.getElementById('game-mode-label');
@@ -68,8 +72,10 @@ function setCampaignUIActive(active) {
 window.setCampaignUIActive = setCampaignUIActive;
 
 export function initGame() {
-    if (!STATE.sound) {
-        STATE.sound = new SoundService();
+    // Sound will be initialized when engine starts
+    // Initial sound service created here for menu
+    if (typeof window.SoundService !== 'undefined' && !window.__menuSound) {
+        window.__menuSound = new SoundService();
     }
     setTimeout(() => {
         showMainMenu();
@@ -77,8 +83,19 @@ export function initGame() {
 }
 
 export function resetGame(mode = 'survival') {
-    STATE.sound.init();
-    STATE.sound.playGameBGM();
+    const engine = getEngine();
+    const ui = engine?.getUIState();
+    const sim = engine?.getSimulation();
+    
+    // Initialize sound service if needed
+    if (!ui?.sound && typeof SoundService !== 'undefined') {
+        const soundSvc = new SoundService();
+        engine?.setSoundService(soundSvc);
+    }
+    
+    const sound = ui?.sound || window.__menuSound;
+    sound?.init?.();
+    sound?.playGameBGM?.();
     resetEconomyForMode(mode);
 
     initTrafficForMode(mode);
@@ -95,7 +112,9 @@ export function resetGame(mode = 'survival') {
     while (requestGroup.children.length > 0) {
         requestGroup.remove(requestGroup.children[0]);
     }
-    STATE.internetNode.connections = [];
+    if (sim?.internetNode) {
+        sim.internetNode.connections = [];
+    }
 }
 
 export function restartGame() {
@@ -135,13 +154,20 @@ function resetSimulationState() {
 window.resetSimulationState = resetSimulationState;
 
 function clearAllNodesAndLinks() {
-    STATE.services.forEach(s => {
+    const engine = getEngine();
+    const sim = engine?.getSimulation();
+    
+    const services = sim?.services || [];
+    const requests = sim?.requests || [];
+    const connections = sim?.connections || [];
+    
+    services.forEach(s => {
         if (s && typeof s.destroy === 'function') s.destroy();
     });
-    STATE.requests.forEach(r => {
+    requests.forEach(r => {
         if (r && typeof r.destroy === 'function') r.destroy();
     });
-    STATE.connections.forEach(link => {
+    connections.forEach(link => {
         if (link.mesh) {
             connectionGroup.remove(link.mesh);
             if (link.mesh.geometry) link.mesh.geometry.dispose();
@@ -160,10 +186,12 @@ function clearAllNodesAndLinks() {
         requestGroup.remove(requestGroup.children[0]);
     }
 
-    STATE.services = [];
-    STATE.requests = [];
-    STATE.connections = [];
-    STATE.internetNode.connections = [];
+    if (sim) {
+        sim.services = [];
+        sim.requests = [];
+        sim.connections = [];
+        sim.internetNode.connections = [];
+    }
 }
 
 /**
@@ -179,7 +207,11 @@ function calculateFailChanceBasedOnLoad(load) {
 window.calculateFailChanceBasedOnLoad = calculateFailChanceBasedOnLoad;
 
 window.toggleMute = () => {
-    const muted = STATE.sound.toggleMute();
+    const engine = getEngine();
+    const sound = engine?.getUIState()?.sound || window.__menuSound;
+    if (!sound) return;
+    
+    const muted = sound.toggleMute();
     const icon = document.getElementById('mute-icon');
     const menuIcon = document.getElementById('menu-mute-icon');
 

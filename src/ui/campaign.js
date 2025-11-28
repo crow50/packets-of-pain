@@ -220,5 +220,5 @@ export function exitLevelToCampaignHub() {
     setCampaignIntroObjectives();
     setCampaignShop();
     showView('campaign');
-    STATE.isRunning = false;
+    window.__POP_RUNTIME__?.current?.engine?.setRunning(false);
 }

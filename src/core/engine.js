@@ -1,6 +1,5 @@
 import { gameTick } from "../sim/traffic.js";
 import { setTrafficProfile } from "../sim/economy.js";
-import { syncLegacyState } from "./stateBridge.js";
 import { createService, createConnection, deleteObject, deleteLink as removeLink } from "../sim/tools.js";
 
 const FAILURE_COPY = {
@@ -76,23 +75,23 @@ function asVector(position = {}) {
 }
 
 function deleteLinkById(state, linkId) {
-    const sim = state.simulation || STATE;
+    const sim = state.simulation;
     const target = (sim.connections || []).find(link => link.id === linkId);
     if (target) {
         removeLink(state, target);
     }
 }
 
-function upgradeServiceById(serviceId) {
-    const svc = (STATE.services || []).find(service => service.id === serviceId);
+function upgradeServiceById(state, serviceId) {
+    const sim = state.simulation;
+    const svc = (sim.services || []).find(service => service.id === serviceId);
     if (svc && typeof svc.upgrade === "function") {
-        svc.upgrade();
+        svc.upgrade(state);
     }
 }
 
 export function createEngine(config = {}) {
     const state = createInitialState(config);
-    syncLegacyState(state);
     let running = true;
 
     function step(deltaSeconds) {
@@ -102,15 +101,12 @@ export function createEngine(config = {}) {
 
         state.simulation.time += deltaSeconds;
 
-        // TODO: update gameTick signature to accept state
         gameTick(state, deltaSeconds);
-        syncLegacyState(state);
 
         const failure = evaluateFailure(state.simulation);
         if (failure) {
             running = false;
             state.ui.isRunning = false;
-            STATE.isRunning = false; // keep until STATE is removed
             return { status: "gameover", failure };
         }
 
@@ -119,16 +115,31 @@ export function createEngine(config = {}) {
 
     return {
         _state: state,
-        getState: () => STATE,
+        getState: () => state,
         getSimulation: () => state.simulation,
         getUIState: () => state.ui,
         step,
         isRunning: () => running && state.ui.isRunning,
+
+        // UI state setters
+        setActiveTool(tool) {
+            state.ui.activeTool = tool;
+        },
+        setSelectedNode(id) {
+            state.ui.selectedNodeId = id;
+        },
+        setHovered(hoverInfo) {
+            state.ui.hovered = hoverInfo;
+        },
         setRunning(value) {
             running = Boolean(value);
             state.ui.isRunning = Boolean(value);
-            STATE.isRunning = Boolean(value);
-            syncLegacyState(state);
+        },
+        setSoundService(soundSvc) {
+            state.ui.sound = soundSvc;
+        },
+        setTimeScale(scale) {
+            state.ui.timeScale = scale;
         },
         placeService(type, position) {
             if (!type) return;
@@ -144,7 +155,7 @@ export function createEngine(config = {}) {
             deleteLinkById(state, linkId);
         },
         upgradeService(id) {
-            upgradeServiceById(id);
+            upgradeServiceById(state, id);
         },
         setTrafficProfile(profile) {
             setTrafficProfile(state, profile);

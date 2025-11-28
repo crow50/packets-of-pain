@@ -1,9 +1,17 @@
-import { resolveState, syncLegacyState } from "../core/stateBridge.js";
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
+function resolveState(arg) {
+    if (arg && (arg.simulation || arg.ui)) return arg;
+    const engine = getEngine();
+    return engine ? engine.getState() : null;
+}
 
 function updateReputationBar(sim) {
     const bar = document.getElementById('rep-bar');
     if (!bar) return;
-    const reputation = sim?.reputation ?? STATE.reputation;
+    const reputation = sim?.reputation ?? 100;
     const clamped = Math.max(0, Math.min(100, reputation));
     bar.style.width = `${clamped}%`;
     bar.classList.toggle('bg-red-500', clamped <= 30);
@@ -12,7 +20,7 @@ function updateReputationBar(sim) {
 }
 
 function updateScoreUI(sim) {
-    const score = sim?.score ?? STATE.score;
+    const score = sim?.score ?? { total: 0, web: 0, api: 0, fraudBlocked: 0 };
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.innerText = value;
@@ -61,7 +69,6 @@ export function updateScore(arg1, arg2, arg3) {
         sim.score.total = sim.score.web + sim.score.api + sim.score.fraudBlocked;
     }
     updateScoreUI(sim);
-    syncLegacyState(state);
 }
 
 export function removeRequest(arg1, arg2) {
@@ -77,7 +84,6 @@ export function removeRequest(arg1, arg2) {
     }
     sim.requests = sim.requests.filter(r => r !== req);
     updateScore(state);
-    syncLegacyState(state);
 }
 
 export function finishRequest(arg1, arg2) {
@@ -91,7 +97,6 @@ export function finishRequest(arg1, arg2) {
     sim.requestsProcessed++;
     updateScore(state, req, 'COMPLETED');
     removeRequest(state, req);
-    syncLegacyState(state);
 }
 
 export function failRequest(arg1, arg2) {
@@ -104,12 +109,11 @@ export function failRequest(arg1, arg2) {
 
     const failType = req.type === TRAFFIC_TYPES.FRAUD ? 'FRAUD_PASSED' : 'FAILED';
     updateScore(state, req, failType);
-    (ui.sound || STATE.sound)?.playFail?.();
+    ui.sound?.playFail?.();
     if (req.mesh && req.mesh.material) {
         req.mesh.material.color.setHex(CONFIG.colors.requestFail);
     }
     setTimeout(() => removeRequest(state, req), 500);
-    syncLegacyState(state);
 }
 
 function calculateFailChanceBasedOnLoad(load) {
@@ -139,7 +143,7 @@ function spawnRequest(state) {
 
     let type = getTrafficType();
     const trafficProfile = sim.trafficProfile || GameContext.trafficProfile;
-    const gameMode = ui.gameMode || STATE.gameMode;
+    const gameMode = ui.gameMode || 'sandbox';
     
     if (gameMode === 'campaign' && trafficProfile) {
         const { userToInternetPps = 0, maliciousRate = 0 } = trafficProfile;
@@ -164,7 +168,6 @@ function spawnRequest(state) {
             req.flyTo(target);
         } else failRequest(state, req);
     } else failRequest(state, req);
-    syncLegacyState(state);
 }
 
 export function initTrafficForMode(arg1, arg2) {
@@ -180,7 +183,6 @@ export function initTrafficForMode(arg1, arg2) {
     if (mode === 'campaign') {
         sim.currentRPS = CONFIG.survival.baseRPS;
     }
-    syncLegacyState(state);
 }
 
 export function gameTick(arg1, arg2) {
@@ -192,7 +194,7 @@ export function gameTick(arg1, arg2) {
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
-    const timeScale = ui.timeScale ?? STATE.timeScale ?? 1;
+    const timeScale = ui.timeScale ?? 1;
     const scaledDt = dt * timeScale;
 
     sim.spawnTimer += scaledDt;
@@ -201,12 +203,11 @@ export function gameTick(arg1, arg2) {
         sim.spawnTimer = 0;
     }
 
-    const gameMode = ui.gameMode || STATE.gameMode;
+    const gameMode = ui.gameMode || 'sandbox';
     if (gameMode === 'survival') {
         sim.currentRPS += CONFIG.survival.rampUp * scaledDt;
     }
 
     sim.services.forEach(s => s.update(scaledDt));
     sim.requests.forEach(r => r.update(scaledDt));
-    syncLegacyState(state);
 }

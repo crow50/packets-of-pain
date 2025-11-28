@@ -1,5 +1,9 @@
 import { camera, renderer, serviceGroup, connectionGroup, internetMesh } from "./scene.js";
 
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
 export let raycaster;
 export let mouse;
 export let plane;
@@ -27,7 +31,8 @@ export function getIntersect(clientX, clientY) {
     const linkIntersects = raycaster.intersectObjects(connectionGroup.children, true);
     if (linkIntersects.length > 0) {
         const mesh = linkIntersects[0].object;
-        const link = STATE.connections.find(c => c.mesh === mesh);
+        const connections = getEngine()?.getSimulation()?.connections || [];
+        const link = connections.find(c => c.mesh === mesh);
         if (link) return { type: 'link', id: link.id, obj: mesh, link: link };
     }
 
@@ -49,9 +54,11 @@ export function snapToGrid(vec) {
 }
 
 export function updateLinkVisuals(nodeId) {
-    const links = STATE.connections.filter(c => c.from === nodeId || c.to === nodeId);
+    const sim = getEngine()?.getSimulation();
+    if (!sim) return;
+    const links = sim.connections.filter(c => c.from === nodeId || c.to === nodeId);
     links.forEach(link => {
-        const getEntity = (id) => id === 'internet' ? STATE.internetNode : STATE.services.find(s => s.id === id);
+        const getEntity = (id) => id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id);
         const from = getEntity(link.from);
         const to = getEntity(link.to);
 
@@ -70,15 +77,18 @@ export function updateLinkVisuals(nodeId) {
 
 export function updateTooltip() {
     const tooltip = document.getElementById('tooltip');
-    if (!tooltip || !STATE.hovered || tooltip.style.display === 'none') return;
+    const engine = getEngine();
+    const hovered = engine?.getUIState()?.hovered;
+    if (!tooltip || !hovered || tooltip.style.display === 'none') return;
 
-    const i = STATE.hovered;
+    const sim = engine?.getSimulation();
+    const i = hovered;
     if (i.type === 'service' || i.type === 'link') {
         const id = i.id;
         let content = `<div class="font-bold border-b border-gray-500 pb-1 mb-1 text-xs">${id}</div>`;
 
         if (i.type === 'service') {
-            const svc = STATE.services.find(s => s.id === id);
+            const svc = sim?.services?.find(s => s.id === id);
             if (svc) {
                 const loadPct = Math.round(svc.totalLoad * 100);
                 const loadColor = loadPct > 80 ? 'text-red-400' : (loadPct > 50 ? 'text-yellow-400' : 'text-green-400');
@@ -96,7 +106,8 @@ export function updateTooltip() {
             }
         } else if (i.type === 'link') {
             const link = i.link;
-            const traffic = STATE.requests.filter(r =>
+            const requests = sim?.requests || [];
+            const traffic = requests.filter(r =>
                 r.isMoving && r.target && (
                     (r.lastNodeId === link.from && r.target.id === link.to) ||
                     (r.lastNodeId === link.to && r.target.id === link.from)

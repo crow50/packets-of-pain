@@ -38,8 +38,12 @@ export function showView(viewName) {
 }
 
 export function showMainMenu() {
-    if (!STATE.sound.ctx) STATE.sound.init();
-    STATE.sound.playMenuBGM();
+    const engine = window.__POP_RUNTIME__?.current?.engine;
+    const sound = engine?.getUIState()?.sound || window.__menuSound;
+    if (sound) {
+        if (!sound.ctx) sound.init();
+        sound.playMenuBGM?.();
+    }
     window.setCampaignUIActive?.(false);
     setSandboxObjectivesPanel();
     setSandboxShop();

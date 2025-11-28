@@ -5,6 +5,7 @@ import {
     initScene,
     disposeScene,
     resetCamera,
+    linkInternetMesh,
     scene,
     camera,
     renderer
@@ -73,6 +74,10 @@ function createRuntime() {
 
             const engineConfig = buildEngineConfig(modeConfig);
             const engine = createEngine(engineConfig);
+            
+            // Link the internet mesh to engine's internetNode after both exist
+            linkInternetMesh(engine.getSimulation()?.internetNode);
+            
             engine.setRunning(true);
             const input = createInputController({ container });
             const loop = createLoop({
