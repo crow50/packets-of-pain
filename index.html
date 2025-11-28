@@ -135,6 +135,30 @@
                     <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
                 </svg>
             </button>
+            
+            <!-- Hamburger Menu -->
+            <div class="w-px bg-gray-700 mx-1"></div>
+            <div class="hud-menu-container relative">
+                <button id="hud-menu-button" 
+                    class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center"
+                    aria-label="Game menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <div id="hud-menu-dropdown" class="hud-menu-dropdown hidden" role="menu">
+                    <button id="hud-menu-help" class="hud-menu-item" role="menuitem">
+                        <span class="mr-2">❓</span> Help & Controls
+                    </button>
+                    <button id="hud-menu-sound" class="hud-menu-item" role="menuitem">
+                        <span class="mr-2" id="hud-menu-sound-icon">🔇</span> Sound: <span id="hud-menu-sound-status">Off</span>
+                    </button>
+                    <div class="hud-menu-divider"></div>
+                    <button id="hud-menu-main" class="hud-menu-item danger" role="menuitem">
+                        <span class="mr-2">🚪</span> Return to Main Menu
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Objective Panel (Bottom Left) -->
@@ -152,24 +176,6 @@
     <!-- UI Overlay: Bottom Toolbar -->
     <div id="bottom-toolbar" class="absolute bottom-6 left-0 w-full z-10 pointer-events-none flex justify-center">
         <div class="glass-panel rounded-2xl p-2 pointer-events-auto overflow-y-auto flex items-center gap-2 shadow-2xl">
-
-
-
-            <!-- Help Button -->
-            <button id="tool-help"
-                class="service-btn bg-gray-700 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center mr-2 border border-gray-600"
-                onclick="showFAQ()">
-                <div class="text-xl">?</div>
-                <span class="text-[9px] font-bold mt-1 uppercase">Help</span>
-            </button>
-
-            <!-- Mute Button -->
-            <button id="tool-mute"
-                class="service-btn bg-gray-700 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-gray-600"
-                onclick="toggleMute()">
-                <div class="text-xl" id="mute-icon">🔊</div>
-                <span class="text-[9px] font-bold mt-1 uppercase">Sound</span>
-            </button>
 
             <!-- Tools -->
             <div class="flex gap-1 pr-4 border-r border-gray-700">
