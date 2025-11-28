@@ -14,8 +14,17 @@ import {
     deleteObject
 } from "../sim/tools.js";
 import { resetCamera, toggleCameraMode } from "../render/scene.js";
+import { resolveState, syncLegacyState } from "../core/stateBridge.js";
 
 const PAN_SPEED = 0.1;
+
+function updateUIState(partial) {
+    const resolved = resolveState();
+    const ui = resolved?.ui || resolved;
+    if (!ui) return;
+    Object.assign(ui, partial);
+    syncLegacyState(resolved);
+}
 
 export function createInputController({ container }) {
     if (!container) {
@@ -67,11 +76,13 @@ export function createInputController({ container }) {
             const tooltip = document.getElementById('tooltip');
             if (tooltip) tooltip.style.display = 'none';
             STATE.hovered = null;
+            updateUIState({ hovered: null });
             return;
         }
 
         const intersect = getIntersect(e.clientX, e.clientY);
         STATE.hovered = intersect;
+        updateUIState({ hovered: intersect });
 
         const tooltip = document.getElementById('tooltip');
         if (!tooltip || !intersect) return;
@@ -106,8 +117,10 @@ export function createInputController({ container }) {
                     draggedNode = STATE.services.find(s => s.id === intersect.id);
                     container.style.cursor = 'grabbing';
                     STATE.selectedNodeId = intersect.id;
+                    updateUIState({ selectedNodeId: intersect.id });
                 } else {
                     STATE.selectedNodeId = null;
+                    updateUIState({ selectedNodeId: null });
                 }
             } else if (STATE.activeTool === 'delete') {
                 if (intersect.type === 'service') deleteObject(intersect.id);
@@ -116,12 +129,15 @@ export function createInputController({ container }) {
                 if (intersect.type === 'service' || intersect.type === 'internet') {
                     if (!STATE.selectedNodeId) {
                         STATE.selectedNodeId = intersect.id;
+                        updateUIState({ selectedNodeId: intersect.id });
                     } else {
                         createConnection(STATE.selectedNodeId, intersect.id);
                         STATE.selectedNodeId = null;
+                        updateUIState({ selectedNodeId: null });
                     }
                 } else {
                     STATE.selectedNodeId = null;
+                    updateUIState({ selectedNodeId: null });
                 }
             } else if (intersect.type === 'ground') {
                 createService(STATE.activeTool, snapToGrid(intersect.pos));

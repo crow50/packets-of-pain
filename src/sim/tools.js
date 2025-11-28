@@ -1,4 +1,5 @@
 import { connectionGroup } from "../render/scene.js";
+import { resolveState, syncLegacyState } from "../core/stateBridge.js";
 
 const TOOL_ID_MAP = {
     waf: 'tool-waf',
@@ -7,14 +8,6 @@ const TOOL_ID_MAP = {
     database: 'tool-db',
     objectStorage: 'tool-objstore'
 };
-
-// Resolve state from overloaded args - supports both legacy and engine-aware calls
-function resolveState(arg1) {
-    if (arg1 && arg1.simulation && arg1.ui) {
-        return arg1;
-    }
-    return STATE;
-}
 
 function getEntityFromState(state, id) {
     const sim = state.simulation || state;
@@ -30,6 +23,15 @@ export function getToolId(toolName) {
 export function setTool(toolName) {
     STATE.activeTool = toolName;
     STATE.selectedNodeId = null;
+
+    const resolved = resolveState();
+    const ui = resolved?.ui || resolved;
+    if (ui) {
+        ui.activeTool = toolName;
+        ui.selectedNodeId = null;
+        syncLegacyState(resolved);
+    }
+
     document.querySelectorAll('.service-btn').forEach(b => b.classList.remove('active'));
     const toolButton = document.getElementById(getToolId(toolName));
     if (toolButton) toolButton.classList.add('active');
@@ -69,6 +71,7 @@ export function createService(arg1, arg2, arg3) {
     sim.money -= serviceConfig.cost;
     sim.services.push(new Service(type, pos));
     (ui.sound || STATE.sound)?.playPlace?.();
+    syncLegacyState(state);
 }
 
 export function createConnection(arg1, arg2, arg3) {
@@ -101,6 +104,7 @@ export function createConnection(arg1, arg2, arg3) {
     const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
     sim.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
     (ui.sound || STATE.sound)?.playConnect?.();
+    syncLegacyState(state);
 }
 
 export function deleteLink(arg1, arg2) {
@@ -130,6 +134,7 @@ export function deleteLink(arg1, arg2) {
 
     sim.connections = sim.connections.filter(c => c.id !== link.id);
     (ui.sound || STATE.sound)?.playDelete?.();
+    syncLegacyState(state);
 }
 
 export function deleteObject(arg1, arg2) {
@@ -151,4 +156,5 @@ export function deleteObject(arg1, arg2) {
     sim.services = sim.services.filter(s => s.id !== id);
     sim.money += Math.floor(svc.config.cost / 2);
     (ui.sound || STATE.sound)?.playDelete?.();
+    syncLegacyState(state);
 }
