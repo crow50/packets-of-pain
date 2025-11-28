@@ -1,12 +1,19 @@
+/**
+ * config.js - Global configuration (loaded as a regular script for backward compatibility)
+ * 
+ * NOTE: For new code, import from config/serviceCatalog.js directly for service definitions.
+ * This file maintains the legacy CONFIG and TRAFFIC_TYPES globals.
+ */
+
 const TRAFFIC_TYPES = {
-    WEB: 'WEB',     // Requires S3 (Simpler, lower reward)
-    API: 'API',     // Requires RDS (Complex, higher reward)
-    FRAUD: 'FRAUD',  // Must be blocked by WAF
-    MALICIOUS: 'MALICIOUS', // Must be blocked by Firewall or WAF
-    OUTBOUND: 'OUTBOUND', // For future use
-    INBOUND: 'INBOUND', // For future use
-    REQUEST: 'REQUEST', // For future use
-    RESPONSE: 'RESPONSE' // For future use
+    WEB: 'WEB',
+    API: 'API',
+    FRAUD: 'FRAUD',
+    MALICIOUS: 'MALICIOUS',
+    OUTBOUND: 'OUTBOUND',
+    INBOUND: 'INBOUND',
+    REQUEST: 'REQUEST',
+    RESPONSE: 'RESPONSE'
 };
 
 const CONFIG = {
@@ -22,33 +29,6 @@ const CONFIG = {
         requestApi: 0xffa500, // Orange
         requestFraud: 0xff00ff, // Pink
         requestFail: 0xef4444
-    },
-    services: {
-        // Generic Devices
-        modem: { name: "Modem", cost: 25, type: 'modem', processingTime: 100, capacity: 2, upkeep: 2 },
-        switch: { name: "Switch", cost: 30, type: 'switch', processingTime: 200, capacity: 10, upkeep: 2 },
-        firewall: { name: "Firewall", cost: 75, type: 'firewall', processingTime: 50, capacity: 20, upkeep: 10 },
-
-        // Cloud Services
-        waf: { name: "Web Application Firewall", cost: 50, type: 'waf', processingTime: 20, capacity: 100, upkeep: 5 },
-        loadBalancer: { name: "Load Balancer", cost: 50, type: 'loadBalancer', processingTime: 50, capacity: 50, upkeep: 8 },
-        compute: {
-            name: "Compute Node", cost: 100, type: 'compute', processingTime: 600, capacity: 5, upkeep: 15,
-            tiers: [
-                { level: 1, capacity: 5, cost: 0 },
-                { level: 2, capacity: 15, cost: 200 },
-                { level: 3, capacity: 25, cost: 250 }
-            ]
-        },
-        database: {
-            name: "Database", cost: 200, type: 'database', processingTime: 300, capacity: 20, upkeep: 30,
-            tiers: [
-                { level: 1, capacity: 10, cost: 0 },
-                { level: 2, capacity: 30, cost: 400 },
-                { level: 3, capacity: 50, cost: 600 }
-            ]
-        },
-        objectStorage: { name: "Object Storage", cost: 25, type: 'objectStorage', processingTime: 200, capacity: 100, upkeep: 5 }
     },
     survival: {
         startBudget: 2000,

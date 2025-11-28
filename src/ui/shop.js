@@ -1,47 +1,33 @@
 import { LEVELS } from "../levels.js";
 import { GameContext, applyToolbarWhitelist } from "../sim/economy.js";
 
-const SHOP_DEFAULT_ORDER = ['modem', 'firewall', 'switch', 'waf', 'loadBalancer', 'compute', 'database', 'objectStorage'];
+const { getServiceType, SHOP_ORDER } = window.ServiceCatalog;
+const SHOP_DEFAULT_ORDER = SHOP_ORDER;
 const CAMPAIGN_HUB_SHOP_ORDER = ['modem', 'firewall', 'waf'];
 const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['modem', 'waf'];
 
-const SERVICE_SUBTITLES = {
-    modem: 'Edge',
-    firewall: 'Perimeter',
-    switch: 'Aggregator',
-    waf: 'Security',
-    loadBalancer: 'Routing',
-    compute: 'CPU',
-    database: 'Persistence',
-    objectStorage: 'Files'
-};
-
-const SERVICE_ICON = {
-    modem: '⌂',
-    firewall: '⛨',
-    switch: '⇄',
-    waf: '🛡️',
-    loadBalancer: '⚙',
-    compute: '☐',
-    database: '◯',
-    objectStorage: '⬡'
-};
-
 export function buildShopButton(type) {
-    const service = CONFIG.services[type];
-    if (!service) return null;
+    // Use service catalog as single source of truth
+    const catalogEntry = getServiceType(type);
+    if (!catalogEntry) return null;
+    
+    // Get display properties from catalog
+    const displayName = catalogEntry.label;
+    const cost = catalogEntry.baseCost;
+    const subtitle = catalogEntry.subtitle;
+    const icon = catalogEntry.icon;
+    
     const button = document.createElement('button');
     button.id = `tool-${type}`;
     button.dataset.toolId = type;
-    button.dataset.toolName = service.name;
+    button.dataset.toolName = displayName;
     button.className = 'service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent relative transition hover:border-white/40';
     button.onclick = () => window.setTool(type);
-    const icon = SERVICE_ICON[type] || type.charAt(0).toUpperCase();
     button.innerHTML = `
-        <div class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">$${service.cost}</div>
+        <div class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">$${cost}</div>
         <div class="text-2xl leading-none">${icon}</div>
-        <span class="text-[10px] font-bold mt-1 leading-tight">${service.name}</span>
-        <span class="text-[8px] text-gray-400 leading-tight">${SERVICE_SUBTITLES[type] || 'Service'}</span>
+        <span class="text-[10px] font-bold mt-1 leading-tight">${displayName}</span>
+        <span class="text-[8px] text-gray-400 leading-tight">${subtitle}</span>
     `;
     return button;
 }

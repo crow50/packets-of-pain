@@ -1,5 +1,7 @@
 import { camera, renderer, serviceGroup, connectionGroup, internetMesh } from "./scene.js";
 
+const { getServiceType, getCapacityForTier } = window.ServiceCatalog;
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -90,17 +92,38 @@ export function updateTooltip() {
         if (i.type === 'service') {
             const svc = sim?.services?.find(s => s.id === id);
             if (svc) {
+                // Get display info from service catalog
+                const catalogEntry = getServiceType(svc.type);
+                const displayName = catalogEntry?.label ?? svc.config?.name ?? svc.type;
+                const upkeep = catalogEntry?.upkeepPerTick ?? svc.config?.upkeep ?? 0;
+                const processingTime = catalogEntry?.processingTime ?? svc.config?.processingTime ?? 100;
+                const capacity = getCapacityForTier(svc.type, svc.tier || 1);
+                const maxTiers = catalogEntry?.tiers?.length || 1;
+                
                 const loadPct = Math.round(svc.totalLoad * 100);
                 const loadColor = loadPct > 80 ? 'text-red-400' : (loadPct > 50 ? 'text-yellow-400' : 'text-green-400');
 
+                // Build traffic handling summary
+                const accepts = catalogEntry?.accepts?.join(', ') || 'All';
+                const blocks = catalogEntry?.blocks?.length ? catalogEntry.blocks.join(', ') : 'None';
+                const terminalFor = catalogEntry?.terminalFor?.length ? catalogEntry.terminalFor.join(', ') : 'None';
+
                 content += `
                     <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
-                        <span class="text-gray-400">Type:</span> <span class="text-white capitalize">${svc.type}</span>
-                        <span class="text-gray-400">Tier:</span> <span class="text-white">${svc.tier || 1}</span>
+                        <span class="text-gray-400">Type:</span> <span class="text-white capitalize">${displayName}</span>
+                        <span class="text-gray-400">Tier:</span> <span class="text-white">${svc.tier || 1}/${maxTiers}</span>
+                        <span class="text-gray-400">Capacity:</span> <span class="text-white">${capacity}</span>
                         <span class="text-gray-400">Load:</span> <span class="${loadColor}">${loadPct}%</span>
                         <span class="text-gray-400">Queue:</span> <span class="text-white">${svc.queue.length}/20</span>
                         <span class="text-gray-400">Proc:</span> <span class="text-white">${svc.processing.length}/${svc.config.capacity}</span>
+                        <span class="text-gray-400">Speed:</span> <span class="text-white">${processingTime}ms</span>
+                        <span class="text-gray-400">Upkeep:</span> <span class="text-yellow-400">$${(upkeep / 60).toFixed(2)}/s</span>
                         <span class="text-gray-400">Links:</span> <span class="text-white">${svc.connections.length}</span>
+                    </div>
+                    <div class="mt-1 pt-1 border-t border-gray-600 text-[9px]">
+                        <div><span class="text-gray-400">Accepts:</span> <span class="text-cyan-300">${accepts}</span></div>
+                        ${blocks !== 'None' ? `<div><span class="text-gray-400">Blocks:</span> <span class="text-red-300">${blocks}</span></div>` : ''}
+                        ${terminalFor !== 'None' ? `<div><span class="text-gray-400">Terminal:</span> <span class="text-green-300">${terminalFor}</span></div>` : ''}
                     </div>
                 `;
             }

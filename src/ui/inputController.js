@@ -159,6 +159,8 @@ export function createInputController({ container }) {
         }
     }
 
+    let hudHidden = false;
+    
     function onKeyDown(e) {
         const key = e.key.toLowerCase();
         if (key === 'r') {
@@ -166,18 +168,30 @@ export function createInputController({ container }) {
         } else if (key === 't') {
             toggleCameraMode();
         } else if (key === 'h') {
-            // Toggle all HUD panels
-            const panels = [
+            // Toggle HUD visibility state
+            hudHidden = !hudHidden;
+            
+            // Panels that should be shown when HUD is visible
+            const normalPanels = [
                 'statsPanel',
                 'detailsPanel', 
-                'level-instructions-panel',
                 'time-control-panel',
                 'objectivesPanel',
-                'shop-panel'
+                'bottom-toolbar'
             ];
-            panels.forEach(id => {
+            
+            // Panels that have their own visibility logic (campaign-specific)
+            // Don't touch level-instructions-panel - it's managed by campaign mode
+            
+            normalPanels.forEach(id => {
                 const panel = document.getElementById(id);
-                panel?.classList.toggle('hidden');
+                if (panel) {
+                    if (hudHidden) {
+                        panel.classList.add('hidden');
+                    } else {
+                        panel.classList.remove('hidden');
+                    }
+                }
             });
         }
     }

@@ -1,5 +1,7 @@
 import { connectionGroup } from "../render/scene.js";
 
+const { getServiceType } = window.ServiceCatalog;
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -68,16 +70,18 @@ export function createService(arg1, arg2, arg3) {
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
-    const serviceConfig = CONFIG.services[type];
-    if (!serviceConfig) return;
+    // Use service catalog as single source of truth
+    const catalogEntry = getServiceType(type);
+    if (!catalogEntry) return;
+    const baseCost = catalogEntry.baseCost;
 
-    if (sim.money < serviceConfig.cost) {
+    if (sim.money < baseCost) {
         flashMoney();
         return;
     }
     if (sim.services.find(s => s.position.distanceTo(pos) < 1)) return;
 
-    sim.money -= serviceConfig.cost;
+    sim.money -= baseCost;
     sim.services.push(new Service(type, pos));
     ui.sound?.playPlace?.();
 }
