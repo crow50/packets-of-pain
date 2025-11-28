@@ -117,12 +117,27 @@ class Service {
         this.mesh.receiveShadow = true;
         this.mesh.userData = { id: this.id };
 
+        // Load ring - shows utilization/capacity heat
         const ringGeo = new THREE.RingGeometry(2.5, 2.7, 32);
         const ringMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
         this.loadRing = new THREE.Mesh(ringGeo, ringMat);
         this.loadRing.rotation.x = -Math.PI / 2;
         this.loadRing.position.y = -this.mesh.position.y + 0.1;
         this.mesh.add(this.loadRing);
+
+        // Selection ring - shows when selected or linking (separate from load colors)
+        const selGeo = new THREE.RingGeometry(2.8, 3.1, 32);
+        const selMat = new THREE.MeshBasicMaterial({ 
+            color: 0xffffff, 
+            side: THREE.DoubleSide, 
+            transparent: true, 
+            opacity: 0.45 
+        });
+        this.selectionRing = new THREE.Mesh(selGeo, selMat);
+        this.selectionRing.rotation.x = -Math.PI / 2;
+        this.selectionRing.position.y = -this.mesh.position.y + 0.05;
+        this.selectionRing.visible = false;
+        this.mesh.add(this.selectionRing);
 
         this.tier = 1;
         this.tierRings = [];
@@ -322,6 +337,17 @@ class Service {
         // Scale load ring based on utilization
         const ringScale = 0.5 + (util * 0.5);
         this.loadRing.scale.set(ringScale, ringScale, 1);
+        
+        // Update selection ring visibility (separate from load colors)
+        const ui = engine?.getUIState();
+        if (this.selectionRing && ui) {
+            const isSelected = this.id === ui.selectedNodeId;
+            const isLinkSource = this.id === ui.linkSourceId;
+            const isLinkCandidate = ui.activeTool === 'connect' && 
+                                    ui.linkSourceId && 
+                                    ui.hovered?.id === this.id;
+            this.selectionRing.visible = isSelected || isLinkSource || isLinkCandidate;
+        }
     }
 
     get totalLoad() {

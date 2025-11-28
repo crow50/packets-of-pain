@@ -21,14 +21,6 @@ const GameContext = {
 };
 window.GameContext = GameContext;
 
-function getMoneyDisplay() {
-    return document.getElementById('money-display');
-}
-
-function getRepBar() {
-    return document.getElementById('rep-bar');
-}
-
 function ensureToolbarList(list) {
     if (!Array.isArray(list)) return [];
     return list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
@@ -75,10 +67,6 @@ export function setBudget(arg1, arg2) {
     const sim = state.simulation || state;
 
     sim.money = value;
-    const display = getMoneyDisplay();
-    if (display) {
-        display.innerText = `$${sim.money.toFixed(2)}`;
-    }
 }
 
 export function resetSatisfaction(arg1) {
@@ -88,12 +76,6 @@ export function resetSatisfaction(arg1) {
     const sim = state.simulation || state;
 
     sim.reputation = 100;
-    const repBar = getRepBar();
-    if (repBar) {
-        repBar.style.width = '100%';
-        repBar.classList.remove('bg-red-500', 'bg-yellow-500');
-        repBar.classList.add('bg-green-500');
-    }
 }
 
 export function resetScore(arg1) {
@@ -106,16 +88,6 @@ export function resetScore(arg1) {
     sim.score.web = 0;
     sim.score.api = 0;
     sim.score.fraudBlocked = 0;
-    
-    // Update UI
-    const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = value;
-    };
-    setText('total-score-display', 0);
-    setText('score-web', 0);
-    setText('score-api', 0);
-    setText('score-fraud', 0);
 }
 
 
@@ -128,37 +100,9 @@ export function setTimeScale(arg1, arg2) {
     const ui = state.ui || state;
 
     ui.timeScale = s;
-    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-
-    const btnPause = document.getElementById('btn-pause');
-    const btnPlay = document.getElementById('btn-play');
-    const btnFast = document.getElementById('btn-fast');
-
-    if (s === 0) {
-        btnPause?.classList.add('active');
-        btnPlay?.classList.add('pulse-green');
-    } else if (s === 1) {
-        btnPlay?.classList.add('active');
-        btnPlay?.classList.remove('pulse-green');
-    } else if (s === 3) {
-        btnFast?.classList.add('active');
-        btnPlay?.classList.remove('pulse-green');
-    }
+    window.dispatchEvent(new CustomEvent('pop-timeScaleChanged', { detail: { scale: s } }));
 }
-window.setTimeScale = setTimeScale;
 
-export function applyToolbarWhitelist(list = []) {
-    GameContext.toolbarWhitelist = list;
-    const normalized = ensureToolbarList(list);
-    document.querySelectorAll('[data-tool-name]').forEach(btn => {
-        const name = btn.dataset.toolName ? btn.dataset.toolName.toLowerCase() : '';
-        const id = btn.dataset.toolId ? btn.dataset.toolId.toLowerCase() : '';
-        const allowed = normalized.length === 0 || normalized.includes(name) || normalized.includes(id);
-        btn.disabled = !allowed;
-        btn.classList.toggle('opacity-40', !allowed);
-    });
-}
-window.applyToolbarWhitelist = applyToolbarWhitelist;
 
 export function setTrafficProfile(arg1, arg2) {
     // Overload: setTrafficProfile(profile) OR setTrafficProfile(state, profile)
@@ -192,3 +136,5 @@ export function setTrafficProfile(arg1, arg2) {
 }
 
 export { GameContext };
+
+window.setTimeScale = setTimeScale;

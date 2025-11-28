@@ -51,6 +51,7 @@ function createInitialState(config = {}) {
     const ui = {
         activeTool: 'select',
         selectedNodeId: null,
+        linkSourceId: null,  // First node selected in connect mode
         hovered: null,
         timeScale: config.initialTimeScale ?? 1,
         isRunning: true,
@@ -136,6 +137,9 @@ export function createEngine(config = {}) {
         },
         setSelectedNode(id) {
             state.ui.selectedNodeId = id;
+        },
+        setLinkSource(id) {
+            state.ui.linkSourceId = id;
         },
         setHovered(hoverInfo) {
             state.ui.hovered = hoverInfo;

@@ -15,6 +15,7 @@ import { updateSimulationHud, showGameOverModal, init as initHudController } fro
 import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
 import { initHudMenu } from "./ui/menuController.js";
+import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 
 function renderScene() {
@@ -134,6 +135,7 @@ function createRuntime() {
 export function bootstrap() {
     initGame();
     initHudMenu(); // Initialize hamburger menu
+    initTimeControls();
     const runtime = createRuntime();
 
     window.__POP_RUNTIME__ = runtime;

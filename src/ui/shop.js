@@ -1,5 +1,6 @@
 import { LEVELS } from "../levels.js";
-import { GameContext, applyToolbarWhitelist } from "../sim/economy.js";
+import { GameContext } from "../sim/economy.js";
+import { applyToolbarWhitelist } from "./toolbarController.js";
 
 const { getServiceType, SHOP_ORDER } = window.ServiceCatalog;
 const SHOP_DEFAULT_ORDER = SHOP_ORDER;
