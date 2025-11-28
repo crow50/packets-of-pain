@@ -52,6 +52,43 @@ const CONFIG = {
             FRAUD_PASSED_REPUTATION: -5,
             FRAUD_BLOCKED_SCORE: 5
         }
+    },
+    sandbox: {
+        defaultBudget: 5000,
+        defaultRPS: 1.0,
+        burstCount: 10,
+        trafficDistribution: {
+            [TRAFFIC_TYPES.WEB]: 0.50,
+            [TRAFFIC_TYPES.API]: 0.40,
+            [TRAFFIC_TYPES.FRAUD]: 0.10
+        },
+        presets: {
+            balanced: {
+                name: 'Balanced',
+                rps: 1.0,
+                distribution: { [TRAFFIC_TYPES.WEB]: 0.50, [TRAFFIC_TYPES.API]: 0.40, [TRAFFIC_TYPES.FRAUD]: 0.10 }
+            },
+            highLoad: {
+                name: 'High Load',
+                rps: 3.0,
+                distribution: { [TRAFFIC_TYPES.WEB]: 0.50, [TRAFFIC_TYPES.API]: 0.45, [TRAFFIC_TYPES.FRAUD]: 0.05 }
+            },
+            fraudAttack: {
+                name: 'Fraud Attack',
+                rps: 2.0,
+                distribution: { [TRAFFIC_TYPES.WEB]: 0.20, [TRAFFIC_TYPES.API]: 0.20, [TRAFFIC_TYPES.FRAUD]: 0.60 }
+            },
+            apiHeavy: {
+                name: 'API Heavy',
+                rps: 1.5,
+                distribution: { [TRAFFIC_TYPES.WEB]: 0.20, [TRAFFIC_TYPES.API]: 0.70, [TRAFFIC_TYPES.FRAUD]: 0.10 }
+            },
+            webHeavy: {
+                name: 'Web Heavy',
+                rps: 1.5,
+                distribution: { [TRAFFIC_TYPES.WEB]: 0.70, [TRAFFIC_TYPES.API]: 0.20, [TRAFFIC_TYPES.FRAUD]: 0.10 }
+            }
+        }
     }
 };
 

@@ -234,7 +234,10 @@ class Service {
         const state = engine?.getState();
         const routing = window.Routing;
         
-        if (sim) sim.money -= (this.config.upkeep / 60) * dt;
+        // Only charge upkeep if enabled (disabled in sandbox mode)
+        if (sim && sim.upkeepEnabled !== false) {
+            sim.money -= (this.config.upkeep / 60) * dt;
+        }
 
         this.processQueue(dt);
         

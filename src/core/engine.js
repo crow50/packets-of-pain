@@ -14,6 +14,8 @@ const FAILURE_COPY = {
 };
 
 function createInitialState(config = {}) {
+    const isSandbox = config.mode === 'sandbox';
+    
     const simulation = {
         time: 0,
         reputation: config.startReputation ?? 100,
@@ -39,7 +41,11 @@ function createInitialState(config = {}) {
         trafficProfile: config.trafficProfile ?? null,
         metrics: {
             droppedByReason: {}
-        }
+        },
+        // Sandbox-specific fields (defaults from config or gameConfig)
+        upkeepEnabled: config.upkeepEnabled ?? !isSandbox,
+        trafficDistribution: config.trafficDistribution ?? null,
+        burstCount: config.burstCount ?? 10
     };
 
     const ui = {
@@ -103,11 +109,14 @@ export function createEngine(config = {}) {
 
         gameTick(state, deltaSeconds);
 
-        const failure = evaluateFailure(state.simulation);
-        if (failure) {
-            running = false;
-            state.ui.isRunning = false;
-            return { status: "gameover", failure };
+        // Skip game over evaluation in sandbox mode
+        if (state.ui.gameMode !== 'sandbox') {
+            const failure = evaluateFailure(state.simulation);
+            if (failure) {
+                running = false;
+                state.ui.isRunning = false;
+                return { status: "gameover", failure };
+            }
         }
 
         return { status: "running" };
@@ -186,6 +195,35 @@ export function createEngine(config = {}) {
         },
         getFailureCopy(reasonType) {
             return FAILURE_COPY[reasonType] || null;
+        },
+        
+        // Sandbox API methods
+        setSandboxBudget(amount) {
+            state.simulation.money = amount;
+        },
+        setRPS(rps) {
+            state.simulation.currentRPS = rps;
+        },
+        setTrafficDistribution(distribution) {
+            state.simulation.trafficDistribution = distribution;
+        },
+        toggleUpkeep(enabled) {
+            state.simulation.upkeepEnabled = enabled;
+        },
+        setBurstCount(count) {
+            state.simulation.burstCount = count;
+        },
+        clearAllServices() {
+            const sim = state.simulation;
+            // Remove all services
+            while (sim.services.length > 0) {
+                deleteObject(state, sim.services[0].id);
+            }
+            // Clear all requests
+            sim.requests.length = 0;
+            // Reset metrics
+            sim.metrics.droppedByReason = {};
+            sim.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
         }
     };
 }

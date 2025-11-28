@@ -140,9 +140,10 @@ window.removeRequest = removeRequest;
 window.finishRequest = finishRequest;
 window.failRequest = failRequest;
 
-function getTrafficType() {
+function getTrafficType(sim) {
     const r = Math.random();
-    const dist = CONFIG.survival.trafficDistribution;
+    // Use sim.trafficDistribution if set (sandbox), otherwise fall back to survival config
+    const dist = sim?.trafficDistribution || CONFIG.survival.trafficDistribution;
     if (r < dist[TRAFFIC_TYPES.WEB]) return TRAFFIC_TYPES.WEB;
     if (r < dist[TRAFFIC_TYPES.WEB] + dist[TRAFFIC_TYPES.API]) return TRAFFIC_TYPES.API;
     return TRAFFIC_TYPES.FRAUD;
@@ -152,7 +153,7 @@ function spawnRequest(state) {
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
-    let type = getTrafficType();
+    let type = getTrafficType(sim);
     const trafficProfile = sim.trafficProfile || GameContext.trafficProfile;
     const gameMode = ui.gameMode || 'sandbox';
     
@@ -179,6 +180,32 @@ function spawnRequest(state) {
             req.flyTo(target);
         } else failRequest(state, req);
     } else failRequest(state, req);
+}
+
+// Spawn a burst of requests of a specific type (for sandbox testing)
+export function spawnBurstOfType(state, type, count) {
+    const sim = state.simulation || state;
+    const conns = sim.internetNode.connections;
+    
+    for (let i = 0; i < count; i++) {
+        const req = new Request(type);
+        sim.requests.push(req);
+        
+        if (conns.length > 0) {
+            const entryNodes = conns.map(id => sim.services.find(s => s.id === id));
+            const wafEntry = entryNodes.find(s => s && s.type === 'waf');
+            const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
+
+            if (target) {
+                req.lastNodeId = 'internet';
+                req.flyTo(target);
+            } else {
+                failRequest(state, req);
+            }
+        } else {
+            failRequest(state, req);
+        }
+    }
 }
 
 export function initTrafficForMode(arg1, arg2) {
