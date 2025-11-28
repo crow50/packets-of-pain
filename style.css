@@ -186,10 +186,6 @@ body {
     }
 }
 
-body.campaign-mode #objectivesPanel {
-    display: none;
-}
-
 body.campaign-mode #level-instructions-panel {
     top: auto;
     right: auto;

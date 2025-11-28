@@ -15,6 +15,7 @@ import { updateSimulationHud, showGameOverModal, init as initHudController } fro
 import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
 import { initHudMenu } from "./ui/menuController.js";
+import { initSandboxControls } from "./ui/sandboxController.js";
 
 function renderScene() {
     if (!renderer || !scene || !camera) return;
@@ -32,15 +33,26 @@ function handleFrameSideEffects(engine, stepResult) {
 
 function buildEngineConfig(modeConfig) {
     const isCampaign = modeConfig.mode === GAME_MODES.CAMPAIGN;
+    const isSandbox = modeConfig.mode === GAME_MODES.SANDBOX;
     const initialTimeScale = typeof modeConfig.initialTimeScale === "number" ? modeConfig.initialTimeScale : 0;
-    return {
+    
+    const baseConfig = {
         mode: modeConfig.mode || GAME_MODES.SANDBOX,
-        startBudget: isCampaign ? 0 : CONFIG.survival.startBudget,
+        startBudget: isCampaign ? 0 : (isSandbox ? CONFIG.sandbox.defaultBudget : CONFIG.survival.startBudget),
         startReputation: 100,
-        baseRPS: CONFIG.survival.baseRPS,
+        baseRPS: isSandbox ? CONFIG.sandbox.defaultRPS : CONFIG.survival.baseRPS,
         initialTimeScale,
         trafficProfile: modeConfig.trafficProfile || null
     };
+    
+    // Add sandbox-specific config
+    if (isSandbox) {
+        baseConfig.upkeepEnabled = false;
+        baseConfig.trafficDistribution = CONFIG.sandbox.trafficDistribution;
+        baseConfig.burstCount = CONFIG.sandbox.burstCount;
+    }
+    
+    return baseConfig;
 }
 
 function hydrateModeState(modeConfig) {
@@ -85,6 +97,7 @@ function createRuntime() {
             initInteractionsModule(engine);
             initHudController(engine);
             initInputController(engine);
+            initSandboxControls(engine); // Initialize sandbox controls (shows panel only in sandbox mode)
             
             // Link the internet mesh to engine's internetNode after both exist
             linkInternetMesh(engine.getSimulation()?.internetNode);
