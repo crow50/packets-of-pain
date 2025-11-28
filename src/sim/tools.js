@@ -1,12 +1,24 @@
 import { connectionGroup } from "../render/scene.js";
-import { resolveState, syncLegacyState } from "../core/stateBridge.js";
+
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
+function resolveState(arg) {
+    if (arg && (arg.simulation || arg.ui)) return arg;
+    const engine = getEngine();
+    return engine ? engine.getState() : null;
+}
 
 const TOOL_ID_MAP = {
     waf: 'tool-waf',
-    loadBalancer: 'tool-lb',
+    loadBalancer: 'tool-loadBalancer',
     compute: 'tool-compute',
-    database: 'tool-db',
-    objectStorage: 'tool-objstore'
+    database: 'tool-database',
+    objectStorage: 'tool-objectStorage',
+    modem: 'tool-modem',
+    firewall: 'tool-firewall',
+    switch: 'tool-switch'
 };
 
 function getEntityFromState(state, id) {
@@ -14,23 +26,19 @@ function getEntityFromState(state, id) {
     return id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id);
 }
 
-const getEntity = (id) => getEntityFromState(STATE, id);
+const getEntity = (id) => {
+    const state = resolveState();
+    return state ? getEntityFromState(state, id) : null;
+};
 
 export function getToolId(toolName) {
     return TOOL_ID_MAP[toolName] || `tool-${toolName}`;
 }
 
 export function setTool(toolName) {
-    STATE.activeTool = toolName;
-    STATE.selectedNodeId = null;
-
-    const resolved = resolveState();
-    const ui = resolved?.ui || resolved;
-    if (ui) {
-        ui.activeTool = toolName;
-        ui.selectedNodeId = null;
-        syncLegacyState(resolved);
-    }
+    const engine = getEngine();
+    engine?.setActiveTool(toolName);
+    engine?.setSelectedNode(null);
 
     document.querySelectorAll('.service-btn').forEach(b => b.classList.remove('active'));
     const toolButton = document.getElementById(getToolId(toolName));
@@ -56,6 +64,7 @@ export function createService(arg1, arg2, arg3) {
     const type = hasState ? arg2 : arg1;
     const pos = hasState ? arg3 : arg2;
 
+    if (!state) return;
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
@@ -70,8 +79,7 @@ export function createService(arg1, arg2, arg3) {
 
     sim.money -= serviceConfig.cost;
     sim.services.push(new Service(type, pos));
-    (ui.sound || STATE.sound)?.playPlace?.();
-    syncLegacyState(state);
+    ui.sound?.playPlace?.();
 }
 
 export function createConnection(arg1, arg2, arg3) {
@@ -82,6 +90,7 @@ export function createConnection(arg1, arg2, arg3) {
     const toId = hasState ? arg3 : arg2;
 
     if (fromId === toId) return;
+    if (!state) return;
 
     const sim = state.simulation || state;
     const ui = state.ui || state;
@@ -103,8 +112,7 @@ export function createConnection(arg1, arg2, arg3) {
 
     const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
     sim.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
-    (ui.sound || STATE.sound)?.playConnect?.();
-    syncLegacyState(state);
+    ui.sound?.playConnect?.();
 }
 
 export function deleteLink(arg1, arg2) {
@@ -113,7 +121,7 @@ export function deleteLink(arg1, arg2) {
     const state = resolveState(arg1);
     const link = hasState ? arg2 : arg1;
 
-    if (!link) return;
+    if (!link || !state) return;
 
     const sim = state.simulation || state;
     const ui = state.ui || state;
@@ -133,8 +141,7 @@ export function deleteLink(arg1, arg2) {
     link.mesh.material.dispose();
 
     sim.connections = sim.connections.filter(c => c.id !== link.id);
-    (ui.sound || STATE.sound)?.playDelete?.();
-    syncLegacyState(state);
+    ui.sound?.playDelete?.();
 }
 
 export function deleteObject(arg1, arg2) {
@@ -143,6 +150,7 @@ export function deleteObject(arg1, arg2) {
     const state = resolveState(arg1);
     const id = hasState ? arg2 : arg1;
 
+    if (!state) return;
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
@@ -155,6 +163,5 @@ export function deleteObject(arg1, arg2) {
     svc.destroy();
     sim.services = sim.services.filter(s => s.id !== id);
     sim.money += Math.floor(svc.config.cost / 2);
-    (ui.sound || STATE.sound)?.playDelete?.();
-    syncLegacyState(state);
+    ui.sound?.playDelete?.();
 }

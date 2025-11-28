@@ -1,3 +1,7 @@
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
+
 const MAX_HOPS = 16;
 
 class Request {
@@ -17,12 +21,13 @@ class Request {
         const mat = new THREE.MeshBasicMaterial({ color: color });
         this.mesh = new THREE.Mesh(geo, mat);
 
-        this.mesh.position.copy(STATE.internetNode.position);
+        const internetNode = getEngine()?.getSimulation()?.internetNode;
+        this.mesh.position.copy(internetNode?.position || new THREE.Vector3(0, 2, 0));
         this.mesh.position.y = 2;
         requestGroup.add(this.mesh);
 
         this.target = null;
-        this.origin = STATE.internetNode.position.clone();
+        this.origin = internetNode?.position?.clone() || new THREE.Vector3(0, 2, 0);
         this.origin.y = 2;
         this.progress = 0;
         this.isMoving = false;
