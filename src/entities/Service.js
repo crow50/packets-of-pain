@@ -1,3 +1,6 @@
+// Service catalog helpers are available globally via window.ServiceCatalog
+// Routing helpers are available globally via window.Routing
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -12,135 +15,10 @@ function normalizeServiceType(type) {
     }
 }
 
-const ROUTING_BASE_PRIORITY = {
-    [TRAFFIC_TYPES.WEB]: {
-        objectStorage: 120,
-        loadBalancer: 80,
-        compute: 60,
-        switch: 40,
-        firewall: 20,
-        database: -40
-    },
-    [TRAFFIC_TYPES.API]: {
-        database: 120,
-        loadBalancer: 80,
-        compute: 60,
-        switch: 40,
-        objectStorage: -40
-    },
-    [TRAFFIC_TYPES.FRAUD]: {
-        waf: 140,
-        firewall: 100,
-        loadBalancer: 70,
-        switch: 40,
-        compute: 0,
-        database: -40,
-        objectStorage: -40
-    }
-};
-
-const ROUTING_TERMINALS = {
-    [TRAFFIC_TYPES.WEB]: ['objectStorage'],
-    [TRAFFIC_TYPES.API]: ['database']
-};
-
 function getServiceEntity(id) {
     const sim = getEngine()?.getSimulation();
     if (!sim) return null;
     return id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id);
-}
-
-function hasTerminalPath(node, targetTypes, depth = 3, visited = new Set()) {
-    if (!node || depth < 0) return false;
-    if (targetTypes.includes(node.type)) return true;
-    visited.add(node.id);
-
-    for (const nextId of node.connections) {
-        if (nextId === 'internet') continue;
-        const nextNode = getServiceEntity(nextId);
-        if (!nextNode || visited.has(nextNode.id)) continue;
-        const nextVisited = new Set(visited);
-        if (hasTerminalPath(nextNode, targetTypes, depth - 1, nextVisited)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function getQueuePenalty(node) {
-    if (!node || !Array.isArray(node.queue)) return 0;
-    const capacity = node.config?.capacity || 1;
-    return (node.queue.length / capacity) * 10;
-}
-
-function computeRoutingScore(neighbor, req, currentService) {
-    const base = ROUTING_BASE_PRIORITY[req.type]?.[neighbor.type] ?? 0;
-    let score = base;
-
-    const terminalTypes = ROUTING_TERMINALS[req.type] || [];
-    if (terminalTypes.length) {
-        // Seed visited with current service + last hop so we don't
-        // "discover" terminals by going backwards through the node we came from.
-        const visited = new Set();
-        if (currentService && currentService.id) {
-            visited.add(currentService.id);
-        }
-        if (req.lastNodeId) {
-            visited.add(req.lastNodeId);
-        }
-
-        const leadsToTerminal = hasTerminalPath(neighbor, terminalTypes, 3, visited);
-        score += leadsToTerminal ? 90 : -60; // strong bias for correct terminal
-    }
-
-    // Bonus for having already passed compute and now hitting the right terminal
-    if (req.type === TRAFFIC_TYPES.WEB && req.hasCompute && neighbor.type === 'objectStorage') {
-        score += 25;
-    }
-    if (req.type === TRAFFIC_TYPES.API && req.hasCompute && neighbor.type === 'database') {
-        score += 25;
-    }
-
-    // Penalize congestion and over-connected hubs a bit
-    score -= getQueuePenalty(neighbor);
-    score -= neighbor.connections.length * 0.1;
-
-    return score;
-}
-
-function getNextHopForRequest(service, req) {
-    const neighbors = service.connections
-        .map(getServiceEntity)
-        .filter(Boolean)
-        .filter(n => n.id !== req.lastNodeId && n.id !== 'internet');
-
-    if (!neighbors.length) return null;
-
-    const scored = neighbors.map(node => ({
-        node,
-        score: computeRoutingScore(node, req, service)
-    }));
-
-    // Find the best score
-    const maxScore = scored.reduce((max, s) => Math.max(max, s.score), -Infinity);
-    if (!isFinite(maxScore)) return null;
-
-    // Treat scores within EPS of the best as "equally good" and randomize between them
-    const EPS = 5; // tweak if needed
-    let candidates = scored
-        .filter(s => s.score >= maxScore - EPS)
-        .map(s => s.node);
-
-    // Fallback: if something went weird and candidates got emptied, use the strict best
-    if (!candidates.length) {
-        candidates = scored
-            .filter(s => s.score === maxScore)
-            .map(s => s.node);
-    }
-
-    const choice = candidates[Math.floor(Math.random() * candidates.length)];
-    return choice || null;
 }
 
 class Service {
@@ -148,7 +26,27 @@ class Service {
         this.id = 'svc_' + Math.random().toString(36).substr(2, 9);
         this.type = normalizeServiceType(type);
         console.debug('Creating service of type:', this.type);
-        this.config = CONFIG.services[this.type];
+        
+        // Build config from service catalog (single source of truth)
+        const catalog = window.ServiceCatalog;
+        const catalogEntry = catalog?.getServiceType?.(this.type);
+        this.catalogEntry = catalogEntry;
+        
+        // Build config object from catalog
+        if (catalogEntry) {
+            this.config = {
+                name: catalogEntry.label,
+                cost: catalogEntry.baseCost,
+                type: catalogEntry.key,
+                processingTime: catalogEntry.processingTime,
+                capacity: catalog.getCapacityForTier(this.type, 1),
+                upkeep: catalogEntry.upkeepPerTick
+            };
+        } else {
+            console.warn('Service type not found in catalog:', this.type);
+            this.config = { capacity: 1, processingTime: 100, upkeep: 0 };
+        }
+        
         this.position = pos.clone();
         this.queue = [];
         this.processing = [];
@@ -225,21 +123,30 @@ class Service {
     }
 
     upgrade() {
-        if (!['compute', 'database'].includes(this.type)) return;
-        const tiers = CONFIG.services[this.type].tiers;
-        if (this.tier >= tiers.length) return;
+        // Check if this service type supports upgrades via the catalog
+        const catalog = window.ServiceCatalog;
+        if (!catalog?.canUpgrade?.(this.type)) return;
+        
+        const catalogEntry = catalog?.getServiceType?.(this.type);
+        const maxTiers = catalogEntry?.tiers?.length || 1;
+        if (this.tier >= maxTiers) return;
 
         const engine = getEngine();
         const sim = engine?.getSimulation();
         const ui = engine?.getUIState();
         if (!sim) return;
 
-        const nextTier = tiers[this.tier];
-        if (sim.money < nextTier.cost) { flashMoney(); return; }
+        // Get upgrade cost from catalog
+        const upgradeCost = catalog.getUpgradeCost(this.type, this.tier);
+        if (upgradeCost === null) return;
+        if (sim.money < upgradeCost) { flashMoney(); return; }
 
-        sim.money -= nextTier.cost;
+        sim.money -= upgradeCost;
         this.tier++;
-        this.config = { ...this.config, capacity: nextTier.capacity };
+        
+        // Update capacity from catalog
+        const newCapacity = catalog.getCapacityForTier(this.type, this.tier);
+        this.config = { ...this.config, capacity: newCapacity };
         ui?.sound?.playPlace?.();
 
         // Visuals
@@ -254,10 +161,14 @@ class Service {
     }
 
     processQueue() {
+        const catalog = window.ServiceCatalog;
+        const routing = window.Routing;
+        
         while (this.processing.length < this.config.capacity && this.queue.length > 0) {
             const req = this.queue.shift();
 
-            if (this.type === 'waf' && req.type === TRAFFIC_TYPES.FRAUD) {
+            // Use catalog to check if this service blocks this traffic type
+            if (routing?.isBlocked(this.catalogEntry, req.type)) {
                 updateScore(req, 'FRAUD_BLOCKED');
                 removeRequest(req);
                 continue;
@@ -274,7 +185,11 @@ class Service {
     }
 
     update(dt) {
-        const sim = getEngine()?.getSimulation();
+        const engine = getEngine();
+        const sim = engine?.getSimulation();
+        const state = engine?.getState();
+        const routing = window.Routing;
+        
         if (sim) sim.money -= (this.config.upkeep / 60) * dt;
 
         this.processQueue();
@@ -287,7 +202,7 @@ class Service {
                 this.processing.splice(i, 1);
 
                 let failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
-                // Load Balancers are robust and shouldn't fail randomly based on load, only on queue saturation
+                // Load Balancers are robust and shouldn't fail randomly based on load
                 if (this.type === 'loadBalancer') {
                     failChance = 0;
                 }
@@ -297,34 +212,37 @@ class Service {
                     continue;
                 }
 
-                if (this.type === 'objectStorage' && job.req.type === TRAFFIC_TYPES.WEB) {
-                    finishRequest(job.req);
-                    continue;
-                }
-
-                if (this.type === 'database' && job.req.type === TRAFFIC_TYPES.API) {
-                    finishRequest(job.req);
-                    continue;
-                }
-
-                if ((this.type === 'database' && job.req.type === TRAFFIC_TYPES.WEB) ||
-                    (this.type === 'objectStorage' && job.req.type === TRAFFIC_TYPES.API)) {
-                    failRequest(job.req);
-                    continue;
-                }
-
+                // Mark compute flag before routing decision
                 if (this.type === 'compute') {
                     job.req.hasCompute = true;
                 }
 
-                const next = getNextHopForRequest(this, job.req);
-                if (!next) {
+                // Use catalog-driven routing
+                const routeResult = routing?.getNextHop(state, job.req, this);
+                
+                if (!routeResult || routeResult.action === 'DEAD_END') {
                     failRequest(job.req);
                     continue;
                 }
-
-                job.req.lastNodeId = this.id;
-                job.req.flyTo(next);
+                
+                if (routeResult.action === 'BLOCK') {
+                    // Already handled in processQueue, but just in case
+                    updateScore(job.req, 'FRAUD_BLOCKED');
+                    removeRequest(job.req);
+                    continue;
+                }
+                
+                if (routeResult.action === 'TERMINATE') {
+                    finishRequest(job.req);
+                    continue;
+                }
+                
+                if (routeResult.action === 'FORWARD' && routeResult.node) {
+                    job.req.lastNodeId = this.id;
+                    job.req.flyTo(routeResult.node);
+                } else {
+                    failRequest(job.req);
+                }
             }
         }
 
