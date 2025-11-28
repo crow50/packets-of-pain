@@ -5,9 +5,6 @@
  * traffic routing rules, and display metadata. When balancing the game, modify
  * values here rather than hunting across multiple files.
  * 
- * This file works as both a regular script (sets window.ServiceCatalog) and
- * an ES module (exports functions). Load as regular script BEFORE other
- * entity scripts, then ES modules can import from it.
  */
 
 /**

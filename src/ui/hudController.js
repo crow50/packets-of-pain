@@ -1,3 +1,32 @@
+// Module-level engine reference, set via init()
+let _engine = null;
+
+// Track if HUD is hidden by user (H key)
+let _hudHidden = false;
+
+/**
+ * Initialize HUD controller with engine reference
+ * @param {object} engine - The game engine instance
+ */
+export function init(engine) {
+    _engine = engine;
+    _hudHidden = false;
+}
+
+/**
+ * Set HUD visibility state (called by input controller on H key)
+ */
+export function setHudHidden(hidden) {
+    _hudHidden = hidden;
+}
+
+/**
+ * Get current HUD visibility state
+ */
+export function isHudHidden() {
+    return _hudHidden;
+}
+
 export function updateSimulationHud(state) {
     if (!state) return;
 
@@ -37,6 +66,12 @@ function updateTopologyWarnings(sim) {
     const panel = document.getElementById('topology-warnings-panel');
     const list = document.getElementById('topology-warnings-list');
     if (!panel || !list) return;
+    
+    // Respect HUD hidden state
+    if (_hudHidden) {
+        panel.classList.add('hidden');
+        return;
+    }
     
     const warnings = sim?.topologyWarnings?.warnings || [];
     
