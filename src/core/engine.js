@@ -1,5 +1,6 @@
 import { gameTick } from "../sim/traffic.js";
 import { setTrafficProfile } from "../sim/economy.js";
+import { syncLegacyState } from "./stateBridge.js";
 import { createService, createConnection, deleteObject, deleteLink as removeLink } from "../sim/tools.js";
 
 const FAILURE_COPY = {
@@ -91,6 +92,7 @@ function upgradeServiceById(serviceId) {
 
 export function createEngine(config = {}) {
     const state = createInitialState(config);
+    syncLegacyState(state);
     let running = true;
 
     function step(deltaSeconds) {
@@ -102,6 +104,7 @@ export function createEngine(config = {}) {
 
         // TODO: update gameTick signature to accept state
         gameTick(state, deltaSeconds);
+        syncLegacyState(state);
 
         const failure = evaluateFailure(state.simulation);
         if (failure) {
@@ -125,6 +128,7 @@ export function createEngine(config = {}) {
             running = Boolean(value);
             state.ui.isRunning = Boolean(value);
             STATE.isRunning = Boolean(value);
+            syncLegacyState(state);
         },
         placeService(type, position) {
             if (!type) return;
@@ -143,7 +147,7 @@ export function createEngine(config = {}) {
             upgradeServiceById(id);
         },
         setTrafficProfile(profile) {
-            setTrafficProfile(profile);
+            setTrafficProfile(state, profile);
         },
         reset(config) {
             if (typeof window.resetSimulationState === "function") {

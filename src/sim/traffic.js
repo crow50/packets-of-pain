@@ -1,78 +1,115 @@
-function updateReputationBar() {
+import { resolveState, syncLegacyState } from "../core/stateBridge.js";
+
+function updateReputationBar(sim) {
     const bar = document.getElementById('rep-bar');
     if (!bar) return;
-    const clamped = Math.max(0, Math.min(100, STATE.reputation));
+    const reputation = sim?.reputation ?? STATE.reputation;
+    const clamped = Math.max(0, Math.min(100, reputation));
     bar.style.width = `${clamped}%`;
     bar.classList.toggle('bg-red-500', clamped <= 30);
     bar.classList.toggle('bg-yellow-500', clamped > 30 && clamped <= 70);
     bar.classList.toggle('bg-green-500', clamped > 70);
 }
 
-function updateScoreUI() {
+function updateScoreUI(sim) {
+    const score = sim?.score ?? STATE.score;
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.innerText = value;
     };
-    setText('total-score-display', STATE.score.total);
-    setText('score-web', STATE.score.web);
-    setText('score-api', STATE.score.api);
-    setText('score-fraud', STATE.score.fraudBlocked);
-    updateReputationBar();
+    setText('total-score-display', score.total);
+    setText('score-web', score.web);
+    setText('score-api', score.api);
+    setText('score-fraud', score.fraudBlocked);
+    updateReputationBar(sim);
 }
 
-export function updateScore(req, outcome) {
+export function updateScore(arg1, arg2, arg3) {
+    // Overload: updateScore(req, outcome) OR updateScore(state, req, outcome)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const req = hasState ? arg2 : arg1;
+    const outcome = hasState ? arg3 : arg2;
+
+    const sim = state.simulation || state;
+
     const points = CONFIG.survival.SCORE_POINTS;
     if (req && outcome) {
         switch (outcome) {
             case 'COMPLETED':
                 if (req.type === TRAFFIC_TYPES.WEB) {
-                    STATE.score.web += points.WEB_SCORE;
-                    STATE.money += points.WEB_REWARD;
+                    sim.score.web += points.WEB_SCORE;
+                    sim.money += points.WEB_REWARD;
                 } else if (req.type === TRAFFIC_TYPES.API) {
-                    STATE.score.api += points.API_SCORE;
-                    STATE.money += points.API_REWARD;
+                    sim.score.api += points.API_SCORE;
+                    sim.money += points.API_REWARD;
                 }
                 break;
             case 'FAILED':
-                STATE.reputation += points.FAIL_REPUTATION;
+                sim.reputation += points.FAIL_REPUTATION;
                 break;
             case 'FRAUD_PASSED':
-                STATE.reputation += points.FRAUD_PASSED_REPUTATION;
+                sim.reputation += points.FRAUD_PASSED_REPUTATION;
                 break;
             case 'FRAUD_BLOCKED':
-                STATE.score.fraudBlocked += points.FRAUD_BLOCKED_SCORE;
+                sim.score.fraudBlocked += points.FRAUD_BLOCKED_SCORE;
                 break;
         }
-        STATE.reputation = Math.min(100, Math.max(0, STATE.reputation));
-        STATE.score.total = STATE.score.web + STATE.score.api + STATE.score.fraudBlocked;
+        sim.reputation = Math.min(100, Math.max(0, sim.reputation));
+        sim.score.total = sim.score.web + sim.score.api + sim.score.fraudBlocked;
     } else {
-        STATE.score.total = STATE.score.web + STATE.score.api + STATE.score.fraudBlocked;
+        sim.score.total = sim.score.web + sim.score.api + sim.score.fraudBlocked;
     }
-    updateScoreUI();
+    updateScoreUI(sim);
+    syncLegacyState(state);
 }
 
-export function removeRequest(req) {
+export function removeRequest(arg1, arg2) {
+    // Overload: removeRequest(req) OR removeRequest(state, req)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const req = hasState ? arg2 : arg1;
+
+    const sim = state.simulation || state;
+
     if (req && typeof req.destroy === 'function') {
         req.destroy();
     }
-    STATE.requests = STATE.requests.filter(r => r !== req);
-    updateScore();
+    sim.requests = sim.requests.filter(r => r !== req);
+    updateScore(state);
+    syncLegacyState(state);
 }
 
-export function finishRequest(req) {
-    STATE.requestsProcessed++;
-    updateScore(req, 'COMPLETED');
-    removeRequest(req);
+export function finishRequest(arg1, arg2) {
+    // Overload: finishRequest(req) OR finishRequest(state, req)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const req = hasState ? arg2 : arg1;
+
+    const sim = state.simulation || state;
+
+    sim.requestsProcessed++;
+    updateScore(state, req, 'COMPLETED');
+    removeRequest(state, req);
+    syncLegacyState(state);
 }
 
-export function failRequest(req) {
+export function failRequest(arg1, arg2) {
+    // Overload: failRequest(req) OR failRequest(state, req)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const req = hasState ? arg2 : arg1;
+
+    const ui = state.ui || state;
+
     const failType = req.type === TRAFFIC_TYPES.FRAUD ? 'FRAUD_PASSED' : 'FAILED';
-    updateScore(req, failType);
-    STATE.sound.playFail();
+    updateScore(state, req, failType);
+    (ui.sound || STATE.sound)?.playFail?.();
     if (req.mesh && req.mesh.material) {
         req.mesh.material.color.setHex(CONFIG.colors.requestFail);
     }
-    setTimeout(() => removeRequest(req), 500);
+    setTimeout(() => removeRequest(state, req), 500);
+    syncLegacyState(state);
 }
 
 function calculateFailChanceBasedOnLoad(load) {
@@ -96,10 +133,16 @@ function getTrafficType() {
     return TRAFFIC_TYPES.FRAUD;
 }
 
-function spawnRequest() {
+function spawnRequest(state) {
+    const sim = state.simulation || state;
+    const ui = state.ui || state;
+
     let type = getTrafficType();
-    if (isCampaignMode() && GameContext.trafficProfile) {
-        const { userToInternetPps = 0, maliciousRate = 0 } = GameContext.trafficProfile;
+    const trafficProfile = sim.trafficProfile || GameContext.trafficProfile;
+    const gameMode = ui.gameMode || STATE.gameMode;
+    
+    if (gameMode === 'campaign' && trafficProfile) {
+        const { userToInternetPps = 0, maliciousRate = 0 } = trafficProfile;
         const total = userToInternetPps + maliciousRate;
         if (total > 0) {
             const fraudChance = maliciousRate / total;
@@ -109,46 +152,61 @@ function spawnRequest() {
         }
     }
     const req = new Request(type);
-    STATE.requests.push(req);
-    const conns = STATE.internetNode.connections;
+    sim.requests.push(req);
+    const conns = sim.internetNode.connections;
     if (conns.length > 0) {
-        const entryNodes = conns.map(id => STATE.services.find(s => s.id === id));
+        const entryNodes = conns.map(id => sim.services.find(s => s.id === id));
         const wafEntry = entryNodes.find(s => s && s.type === 'waf');
         const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
 
         if (target) {
             req.lastNodeId = 'internet';
             req.flyTo(target);
-        } else failRequest(req);
-    } else failRequest(req);
+        } else failRequest(state, req);
+    } else failRequest(state, req);
+    syncLegacyState(state);
 }
 
-export function initTrafficForMode(mode) {
-    STATE.spawnTimer = 0;
-    STATE.currentRPS = CONFIG.survival.baseRPS;
+export function initTrafficForMode(arg1, arg2) {
+    // Overload: initTrafficForMode(mode) OR initTrafficForMode(state, mode)
+    const hasState = arg1 && (arg1.simulation || arg1.ui);
+    const state = resolveState(arg1);
+    const mode = hasState ? arg2 : arg1;
+
+    const sim = state.simulation || state;
+
+    sim.spawnTimer = 0;
+    sim.currentRPS = CONFIG.survival.baseRPS;
     if (mode === 'campaign') {
-        STATE.currentRPS = CONFIG.survival.baseRPS;
+        sim.currentRPS = CONFIG.survival.baseRPS;
     }
+    syncLegacyState(state);
 }
 
 export function gameTick(arg1, arg2) {
     // Overload: gameTick(delta) OR gameTick(state, delta)
     const hasState = arg1 && (arg1.simulation || arg1.ui);
-    const delta = hasState ? arg2 : arg1;
-    
-    // For now, still use STATE until full migration is complete
-    // TODO: use state.simulation instead of STATE throughout
-    
-    STATE.spawnTimer += delta * STATE.timeScale;
-    if (STATE.currentRPS > 0 && STATE.spawnTimer > 1 / STATE.currentRPS) {
-        spawnRequest();
-        STATE.spawnTimer = 0;
+    const state = resolveState(arg1);
+    const dt = hasState ? arg2 : arg1;
+
+    const sim = state.simulation || state;
+    const ui = state.ui || state;
+
+    const timeScale = ui.timeScale ?? STATE.timeScale ?? 1;
+    const scaledDt = dt * timeScale;
+
+    sim.spawnTimer += scaledDt;
+    if (sim.currentRPS > 0 && sim.spawnTimer > 1 / sim.currentRPS) {
+        spawnRequest(state);
+        sim.spawnTimer = 0;
     }
 
-    if (STATE.gameMode === 'survival') {
-        STATE.currentRPS += CONFIG.survival.rampUp * delta * STATE.timeScale;
+    const gameMode = ui.gameMode || STATE.gameMode;
+    if (gameMode === 'survival') {
+        sim.currentRPS += CONFIG.survival.rampUp * scaledDt;
     }
 
-    STATE.services.forEach(s => s.update(delta * STATE.timeScale));
-    STATE.requests.forEach(r => r.update(delta * STATE.timeScale));
+    sim.services.forEach(s => s.update(scaledDt));
+    sim.requests.forEach(r => r.update(scaledDt));
+    syncLegacyState(state);
 }
