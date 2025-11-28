@@ -51,6 +51,14 @@ class Service {
         this.queue = [];
         this.processing = [];
         this.connections = [];
+        
+        // Load tracking for visualization and metrics
+        this.load = {
+            lastTickProcessed: 0,
+            lastTickCapacity: this.config.capacity,
+            utilization: 0,
+            dropped: 0
+        };
 
         let geo, mat;
         const materialProps = { roughness: 0.2 };
@@ -160,27 +168,63 @@ class Service {
         this.tierRings.push(ring);
     }
 
-    processQueue() {
+    processQueue(dt) {
         const catalog = window.ServiceCatalog;
         const routing = window.Routing;
         
-        while (this.processing.length < this.config.capacity && this.queue.length > 0) {
+        // Capacity is packets per second, scale by dt
+        const capacityPerSec = this.config.capacity;
+        const maxToProcess = Math.max(1, Math.floor(capacityPerSec * dt));
+        let processed = 0;
+        
+        while (processed < maxToProcess && this.processing.length < capacityPerSec && this.queue.length > 0) {
             const req = this.queue.shift();
 
             // Use catalog to check if this service blocks this traffic type
             if (routing?.isBlocked(this.catalogEntry, req.type)) {
                 updateScore(req, 'FRAUD_BLOCKED');
                 removeRequest(req);
+                processed++;
                 continue;
             }
 
             // Prevent re-computing if already computed (pass through)
             if (this.type === 'compute' && req.hasCompute) {
                 this.processing.push({ req: req, timer: this.config.processingTime });
+                processed++;
                 continue;
             }
 
             this.processing.push({ req: req, timer: 0 });
+            processed++;
+        }
+        
+        // Track load metrics
+        this.load.lastTickProcessed = processed;
+        this.load.lastTickCapacity = maxToProcess;
+        
+        // Handle overflow - if queue is too long, drop excess with penalty
+        const maxQueueSize = capacityPerSec * 3; // Allow 3 seconds of backlog
+        if (this.queue.length > maxQueueSize) {
+            const overflow = this.queue.length - maxQueueSize;
+            const engine = getEngine();
+            const sim = engine?.getSimulation();
+            
+            for (let i = 0; i < overflow; i++) {
+                const dropped = this.queue.shift();
+                if (dropped) {
+                    // Track dropped packets
+                    this.load.dropped++;
+                    if (sim?.metrics?.droppedByReason) {
+                        sim.metrics.droppedByReason.overload = (sim.metrics.droppedByReason.overload || 0) + 1;
+                    }
+                    // Small rep penalty for overload drops
+                    if (sim) {
+                        sim.reputation = Math.max(0, sim.reputation - 0.5);
+                    }
+                    removeRequest(dropped);
+                }
+            }
         }
     }
 
@@ -192,7 +236,12 @@ class Service {
         
         if (sim) sim.money -= (this.config.upkeep / 60) * dt;
 
-        this.processQueue();
+        this.processQueue(dt);
+        
+        // Calculate utilization based on queue + processing vs capacity
+        const totalInSystem = this.queue.length + this.processing.length;
+        const effectiveCapacity = this.config.capacity;
+        this.load.utilization = effectiveCapacity > 0 ? Math.min(1, totalInSystem / effectiveCapacity) : 0;
 
         for (let i = this.processing.length - 1; i >= 0; i--) {
             let job = this.processing[i];
@@ -221,7 +270,12 @@ class Service {
                 const routeResult = routing?.getNextHop(state, job.req, this);
                 
                 if (!routeResult || routeResult.action === 'DEAD_END') {
-                    failRequest(job.req);
+                    // DEAD_END means topology misconfiguration - heavier penalty
+                    if (sim?.metrics?.droppedByReason) {
+                        sim.metrics.droppedByReason.misconfig = (sim.metrics.droppedByReason.misconfig || 0) + 1;
+                    }
+                    // Heavier rep penalty for misconfig (2x normal fail)
+                    failRequest(job.req, 'misconfig');
                     continue;
                 }
                 
@@ -246,23 +300,29 @@ class Service {
             }
         }
 
-        if (this.totalLoad > 0.8) {
+        // Visual feedback based on utilization
+        const util = this.load.utilization;
+        if (util > 0.8) {
             this.loadRing.material.color.setHex(0xff0000);
             this.loadRing.material.opacity = 0.8;
-        } else if (this.totalLoad > 0.5) {
+        } else if (util > 0.5) {
             this.loadRing.material.color.setHex(0xffaa00);
             this.loadRing.material.opacity = 0.6;
-        } else if (this.totalLoad > 0.2) {
+        } else if (util > 0.2) {
             this.loadRing.material.color.setHex(0xffff00);
             this.loadRing.material.opacity = 0.4;
         } else {
             this.loadRing.material.color.setHex(0x00ff00);
             this.loadRing.material.opacity = 0.3;
         }
+        
+        // Scale load ring based on utilization
+        const ringScale = 0.5 + (util * 0.5);
+        this.loadRing.scale.set(ringScale, ringScale, 1);
     }
 
     get totalLoad() {
-        return (this.processing.length + this.queue.length) / (this.config.capacity * 2);
+        return this.load.utilization;
     }
 
     destroy() {

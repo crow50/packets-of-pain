@@ -99,16 +99,27 @@ export function finishRequest(arg1, arg2) {
     removeRequest(state, req);
 }
 
-export function failRequest(arg1, arg2) {
-    // Overload: failRequest(req) OR failRequest(state, req)
+export function failRequest(arg1, arg2, arg3) {
+    // Overload: failRequest(req) OR failRequest(state, req) OR failRequest(req, reason) OR failRequest(state, req, reason)
     const hasState = arg1 && (arg1.simulation || arg1.ui);
     const state = resolveState(arg1);
     const req = hasState ? arg2 : arg1;
+    const reason = hasState ? arg3 : arg2;
 
     const ui = state.ui || state;
+    const sim = state.simulation || state;
 
     const failType = req.type === TRAFFIC_TYPES.FRAUD ? 'FRAUD_PASSED' : 'FAILED';
-    updateScore(state, req, failType);
+    
+    // Apply heavier penalty for misconfig failures
+    if (reason === 'misconfig') {
+        const points = CONFIG.survival.SCORE_POINTS;
+        sim.reputation += (points.FAIL_REPUTATION || -2) * 2; // Double penalty
+        sim.reputation = Math.min(100, Math.max(0, sim.reputation));
+    } else {
+        updateScore(state, req, failType);
+    }
+    
     ui.sound?.playFail?.();
     if (req.mesh && req.mesh.material) {
         req.mesh.material.color.setHex(CONFIG.colors.requestFail);
