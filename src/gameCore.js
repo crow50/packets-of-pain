@@ -170,14 +170,6 @@ function clearAllNodesAndLinks() {
     requests.forEach(r => {
         if (r && typeof r.destroy === 'function') r.destroy();
     });
-    connections.forEach(link => {
-        if (link.mesh) {
-            connectionGroup.remove(link.mesh);
-            if (link.mesh.geometry) link.mesh.geometry.dispose();
-            if (link.mesh.material) link.mesh.material.dispose();
-        }
-    });
-
     while (serviceGroup.children.length) {
         serviceGroup.remove(serviceGroup.children[0]);
     }

@@ -13,6 +13,7 @@ import {
     deleteLink,
     deleteObject
 } from "../sim/tools.js";
+import { copyPosition } from "../sim/vectorUtils.js";
 import { resetCamera, toggleCameraMode } from "../render/scene.js";
 import { setHudHidden } from "./hudController.js";
 
@@ -81,9 +82,7 @@ export function createInputController({ container }) {
             const target = new THREE.Vector3();
             raycaster.ray.intersectPlane(plane, target);
             const snapped = snapToGrid(target);
-            draggedNode.position.copy(snapped);
-            draggedNode.mesh.position.x = snapped.x;
-            draggedNode.mesh.position.z = snapped.z;
+            copyPosition(draggedNode.position, snapped);
             updateLinkVisuals(draggedNode.id);
             return;
         }

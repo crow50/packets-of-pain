@@ -1,4 +1,5 @@
-import { connectionGroup } from "../render/scene.js";
+import Service from "../entities/Service.js";
+import { distance, toPlainPosition } from "./vectorUtils.js";
 
 const { getServiceType } = window.ServiceCatalog;
 
@@ -33,6 +34,11 @@ const getEntity = (id) => {
     return state ? getEntityFromState(state, id) : null;
 };
 
+function emit(event, payload) {
+    const engine = getEngine();
+    engine?.emit?.(event, payload);
+}
+
 export function getToolId(toolName) {
     return TOOL_ID_MAP[toolName] || `tool-${toolName}`;
 }
@@ -41,18 +47,12 @@ export function setTool(toolName) {
     const engine = getEngine();
     engine?.setActiveTool(toolName);
     engine?.setSelectedNode(null);
-
-    document.querySelectorAll('.service-btn').forEach(b => b.classList.remove('active'));
-    const toolButton = document.getElementById(getToolId(toolName));
-    if (toolButton) toolButton.classList.add('active');
-    new Audio('assets/sounds/click-9.mp3').play();
+    engine?.emit?.('toolChanged', { toolName });
 }
 
 function flashMoney() {
-    const el = document.getElementById('money-display');
-    if (!el) return;
-    el.classList.add('text-red-500');
-    setTimeout(() => el.classList.remove('text-red-500'), 300);
+    const engine = getEngine();
+    engine?.emit?.('budgetWarning', { reason: 'insufficientFunds' });
 }
 
 export { flashMoney };
@@ -65,10 +65,10 @@ export function createService(arg1, arg2, arg3) {
     const state = resolveState(arg1);
     const type = hasState ? arg2 : arg1;
     const pos = hasState ? arg3 : arg2;
+    const plainPos = toPlainPosition(pos);
 
     if (!state) return;
     const sim = state.simulation || state;
-    const ui = state.ui || state;
 
     // Use service catalog as single source of truth
     const catalogEntry = getServiceType(type);
@@ -79,11 +79,16 @@ export function createService(arg1, arg2, arg3) {
         flashMoney();
         return;
     }
-    if (sim.services.find(s => s.position.distanceTo(pos) < 1)) return;
+    if (sim.services.find(s => distance(s.position, plainPos) < 1)) return;
 
     sim.money -= baseCost;
-    sim.services.push(new Service(type, pos));
-    ui.sound?.playPlace?.();
+    const serviceEntity = new Service(type, plainPos);
+    sim.services.push(serviceEntity);
+    emit('serviceAdded', {
+        serviceId: serviceEntity.id,
+        type: serviceEntity.type,
+        position: toPlainPosition(serviceEntity.position)
+    });
     
     // Validate topology after adding service
     window.Routing?.validateTopology?.();
@@ -100,26 +105,17 @@ export function createConnection(arg1, arg2, arg3) {
     if (!state) return;
 
     const sim = state.simulation || state;
-    const ui = state.ui || state;
 
     const from = getEntityFromState(state, fromId);
     const to = getEntityFromState(state, toId);
     if (!from || !to || from.connections.includes(toId)) return;
 
-    new Audio('assets/sounds/click-5.mp3').play();
-
     from.connections.push(toId);
     to.connections.push(fromId);
-    const pts = [from.position.clone(), to.position.clone()];
-    pts[0].y = pts[1].y = 1;
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color: CONFIG.colors.line });
-    const line = new THREE.Line(geo, mat);
-    connectionGroup.add(line);
 
     const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
-    sim.connections.push({ id: linkId, from: fromId, to: toId, mesh: line });
-    ui.sound?.playConnect?.();
+    sim.connections.push({ id: linkId, from: fromId, to: toId });
+    emit('connectionCreated', { linkId, from: fromId, to: toId });
     
     // Validate topology after adding connection
     window.Routing?.validateTopology?.();
@@ -134,7 +130,6 @@ export function deleteLink(arg1, arg2) {
     if (!link || !state) return;
 
     const sim = state.simulation || state;
-    const ui = state.ui || state;
 
     const fromNode = getEntityFromState(state, link.from);
     if (fromNode) {
@@ -146,12 +141,8 @@ export function deleteLink(arg1, arg2) {
         toNode.connections = toNode.connections.filter(id => id !== link.from);
     }
 
-    connectionGroup.remove(link.mesh);
-    link.mesh.geometry.dispose();
-    link.mesh.material.dispose();
-
     sim.connections = sim.connections.filter(c => c.id !== link.id);
-    ui.sound?.playDelete?.();
+    emit('connectionDeleted', { linkId: link.id });
     
     // Validate topology after removing connection
     window.Routing?.validateTopology?.();
@@ -165,7 +156,6 @@ export function deleteObject(arg1, arg2) {
 
     if (!state) return;
     const sim = state.simulation || state;
-    const ui = state.ui || state;
 
     const svc = sim.services.find(s => s.id === id);
     if (!svc) return;
@@ -176,7 +166,7 @@ export function deleteObject(arg1, arg2) {
     svc.destroy();
     sim.services = sim.services.filter(s => s.id !== id);
     sim.money += Math.floor(svc.config.cost / 2);
-    ui.sound?.playDelete?.();
+    emit('serviceRemoved', { serviceId: id });
     
     // Validate topology after removing service
     window.Routing?.validateTopology?.();
