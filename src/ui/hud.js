@@ -8,13 +8,25 @@ const CAMPAIGN_INTRO_OBJECTIVES = [
 let currentView = 'main-menu';
 let faqSource = 'menu';
 
-export function setObjectivesTitle(text) {
-    const title = document.getElementById('objectives-title');
-    if (title) title.innerText = text;
+// --- Unified Campaign Panel Functions ---
+
+export function setCampaignPanelTitle(title) {
+    const el = document.getElementById('campaign-panel-title');
+    if (el) el.innerText = title || '';
 }
 
-export function renderObjectives(entries) {
-    const list = document.getElementById('objectives-list');
+export function setCampaignPanelSeries(series) {
+    const el = document.getElementById('campaign-panel-series');
+    if (el) el.innerText = series || '';
+}
+
+export function setCampaignPanelIntro(text) {
+    const el = document.getElementById('campaign-panel-intro');
+    if (el) el.innerText = text || '';
+}
+
+export function renderCampaignObjectives(entries) {
+    const list = document.getElementById('campaign-panel-objectives');
     if (!list) return;
     list.innerHTML = '';
     entries.forEach(entry => {
@@ -31,14 +43,29 @@ export function renderObjectives(entries) {
     });
 }
 
+export function showCampaignPanel(show = true) {
+    const panel = document.getElementById('campaign-panel');
+    if (panel) panel.classList.toggle('hidden', !show);
+}
+
+// Legacy aliases for compatibility
+export function setObjectivesTitle(text) {
+    setCampaignPanelTitle(text);
+}
+
+export function renderObjectives(entries) {
+    renderCampaignObjectives(entries);
+}
+
 export function setCampaignIntroObjectives() {
-    setObjectivesTitle('Campaign Briefing');
-    renderObjectives(CAMPAIGN_INTRO_OBJECTIVES);
+    setCampaignPanelTitle('Campaign Briefing');
+    setCampaignPanelSeries("baby's first network");
+    setCampaignPanelIntro('');
+    renderCampaignObjectives(CAMPAIGN_INTRO_OBJECTIVES);
 }
 
 export function showObjectivesPanel(show = true) {
-    const panel = document.getElementById('objectivesPanel');
-    if (panel) panel.classList.toggle('hidden', !show);
+    showCampaignPanel(show);
 }
 
 function setOverlayState(el, isActive) {

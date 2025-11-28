@@ -1,10 +1,11 @@
 /**
  * menuController.js - Hamburger menu dropdown controller
  * 
- * Centralizes game menu actions: Help, Sound toggle, Return to main menu
+ * Centralizes game menu actions: Help, Sound toggle, Panel toggle, Return to main menu
  */
 
 let _isOpen = false;
+let _scorePanelHidden = false;
 
 /**
  * Initialize the hamburger menu dropdown
@@ -17,6 +18,9 @@ export function initHudMenu() {
     const soundBtn = document.getElementById('hud-menu-sound');
     const soundStatus = document.getElementById('hud-menu-sound-status');
     const soundIcon = document.getElementById('hud-menu-sound-icon');
+    const panelsBtn = document.getElementById('hud-menu-panels');
+    const panelsStatus = document.getElementById('hud-menu-panels-status');
+    const panelsIcon = document.getElementById('hud-menu-panels-icon');
     const mainBtn = document.getElementById('hud-menu-main');
 
     if (!btn || !dropdown) return;
@@ -25,7 +29,10 @@ export function initHudMenu() {
         _isOpen = open;
         dropdown.classList.toggle('hidden', !open);
         // Sync sound status when opening menu
-        if (open) updateSoundStatus();
+        if (open) {
+            updateSoundStatus();
+            updatePanelsStatus();
+        }
     }
 
     // Toggle on button click
@@ -62,6 +69,12 @@ export function initHudMenu() {
         updateSoundStatus();
     });
 
+    // Panels toggle - show/hide score detail panel
+    panelsBtn?.addEventListener('click', () => {
+        toggleScorePanel();
+        updatePanelsStatus();
+    });
+
     // Return to main menu
     mainBtn?.addEventListener('click', () => {
         setOpen(false);
@@ -73,8 +86,9 @@ export function initHudMenu() {
         }
     });
 
-    // Initial sound status sync
+    // Initial status sync
     updateSoundStatus();
+    updatePanelsStatus();
 
     function updateSoundStatus() {
         const engine = window.__POP_RUNTIME__?.current?.engine;
@@ -83,6 +97,22 @@ export function initHudMenu() {
         if (soundStatus) soundStatus.textContent = muted ? 'Off' : 'On';
         if (soundIcon) soundIcon.textContent = muted ? '🔇' : '🔊';
     }
+
+    function updatePanelsStatus() {
+        if (panelsStatus) panelsStatus.textContent = _scorePanelHidden ? 'Off' : 'On';
+        if (panelsIcon) panelsIcon.textContent = _scorePanelHidden ? '📊' : '📈';
+    }
+}
+
+/**
+ * Toggle visibility of the score details panel
+ */
+function toggleScorePanel() {
+    _scorePanelHidden = !_scorePanelHidden;
+    const panel = document.getElementById('detailsPanel');
+    if (panel) {
+        panel.classList.toggle('hidden', _scorePanelHidden);
+    }
 }
 
 /**
@@ -90,4 +120,11 @@ export function initHudMenu() {
  */
 export function isMenuOpen() {
     return _isOpen;
+}
+
+/**
+ * Check if score panel is hidden
+ */
+export function isScorePanelHidden() {
+    return _scorePanelHidden;
 }

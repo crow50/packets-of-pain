@@ -1,8 +1,17 @@
 import { LEVELS } from "../levels.js";
-import { GameContext, setBudget, resetSatisfaction, resetScore, setTrafficProfile, applyToolbarWhitelist } from "../sim/economy.js";
+import { GameContext, setBudget, resetSatisfaction, resetScore, setTrafficProfile } from "../sim/economy.js";
 import { updateScore } from "../sim/traffic.js";
 import { setShopForLevel, setCampaignShop } from "./shop.js";
-import { renderObjectives, setObjectivesTitle, showView, setCampaignIntroObjectives } from "./hud.js";
+import { 
+    showView, 
+    setCampaignIntroObjectives, 
+    showCampaignPanel,
+    setCampaignPanelTitle,
+    setCampaignPanelSeries,
+    setCampaignPanelIntro,
+    renderCampaignObjectives
+} from "./hud.js";
+import { applyToolbarWhitelist } from "./toolbarController.js";
 
 const BABY_LEVEL_IDS = ["baby-1", "baby-2", "baby-3"];
 const BABYS_FIRST_NETWORK_LEVELS = BABY_LEVEL_IDS.map(id => LEVELS[id]).filter(Boolean);
@@ -39,32 +48,22 @@ export function updateCampaignHighlights(levelId) {
 }
 
 export function showLevelInstructionsPanel(visible) {
-    const panel = document.getElementById('level-instructions-panel');
-    if (!panel) return;
-    panel.classList.toggle('hidden', !visible);
+    showCampaignPanel(visible);
 }
 
-function setLevelHeader(title, subtitle) {
-    const titleEl = document.getElementById('level-instructions-title');
-    const subEl = document.getElementById('level-instructions-subtitle');
-    if (titleEl) titleEl.innerText = title || 'Campaign Objectives';
-    if (subEl) subEl.innerText = subtitle || '';
+function setLevelHeader(title, series) {
+    setCampaignPanelTitle(title || 'Campaign Objectives');
+    setCampaignPanelSeries(series || "baby's first network");
 }
 
 function setLevelDescription(text) {
-    const desc = document.getElementById('level-description');
-    if (desc) desc.innerText = text || '';
+    setCampaignPanelIntro(text || '');
 }
 
 function setLevelInstructions(instructions = []) {
-    const list = document.getElementById('level-instructions');
-    if (!list) return;
-    list.innerHTML = '';
-    instructions.forEach((instr) => {
-        const li = document.createElement('li');
-        li.textContent = instr;
-        list.appendChild(li);
-    });
+    // Instructions are now shown as objectives in the unified panel
+    const entries = instructions.map(text => ({ text, colorClass: 'bg-blue-500' }));
+    renderCampaignObjectives(entries.length ? entries : [{ text: 'Follow the briefing to succeed.', colorClass: 'bg-blue-500' }]);
 }
 
 function setCurrentLevelContext(levelId) {
@@ -77,9 +76,8 @@ function setCampaignLevelObjectives(levelId) {
         setCampaignIntroObjectives();
         return;
     }
-    const instructions = (level.instructions || []).map(text => ({ text, colorClass: 'bg-blue-500' }));
-    setObjectivesTitle(level.title || 'Campaign Objectives');
-    renderObjectives(instructions.length ? instructions : [{ text: 'Follow the briefing to succeed.', colorClass: 'bg-blue-500' }]);
+    // Level objectives are set by setLevelInstructions in loadLevelConfig
+    // This function ensures fallback objectives if level has none
 }
 
 function getCampaignStorageKey(levelId) {
@@ -163,6 +161,9 @@ export function loadLevelConfig(levelId) {
     }
 
     window.resetSimulationState?.();
+    // Ensure campaign levels start paused so player can build
+    window.setTimeScale?.(0);
+    
     if (level.preplacedNodes) level.preplacedNodes.forEach(spawnNodeFromConfig);
     applyToolbarWhitelist(level.toolbarWhitelist);
     setBudget(level.startingBudget !== undefined ? level.startingBudget : 0);
