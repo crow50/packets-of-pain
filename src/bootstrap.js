@@ -10,9 +10,9 @@ import {
     camera,
     renderer
 } from "./render/scene.js";
-import { initInteractions, updateTooltip } from "./render/interactions.js";
-import { updateSimulationHud, showGameOverModal } from "./ui/hudController.js";
-import { createInputController } from "./ui/inputController.js";
+import { initInteractions, updateTooltip, init as initInteractionsModule } from "./render/interactions.js";
+import { updateSimulationHud, showGameOverModal, init as initHudController } from "./ui/hudController.js";
+import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
 
 function renderScene() {
@@ -74,6 +74,11 @@ function createRuntime() {
 
             const engineConfig = buildEngineConfig(modeConfig);
             const engine = createEngine(engineConfig);
+            
+            // Initialize modules with engine reference (removes global reach-through)
+            initInteractionsModule(engine);
+            initHudController(engine);
+            initInputController(engine);
             
             // Link the internet mesh to engine's internetNode after both exist
             linkInternetMesh(engine.getSimulation()?.internetNode);

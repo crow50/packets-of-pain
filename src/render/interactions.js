@@ -2,8 +2,20 @@ import { camera, renderer, serviceGroup, connectionGroup, internetMesh } from ".
 
 const { getServiceType, getCapacityForTier } = window.ServiceCatalog;
 
+// Module-level engine reference, set via init()
+let _engine = null;
+
+/**
+ * Initialize interactions module with engine reference
+ * @param {object} engine - The game engine instance
+ */
+export function init(engine) {
+    _engine = engine;
+}
+
+// Fallback for backwards compatibility during transition
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return _engine || window.__POP_RUNTIME__?.current?.engine;
 }
 
 export let raycaster;

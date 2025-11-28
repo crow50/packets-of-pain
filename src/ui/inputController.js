@@ -14,9 +14,22 @@ import {
     deleteObject
 } from "../sim/tools.js";
 import { resetCamera, toggleCameraMode } from "../render/scene.js";
+import { setHudHidden } from "./hudController.js";
 
+// Module-level engine reference, set via init()
+let _engine = null;
+
+/**
+ * Initialize input controller module with engine reference
+ * @param {object} engine - The game engine instance
+ */
+export function init(engine) {
+    _engine = engine;
+}
+
+// Fallback for backwards compatibility during transition
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return _engine || window.__POP_RUNTIME__?.current?.engine;
 }
 
 const PAN_SPEED = 0.1;
@@ -170,6 +183,9 @@ export function createInputController({ container }) {
         } else if (key === 'h') {
             // Toggle HUD visibility state
             hudHidden = !hudHidden;
+            
+            // Notify hudController so it respects this in per-frame updates
+            setHudHidden(hudHidden);
             
             // Panels that should be shown when HUD is visible
             const normalPanels = [
