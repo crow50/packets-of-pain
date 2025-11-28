@@ -39,6 +39,7 @@ function updateUIState(partial) {
     if (!engine) return;
     if ('hovered' in partial) engine.setHovered(partial.hovered);
     if ('selectedNodeId' in partial) engine.setSelectedNode(partial.selectedNodeId);
+    if ('linkSourceId' in partial) engine.setLinkSource(partial.linkSourceId);
 }
 
 export function createInputController({ container }) {
@@ -128,6 +129,7 @@ export function createInputController({ container }) {
             const activeTool = engine?.getUIState()?.activeTool || 'select';
             const services = engine?.getSimulation()?.services || [];
             const selectedNodeId = engine?.getUIState()?.selectedNodeId;
+            const linkSourceId = engine?.getUIState()?.linkSourceId;
 
             if (activeTool === 'select') {
                 if (intersect.type === 'service') {
@@ -143,14 +145,17 @@ export function createInputController({ container }) {
                 else if (intersect.type === 'link') deleteLink(intersect.link);
             } else if (activeTool === 'connect') {
                 if (intersect.type === 'service' || intersect.type === 'internet') {
-                    if (!selectedNodeId) {
-                        updateUIState({ selectedNodeId: intersect.id });
+                    if (!linkSourceId) {
+                        // First click: set link source
+                        updateUIState({ linkSourceId: intersect.id });
                     } else {
-                        createConnection(selectedNodeId, intersect.id);
-                        updateUIState({ selectedNodeId: null });
+                        // Second click: create connection and clear
+                        createConnection(linkSourceId, intersect.id);
+                        updateUIState({ linkSourceId: null });
                     }
                 } else {
-                    updateUIState({ selectedNodeId: null });
+                    // Clicked elsewhere: cancel linking
+                    updateUIState({ linkSourceId: null });
                 }
             } else if (intersect.type === 'ground') {
                 createService(activeTool, snapToGrid(intersect.pos));
@@ -198,12 +203,11 @@ export function createInputController({ container }) {
             
             // Mode-specific panels (only toggle if they were visible)
             const modeSpecificPanels = [
-                'objectivesPanel',        // Campaign mode only
+                'campaign-panel',         // Campaign mode only (unified panel)
                 'sandbox-controls-panel'  // Sandbox mode only
             ];
             
             // Panels that have their own visibility logic (campaign-specific)
-            // Don't touch level-instructions-panel - it's managed by campaign mode
             
             normalPanels.forEach(id => {
                 const panel = document.getElementById(id);

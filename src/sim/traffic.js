@@ -8,29 +8,6 @@ function resolveState(arg) {
     return engine ? engine.getState() : null;
 }
 
-function updateReputationBar(sim) {
-    const bar = document.getElementById('rep-bar');
-    if (!bar) return;
-    const reputation = sim?.reputation ?? 100;
-    const clamped = Math.max(0, Math.min(100, reputation));
-    bar.style.width = `${clamped}%`;
-    bar.classList.toggle('bg-red-500', clamped <= 30);
-    bar.classList.toggle('bg-yellow-500', clamped > 30 && clamped <= 70);
-    bar.classList.toggle('bg-green-500', clamped > 70);
-}
-
-function updateScoreUI(sim) {
-    const score = sim?.score ?? { total: 0, web: 0, api: 0, fraudBlocked: 0 };
-    const setText = (id, value) => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = value;
-    };
-    setText('total-score-display', score.total);
-    setText('score-web', score.web);
-    setText('score-api', score.api);
-    setText('score-fraud', score.fraudBlocked);
-    updateReputationBar(sim);
-}
 
 export function updateScore(arg1, arg2, arg3) {
     // Overload: updateScore(req, outcome) OR updateScore(state, req, outcome)
@@ -68,7 +45,6 @@ export function updateScore(arg1, arg2, arg3) {
     } else {
         sim.score.total = sim.score.web + sim.score.api + sim.score.fraudBlocked;
     }
-    updateScoreUI(sim);
 }
 
 export function removeRequest(arg1, arg2) {
@@ -83,7 +59,6 @@ export function removeRequest(arg1, arg2) {
         req.destroy();
     }
     sim.requests = sim.requests.filter(r => r !== req);
-    updateScore(state);
 }
 
 export function finishRequest(arg1, arg2) {

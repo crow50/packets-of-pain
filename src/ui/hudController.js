@@ -4,6 +4,31 @@ let _engine = null;
 // Track if HUD is hidden by user (H key)
 let _hudHidden = false;
 
+function setTextContent(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = value;
+}
+
+function updateScoreboard(sim) {
+    if (!sim) return;
+    const score = sim.score || {};
+    setTextContent('total-score-display', score.total ?? 0);
+    setTextContent('score-web', score.web ?? 0);
+    setTextContent('score-api', score.api ?? 0);
+    setTextContent('score-fraud', score.fraudBlocked ?? 0);
+}
+
+function updateReputationBar(sim) {
+    const bar = document.getElementById('rep-bar');
+    if (!bar) return;
+    const reputation = typeof sim?.reputation === 'number' ? sim.reputation : 100;
+    const clamped = Math.max(0, Math.min(100, reputation));
+    bar.style.width = `${clamped}%`;
+    bar.classList.toggle('bg-red-500', clamped <= 30);
+    bar.classList.toggle('bg-yellow-500', clamped > 30 && clamped <= 70);
+    bar.classList.toggle('bg-green-500', clamped > 70);
+}
+
 /**
  * Initialize HUD controller with engine reference
  * @param {object} engine - The game engine instance
@@ -42,6 +67,9 @@ export function updateSimulationHud(state) {
     if (moneyDisplay && typeof sim.money === "number") {
         moneyDisplay.innerText = `$${sim.money.toFixed(2)}`;
     }
+
+    updateScoreboard(sim);
+    updateReputationBar(sim);
 
     const upkeepDisplay = document.getElementById("upkeep-display");
     if (upkeepDisplay && Array.isArray(sim.services)) {

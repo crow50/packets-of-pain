@@ -179,24 +179,34 @@
             </div>
         </div>
 
-        <!-- Topology Warnings Panel -->
-        <div id="topology-warnings-panel" class="absolute top-48 right-4 glass-panel rounded-xl p-3 w-60 pointer-events-auto hidden border border-red-500/50 bg-gradient-to-b from-red-900/30 to-slate-900/30">
+        <!-- Topology Warnings Panel (below details panel) -->
+        <div id="topology-warnings-panel" class="absolute top-[7.5rem] right-4 glass-panel rounded-xl p-3 w-60 pointer-events-auto hidden border border-red-500/50 bg-gradient-to-b from-red-900/30 to-slate-900/30">
             <h3 class="text-xs font-bold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <span class="animate-pulse">⚠</span> Network Issues
             </h3>
             <ul id="topology-warnings-list" class="space-y-1 text-xs text-red-300"></ul>
         </div>
 
-        <div id="level-instructions-panel" class="absolute top-44 right-4 glass-panel rounded-xl p-4 w-72 pointer-events-auto hidden space-y-3 border border-blue-500/30 bg-gradient-to-b from-slate-900/80 to-slate-900/30">
+        <!-- Campaign Panel (Unified: Title + Intro + Objectives) -->
+        <div id="campaign-panel" class="absolute top-[7.5rem] right-4 glass-panel rounded-xl p-4 w-72 pointer-events-auto hidden space-y-3 border border-blue-500/30 bg-gradient-to-b from-slate-900/80 to-slate-900/30">
             <div>
-                <p id="level-instructions-title" class="text-xs uppercase tracking-[0.4em] text-blue-300 font-mono">Campaign Objectives</p>
-                <h3 id="level-instructions-subtitle" class="text-lg font-bold text-white">Level Brief</h3>
+                <p id="campaign-panel-series" class="text-[10px] uppercase tracking-[0.4em] text-blue-400/70 font-mono">baby's first network</p>
+                <h3 id="campaign-panel-title" class="text-lg font-bold text-white">Level Title</h3>
             </div>
-            <p id="level-description" class="text-sm text-gray-300 leading-relaxed"></p>
-            <ul id="level-instructions" class="space-y-2 text-xs text-gray-200 list-disc list-inside"></ul>
-            <div class="flex gap-2 mt-4">
-                <button onclick="resetLevel()" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-full py-2">Restart Level</button>
-                <button onclick="exitLevelToCampaignHub()" class="w-1/2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-[0.2em] rounded-full py-2">Back to Campaign</button>
+            <p id="campaign-panel-intro" class="text-sm text-gray-300 leading-relaxed"></p>
+            
+            <!-- Objectives Section -->
+            <div id="campaign-panel-objectives-section" class="border-t border-gray-700 pt-3">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Objectives</h4>
+                    <span class="text-[10px] bg-red-900/50 px-2 py-0.5 rounded text-red-400 border border-red-800 animate-pulse">LIVE</span>
+                </div>
+                <ul id="campaign-panel-objectives" class="text-xs text-gray-300 space-y-2 font-mono"></ul>
+            </div>
+            
+            <div class="flex gap-2 pt-2 border-t border-gray-700">
+                <button onclick="resetLevel()" class="w-1/2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-[0.2em] rounded-full py-2">Restart</button>
+                <button onclick="exitLevelToCampaignHub()" class="w-1/2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold uppercase tracking-[0.2em] rounded-full py-2">Exit</button>
             </div>
         </div>
 
@@ -250,6 +260,9 @@
                     <button id="hud-menu-sound" class="hud-menu-item" role="menuitem">
                         <span class="mr-2" id="hud-menu-sound-icon">🔇</span> Sound: <span id="hud-menu-sound-status">Off</span>
                     </button>
+                    <button id="hud-menu-panels" class="hud-menu-item" role="menuitem">
+                        <span class="mr-2" id="hud-menu-panels-icon">📊</span> Score Panel: <span id="hud-menu-panels-status">On</span>
+                    </button>
                     <div class="hud-menu-divider"></div>
                     <button id="hud-menu-main" class="hud-menu-item danger" role="menuitem">
                         <span class="mr-2">🚪</span> Return to Main Menu
@@ -258,18 +271,8 @@
             </div>
         </div>
 
-        <!-- Objective Panel (Bottom Left, Campaign Mode Only) -->
-        <div id="objectivesPanel"
-            class="absolute bottom-24 left-4 glass-panel rounded-xl p-4 pointer-events-auto max-w-xs hidden">
-            <div class="flex justify-between items-center mb-2">
-                <h3 id="objectives-title" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Objectives</h3>
-                <span
-                    class="text-[10px] bg-red-900/50 px-2 py-0.5 rounded text-red-400 border border-red-800 animate-pulse">LIVE</span>
-            </div>
-            <ul id="objectives-list" class="text-xs text-gray-300 space-y-2 font-mono"></ul>
-        </div>
-    </div>
-    <div id="bottom-toolbar" class="absolute bottom-6 left-0 w-full z-10 pointer-events-none flex justify-center">
+        <!-- Bottom Toolbar -->
+        <div id="bottom-toolbar" class="absolute bottom-6 left-0 w-full z-10 pointer-events-none flex justify-center">
         <div class="glass-panel rounded-2xl p-2 pointer-events-auto overflow-y-auto flex items-center gap-2 shadow-2xl">
 
             <!-- Tools -->
@@ -313,6 +316,7 @@
                 <div id="shop-items" class="flex gap-2"></div>
             </div>
         </div>
+    </div>
     </div>
 
         <!-- Hover Tooltip -->
