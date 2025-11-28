@@ -8,7 +8,7 @@ import {
     showMainMenu,
     showFAQ,
     closeFAQ,
-    setSandboxObjectivesPanel,
+    showObjectivesPanel,
 } from "./ui/hud.js";
 import {
     setSandboxShop
@@ -65,10 +65,8 @@ function updateGameModeLabel(isCampaign) {
 
 function setCampaignUIActive(active) {
     document.body.classList.toggle('campaign-mode', active);
-    const objectivesPanel = document.getElementById('objectivesPanel');
-    if (objectivesPanel) {
-        objectivesPanel.classList.toggle('hidden', active);
-    }
+    // Show objectives panel only in campaign mode
+    showObjectivesPanel(active);
     updateGameModeLabel(active);
     if (!active) {
         showLevelInstructionsPanel(false);
@@ -133,7 +131,6 @@ window.restartGame = restartGame;
 export function startSandbox() {
     GameContext.mode = GAME_MODES.SANDBOX;
     setCampaignUIActive(false);
-    setSandboxObjectivesPanel();
     setSandboxShop();
     GameContext.currentLevelId = null;
     setTrafficProfile(null);

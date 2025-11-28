@@ -192,9 +192,14 @@ export function createInputController({ container }) {
                 'statsPanel',
                 'detailsPanel', 
                 'time-control-panel',
-                'objectivesPanel',
                 'bottom-toolbar',
                 'topology-warnings-panel'
+            ];
+            
+            // Mode-specific panels (only toggle if they were visible)
+            const modeSpecificPanels = [
+                'objectivesPanel',        // Campaign mode only
+                'sandbox-controls-panel'  // Sandbox mode only
             ];
             
             // Panels that have their own visibility logic (campaign-specific)
@@ -207,6 +212,23 @@ export function createInputController({ container }) {
                         panel.classList.add('hidden');
                     } else {
                         panel.classList.remove('hidden');
+                    }
+                }
+            });
+            
+            // For mode-specific panels, track their visibility state
+            modeSpecificPanels.forEach(id => {
+                const panel = document.getElementById(id);
+                if (panel) {
+                    if (hudHidden) {
+                        // Store visibility state before hiding
+                        panel.dataset.wasVisible = !panel.classList.contains('hidden');
+                        panel.classList.add('hidden');
+                    } else {
+                        // Restore only if it was visible before
+                        if (panel.dataset.wasVisible === 'true') {
+                            panel.classList.remove('hidden');
+                        }
                     }
                 }
             });
