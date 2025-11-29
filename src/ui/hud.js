@@ -73,18 +73,54 @@ function setOverlayState(el, isActive) {
     el.style.pointerEvents = isActive ? 'auto' : 'none';
 }
 
+export function setHUDMode(mode) {
+    const campaignPanel = document.getElementById('campaign-panel');
+    const sandboxPanel = document.getElementById('sandbox-panel');
+
+    if (campaignPanel) campaignPanel.classList.toggle('hidden', mode !== 'campaign');
+    if (sandboxPanel) sandboxPanel.classList.toggle('hidden', mode !== 'sandbox');
+
+    document.body?.classList.toggle('campaign-mode', mode === 'campaign');
+}
+
+export function initWarningsPill() {
+    const pill = document.getElementById('warnings-pill');
+    const section = document.getElementById('topology-warnings-section');
+    if (!pill || !section) return;
+
+    section.dataset.expanded = section.dataset.expanded === 'true' ? 'true' : 'false';
+    section.classList.add('hidden');
+
+    pill.addEventListener('click', () => {
+        const expanded = section.dataset.expanded === 'true';
+        const next = !expanded;
+        section.dataset.expanded = next ? 'true' : 'false';
+        section.classList.toggle('hidden', !next);
+    });
+}
+
 export function showView(viewName) {
     const sandboxEl = document.getElementById('game-ui');
-    const campaignEl = document.getElementById('campaign-hub');
+    const campaignHubEl = document.getElementById('campaign-hub');
     const menuEl = document.getElementById('main-menu-modal');
-    if (!sandboxEl || !campaignEl || !menuEl) return;
+    if (!sandboxEl || !campaignHubEl || !menuEl) return;
 
-    setOverlayState(sandboxEl, viewName === 'sandbox');
-    setOverlayState(campaignEl, viewName === 'campaign');
+    const isGameView = viewName === 'sandbox' || viewName === 'campaign';
+
+    setOverlayState(sandboxEl, isGameView);
+    setOverlayState(campaignHubEl, viewName === 'campaign-hub');
     setOverlayState(menuEl, viewName === 'main-menu');
 
-    if (viewName !== 'campaign') {
+    if (viewName !== 'campaign-hub') {
         window.hideCampaignLevels?.();
+    }
+
+    if (viewName === 'campaign') {
+        setHUDMode('campaign');
+    } else if (viewName === 'sandbox') {
+        setHUDMode('sandbox');
+    } else {
+        setHUDMode(null);
     }
 
     currentView = viewName;

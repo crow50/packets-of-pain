@@ -5,7 +5,7 @@ let _engine = null;
 export function initSandboxControls(engine) {
     _engine = engine;
     
-    const panel = document.getElementById('sandbox-controls-panel');
+        const panel = document.getElementById('sandbox-panel');
     if (!panel) return;
     
     const state = engine.getState();
@@ -201,7 +201,7 @@ function applyPreset(engine, presetKey) {
 }
 
 export function hideSandboxPanel() {
-    const panel = document.getElementById('sandbox-controls-panel');
+    const panel = document.getElementById('sandbox-panel');
     panel?.classList.add('hidden');
 }
 
@@ -209,7 +209,7 @@ export function showSandboxPanel() {
     if (!_engine) return;
     const state = _engine.getState();
     if (state.ui.gameMode !== 'sandbox') return;
-    
-    const panel = document.getElementById('sandbox-controls-panel');
+
+    const panel = document.getElementById('sandbox-panel');
     panel?.classList.remove('hidden');
 }
