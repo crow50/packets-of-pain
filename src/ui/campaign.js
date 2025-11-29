@@ -1,4 +1,3 @@
-import { LEVELS } from "../levels.js";
 import { GameContext, setBudget, resetSatisfaction, resetScore, setTrafficProfile } from "../sim/economy.js";
 import { updateScore } from "../sim/traffic.js";
 import { setShopForLevel, setCampaignShop } from "./shop.js";
@@ -12,9 +11,9 @@ import {
     renderCampaignObjectives
 } from "./hud.js";
 import { applyToolbarWhitelist } from "./toolbarController.js";
+import { getLevelById, getLevelsForDomain } from "../config/campaign/index.js";
 
-const BABY_LEVEL_IDS = ["baby-1", "baby-2", "baby-3"];
-const BABYS_FIRST_NETWORK_LEVELS = BABY_LEVEL_IDS.map(id => LEVELS[id]).filter(Boolean);
+const BABY_DOMAIN_ID = "babys-first-network";
 const LEVEL_UNLOCK_CHAIN = {
     "baby-2": "baby-1",
     "baby-3": "baby-2",
@@ -71,7 +70,7 @@ function setCurrentLevelContext(levelId) {
 }
 
 function setCampaignLevelObjectives(levelId) {
-    const level = LEVELS[levelId];
+    const level = getLevelById(levelId);
     if (!level) {
         setCampaignIntroObjectives();
         return;
@@ -111,7 +110,7 @@ export function renderCampaignLevels() {
     const list = document.getElementById('campaign-level-list');
     if (!list) return;
     list.innerHTML = '';
-    BABYS_FIRST_NETWORK_LEVELS.forEach((level) => {
+    getLevelsForDomain(BABY_DOMAIN_ID).forEach((level) => {
         const unlocked = isLevelUnlocked(level);
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -154,7 +153,7 @@ export function enterCampaignWorld(worldId) {
 }
 
 export function loadLevelConfig(levelId) {
-    const level = LEVELS[levelId];
+    const level = getLevelById(levelId);
     if (!level) {
         console.error('Attempted to load missing level', levelId);
         return;
@@ -189,7 +188,7 @@ export function startCampaign() {
 }
 
 export function startCampaignLevel(levelId) {
-    const level = LEVELS[levelId];
+    const level = getLevelById(levelId);
     if (!level) {
         console.error('Unknown levelId', levelId);
         return;
