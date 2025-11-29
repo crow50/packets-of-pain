@@ -74,7 +74,7 @@ function setOverlayState(el, isActive) {
 }
 
 export function showView(viewName) {
-    const sandboxEl = document.getElementById('sandbox-ui');
+    const sandboxEl = document.getElementById('game-ui');
     const campaignEl = document.getElementById('campaign-hub');
     const menuEl = document.getElementById('main-menu-modal');
     if (!sandboxEl || !campaignEl || !menuEl) return;
