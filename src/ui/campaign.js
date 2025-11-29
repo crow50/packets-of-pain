@@ -183,7 +183,7 @@ export function startCampaign() {
     GameContext.mode = GAME_MODES.CAMPAIGN;
     window.setCampaignUIActive?.(true);
     setCampaignShop();
-    showView('campaign');
+    showView('campaign-hub');
     setCampaignIntroObjectives();
 }
 
@@ -197,7 +197,7 @@ export function startCampaignLevel(levelId) {
     GameContext.currentLevelId = levelId;
     window.setCampaignUIActive?.(true);
     showLevelInstructionsPanel(true);
-    showView('sandbox');
+    showView('campaign');
     loadLevelConfig(levelId);
     markLevelComplete(levelId);
     renderCampaignLevels();
@@ -219,6 +219,6 @@ export function exitLevelToCampaignHub() {
     showLevelInstructionsPanel(false);
     setCampaignIntroObjectives();
     setCampaignShop();
-    showView('campaign');
+    showView('campaign-hub');
     window.__POP_RUNTIME__?.current?.engine?.setRunning(false);
 }

@@ -6,6 +6,7 @@
 
 let _isOpen = false;
 let _scorePanelHidden = false;
+let _previousTimeScale = null;
 
 /**
  * Initialize the hamburger menu dropdown
@@ -14,6 +15,7 @@ let _scorePanelHidden = false;
 export function initHudMenu() {
     const btn = document.getElementById('hud-menu-button');
     const dropdown = document.getElementById('hud-menu-dropdown');
+    const hudRoot = document.getElementById('hud-root');
     const helpBtn = document.getElementById('hud-menu-help');
     const soundBtn = document.getElementById('hud-menu-sound');
     const soundStatus = document.getElementById('hud-menu-sound-status');
@@ -25,13 +27,32 @@ export function initHudMenu() {
 
     if (!btn || !dropdown) return;
 
+    function getCurrentTimeScale() {
+        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.timeScale ??
+            window.__POP_RUNTIME__?.current?.state?.ui?.timeScale ??
+            window.__POP_RUNTIME__?.ui?.timeScale ??
+            0;
+    }
+
     function setOpen(open) {
         _isOpen = open;
         dropdown.classList.toggle('hidden', !open);
-        // Sync sound status when opening menu
+        hudRoot?.classList.toggle('menu-open', open);
+
         if (open) {
             updateSoundStatus();
             updatePanelsStatus();
+
+            const currentScale = getCurrentTimeScale();
+            _previousTimeScale = currentScale;
+            if (currentScale !== 0) {
+                window.setTimeScale?.(0);
+            }
+        } else if (_previousTimeScale !== null) {
+            if (_previousTimeScale !== 0) {
+                window.setTimeScale?.(_previousTimeScale);
+            }
+            _previousTimeScale = null;
         }
     }
 
@@ -109,7 +130,7 @@ export function initHudMenu() {
  */
 function toggleScorePanel() {
     _scorePanelHidden = !_scorePanelHidden;
-    const panel = document.getElementById('detailsPanel');
+    const panel = document.getElementById('details-panel');
     if (panel) {
         panel.classList.toggle('hidden', _scorePanelHidden);
     }

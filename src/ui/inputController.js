@@ -193,17 +193,15 @@ export function createInputController({ container }) {
             
             // Panels that should be shown when HUD is visible
             const normalPanels = [
-                'statsPanel',
-                'detailsPanel', 
-                'time-control-panel',
-                'bottom-toolbar',
-                'topology-warnings-panel'
+                'hud-top-row',
+                'hud-right-column',
+                'bottom-toolbar'
             ];
             
             // Mode-specific panels (only toggle if they were visible)
             const modeSpecificPanels = [
                 'campaign-panel',         // Campaign mode only (unified panel)
-                'sandbox-controls-panel'  // Sandbox mode only
+                'sandbox-panel'           // Sandbox mode only
             ];
             
             // Panels that have their own visibility logic (campaign-specific)

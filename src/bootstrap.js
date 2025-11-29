@@ -19,6 +19,7 @@ import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js"
 import { initHudMenu } from "./ui/menuController.js";
 import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
+import { initWarningsPill } from "./ui/hud.js";
 
 function renderScene() {
     syncRenderState();
@@ -142,6 +143,7 @@ function createRuntime() {
 export function bootstrap() {
     initGame();
     initHudMenu(); // Initialize hamburger menu
+    initWarningsPill();
     initTimeControls();
     const runtime = createRuntime();
 
