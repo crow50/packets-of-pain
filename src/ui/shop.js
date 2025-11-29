@@ -1,4 +1,4 @@
-import { LEVELS } from "../levels.js";
+import { getLevelById } from "../config/campaign/index.js";
 import { GameContext } from "../sim/economy.js";
 import { applyToolbarWhitelist } from "./toolbarController.js";
 
@@ -68,7 +68,7 @@ export function setCampaignShop() {
 }
 
 export function setShopForLevel(levelId) {
-    const level = LEVELS[levelId];
+    const level = getLevelById(levelId);
     const derived = level ? mapWhitelistToServices(level.toolbarWhitelist) : [];
     const list = derived.length ? derived : CAMPAIGN_LEVEL_FALLBACK_SHOP;
     setShopForServiceList(list);
