@@ -273,6 +273,21 @@ Key modules (names may vary slightly):
   * Controls help overlay, sound toggles, “Return to Main Menu”.
   * Uses engine UI state for sound (`engine.getUIState().soundMuted`, etc.) and calls runtime/POP API for main menu transitions.
 
+### HUD Layout & Modes
+
+The HUD now uses a **zone-based layout** so panels never overlap:
+
+1. **Top-left (`#hud-top-left`)** – the stats card plus the warnings stack (`#warnings-pill` + `#topology-warnings-section`) share this column so issues surface directly beside the metrics they impact.
+2. **Top-center (`#hud-top-center`)** – time controls and the HUD menu button sit together, centered over the canvas.
+3. **Top-right (`#hud-top-right`)** – the score card occupies the entire column with consistent spacing.
+4. **Right column (`#hud-right-column`)** – stacked glass panels with scrollable content. `#campaign-panel` and `#sandbox-panel` are mutually exclusive; `#details-panel` (hottest node) always sits beneath them.
+4. **Bottom center (`#bottom-toolbar`)** – build tools + shop, centered and always above the canvas.
+5. **Floating overlays** – tooltips (`#tooltip`), modals, and onboarding live above everything else.
+
+`setHUDMode(mode)` in `hud.js` switches which mode-specific panel is active (`'campaign'`, `'sandbox'`, or `null` for menus). The warnings flow is pill-driven: `initWarningsPill()` wires the pill tap/click to expand `#topology-warnings-section` directly beneath the stats column while `hudController.updateTopologyWarnings` pushes the latest issues and badge counts.
+
+Responsive rules keep the entire top row wrapping under `1280px` and collapse the right column under `768px`, so the HUD still fits on smaller displays without overlapping the canvas or toolbar.
+
 The UI layer never directly mutates simulation arrays and never calls sim helpers like `gameTick` or `createService` directly; it always goes through the engine and runtime.
 
 ---

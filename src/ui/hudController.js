@@ -91,25 +91,39 @@ export function updateSimulationHud(state) {
  * Update the topology warnings panel based on sim.topologyWarnings
  */
 function updateTopologyWarnings(sim) {
-    const panel = document.getElementById('topology-warnings-panel');
+    const pill = document.getElementById('warnings-pill');
+    const pillLabel = pill?.querySelector('span');
+    const section = document.getElementById('topology-warnings-section');
     const list = document.getElementById('topology-warnings-list');
-    if (!panel || !list) return;
-    
-    // Respect HUD hidden state
+    if (!pill || !section || !list) return;
+
+    const resetSection = () => {
+        pill.classList.add('hidden');
+        section.classList.add('hidden');
+        section.dataset.expanded = 'false';
+        list.innerHTML = '';
+    };
+
     if (_hudHidden) {
-        panel.classList.add('hidden');
+        resetSection();
         return;
     }
-    
+
     const warnings = sim?.topologyWarnings?.warnings || [];
-    
     if (warnings.length === 0) {
-        panel.classList.add('hidden');
+        resetSection();
         return;
     }
-    
-    panel.classList.remove('hidden');
+
+    pill.classList.remove('hidden');
+    if (pillLabel) {
+        const label = warnings.length === 1 ? 'Issue' : 'Issues';
+        pillLabel.textContent = `⚠ ${warnings.length} ${label}`;
+    }
+
     list.innerHTML = warnings.map(w => `<li class="flex items-start gap-1"><span class="text-red-500">•</span>${w}</li>`).join('');
+    const expanded = section.dataset.expanded === 'true';
+    section.classList.toggle('hidden', !expanded);
 }
 
 /**
