@@ -19,7 +19,6 @@ import {
     exitLevelToCampaignHub,
     hideCampaignLevels,
     enterCampaignWorld,
-    updateCampaignHighlights,
     showLevelInstructionsPanel
 } from "./ui/campaign.js";
 import {
@@ -29,6 +28,7 @@ import {
     deleteLink,
     deleteObject
 } from "./sim/tools.js";
+import { stopTutorial } from "./ui/tutorialController.js";
 
 window.showView = showView;
 window.showMainMenu = showMainMenu;
@@ -47,6 +47,7 @@ window.deleteObject = deleteObject;
 // Centralized return to main menu function
 window.returnToMainMenu = function() {
     window.__POP_RUNTIME__?.stop?.();
+    stopTutorial();
     showView('main-menu');
 };
 
@@ -70,7 +71,6 @@ function setCampaignUIActive(active) {
     updateGameModeLabel(active);
     if (!active) {
         showLevelInstructionsPanel(false);
-        updateCampaignHighlights(null);
     }
 }
 window.setCampaignUIActive = setCampaignUIActive;
@@ -87,6 +87,7 @@ export function initGame() {
 }
 
 export function resetGame(mode = 'survival') {
+    stopTutorial();
     const engine = getEngine();
     const ui = engine?.getUIState();
     const sim = engine?.getSimulation();
@@ -129,6 +130,7 @@ window.restartGame = restartGame;
 
 
 export function startSandbox() {
+    stopTutorial();
     GameContext.mode = GAME_MODES.SANDBOX;
     setCampaignUIActive(false);
     setSandboxShop();

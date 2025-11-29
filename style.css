@@ -39,39 +39,6 @@ body {
 
 
 
-/* Onboarding Modal Styles */
-.onboarding-step {
-    display: none;
-}
-
-.onboarding-step.active {
-    display: block;
-    animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.key-badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    font-family: monospace;
-    font-size: 0.8em;
-    color: #fff;
-}
-
 /* Neon Green Pulse for Play Button */
 .pulse-green {
     background-color: #39ff14 !important;
@@ -95,66 +62,6 @@ body {
     100% {
         box-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
         transform: scale(1);
-    }
-}
-
-/* Animation for Onboarding Flow */
-.flow-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.flow-node {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    position: relative;
-    background: #1f2937;
-    border: 1px solid #374151;
-}
-
-.flow-line {
-    width: 60px;
-    height: 2px;
-    background: #4b5563;
-    position: relative;
-}
-
-.flow-packet {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #fff;
-    position: absolute;
-    top: -3px;
-    left: 0;
-    animation: flowMove 1.5s infinite linear;
-}
-
-@keyframes flowMove {
-    0% {
-        left: 0;
-        opacity: 0;
-    }
-
-    10% {
-        opacity: 1;
-    }
-
-    90% {
-        opacity: 1;
-    }
-
-    100% {
-        left: 100%;
-        opacity: 0;
     }
 }
 
@@ -332,6 +239,25 @@ body {
     border-radius: 999px;
 }
 
+#tutorial-box {
+    min-height: 120px;
+}
+
+#tutorial-box button {
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tutorial-highlight {
+    position: relative;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.6), 0 0 24px rgba(251, 191, 36, 0.3);
+    border-color: rgba(251, 191, 36, 0.8) !important;
+}
+
+.tutorial-disabled {
+    pointer-events: none !important;
+    opacity: 0.35 !important;
+}
+
 #details-panel {
     flex: 1 1 auto;
 }
@@ -456,27 +382,6 @@ body {
         position: static;
         transform: none;
         margin: 0.75rem auto;
-    }
-}
-
-.campaign-highlight {
-    animation: campaignPulse 1.4s ease-in-out infinite;
-    box-shadow: 0 0 25px rgba(59, 130, 246, 0.45);
-    border-color: #3b82f6;
-}
-
-@keyframes campaignPulse {
-    0% {
-        transform: translateY(0);
-        box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
-    }
-    50% {
-        transform: translateY(-2px);
-        box-shadow: 0 0 25px rgba(59, 130, 246, 0.7);
-    }
-    100% {
-        transform: translateY(0);
-        box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);
     }
 }
 

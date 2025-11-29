@@ -34,6 +34,10 @@ class Request {
         this._ttlFailed = false;
         this.hasCompute = false;
         this.lastNodeId = null;
+        this.sourceId = null;
+        this.sourceType = null;
+        this.targetUserId = null;
+        this.isResponse = false;
     }
 
     flyTo(service) {

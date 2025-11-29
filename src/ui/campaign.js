@@ -12,6 +12,10 @@ import {
 } from "./hud.js";
 import { applyToolbarWhitelist } from "./toolbarController.js";
 import { getLevelById, getLevelsForDomain } from "../config/campaign/index.js";
+import { configureTutorial, stopTutorial } from "./tutorialController.js";
+import Service from "../entities/Service.js";
+import { copyPosition, toPlainPosition, toPosition } from "../sim/vectorUtils.js";
+import { linkInternetMesh } from "../render/scene.js";
 
 const BABY_DOMAIN_ID = "babys-first-network";
 const LEVEL_UNLOCK_CHAIN = {
@@ -19,31 +23,61 @@ const LEVEL_UNLOCK_CHAIN = {
     "baby-3": "baby-2",
 };
 
-const CAMPAIGN_HIGHLIGHT_MAP = {
-    "baby-1": ["time-control-panel", "statsPanel", "shop-panel", "tool-connect", "tool-modem"]
-};
-const CAMPAIGN_HIGHLIGHT_IDS = (() => {
-    const ref = [];
-    Object.values(CAMPAIGN_HIGHLIGHT_MAP).forEach(list => ref.push(...list));
-    return [...new Set(ref)];
-})();
-
 export const GAME_MODES = {
     SANDBOX: "sandbox",
     CAMPAIGN: "campaign",
 };
 
 function spawnNodeFromConfig(nodeConfig) {
-    console.info('Spawning campaign node', nodeConfig);
-}
+    if (!nodeConfig || !nodeConfig.type) return null;
+    const engine = window.__POP_RUNTIME__?.current?.engine;
+    const sim = engine?.getSimulation?.();
+    if (!engine || !sim) {
+        console.warn('[Campaign] Unable to spawn node, missing engine or simulation state.');
+        return null;
+    }
 
-export function updateCampaignHighlights(levelId) {
-    const active = new Set(CAMPAIGN_HIGHLIGHT_MAP[levelId] || []);
-    CAMPAIGN_HIGHLIGHT_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.classList.toggle('campaign-highlight', active.has(id));
+    const typeKey = String(nodeConfig.type).toLowerCase();
+    if (typeKey === 'internet') {
+        if (sim.internetNode && nodeConfig.position) {
+            copyPosition(sim.internetNode.position, toPosition(nodeConfig.position));
+            linkInternetMesh(sim.internetNode);
+        }
+        return sim.internetNode;
+    }
+
+    const catalog = window.ServiceCatalog;
+    const catalogEntry = catalog?.getServiceType?.(nodeConfig.type);
+    if (!catalogEntry) {
+        console.warn('[Campaign] Unknown preplaced node type:', nodeConfig.type);
+        return null;
+    }
+
+    const runtimeType = catalogEntry.key || typeKey;
+    const service = new Service(runtimeType, nodeConfig.position || { x: 0, y: 0, z: 0 });
+    if (nodeConfig.id) {
+        service.id = nodeConfig.id;
+    }
+
+    if (Number.isFinite(nodeConfig.tier) && nodeConfig.tier > 1 && catalog?.getCapacityForTier) {
+        const tierCapacity = catalog.getCapacityForTier(runtimeType, nodeConfig.tier);
+        if (tierCapacity) {
+            service.tier = nodeConfig.tier;
+            service.config.capacity = tierCapacity;
+            service.load.lastTickCapacity = tierCapacity;
+        }
+    }
+
+    service.isCampaignPreplaced = true;
+    sim.services.push(service);
+    engine.emit?.('serviceAdded', {
+        serviceId: service.id,
+        type: service.type,
+        position: toPlainPosition(service.position),
+        preplaced: true
     });
+    window.Routing?.validateTopology?.();
+    return service;
 }
 
 export function showLevelInstructionsPanel(visible) {
@@ -176,11 +210,14 @@ export function loadLevelConfig(levelId) {
     setCurrentLevelContext(levelId);
     setShopForLevel(levelId);
     setCampaignLevelObjectives(levelId);
-    updateCampaignHighlights(levelId);
+    const engine = window.__POP_RUNTIME__?.current?.engine;
+    stopTutorial();
+    configureTutorial(level, engine);
 }
 
 export function startCampaign() {
     GameContext.mode = GAME_MODES.CAMPAIGN;
+    stopTutorial();
     window.setCampaignUIActive?.(true);
     setCampaignShop();
     showView('campaign-hub');
@@ -212,10 +249,10 @@ export function exitLevelToCampaignHub() {
     if (GameContext.mode !== GAME_MODES.CAMPAIGN) return;
     GameContext.mode = GAME_MODES.CAMPAIGN;
     GameContext.currentLevelId = null;
+    stopTutorial();
     window.setCampaignUIActive?.(true);
     window.resetSimulationState?.();
     setTrafficProfile(null);
-    updateCampaignHighlights(null);
     showLevelInstructionsPanel(false);
     setCampaignIntroObjectives();
     setCampaignShop();

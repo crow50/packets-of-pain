@@ -33,7 +33,7 @@ const SERVICE_TYPES = {
         upkeepPerTick: 0,
         processingTime: 0,
         tiers: [
-            { level: 1, capacity: 0 }
+            { level: 1, capacity: 25 }
         ],
         accepts: [],
         terminalFor: [],
@@ -44,17 +44,35 @@ const SERVICE_TYPES = {
         icon: '🌐',
         tip: 'Spawn-only pseudo device. Engine-controlled and not buildable.'
     },
+    USER: {
+        key: 'user',
+        label: 'Home User',
+        baseCost: 0,
+        upkeepPerTick: 0,
+        processingTime: 0,
+        tiers: [
+            { level: 1, capacity: 10 }
+        ],
+        accepts: ['INBOUND', 'RESPONSE', 'FRAUD', 'MALICIOUS'],
+        terminalFor: ['RESPONSE', 'INBOUND', 'FRAUD', 'MALICIOUS'],
+        blocks: [],
+        category: 'external',
+        drawable: false,
+        subtitle: 'Resident',
+        icon: '👤',
+        tip: 'Static campaign endpoint that can originate requests and receive any returning traffic.'
+    },
     // === Generic Network Devices ===
     MODEM: {
         key: 'modem',
         label: 'Modem',
         baseCost: 25,
         upkeepPerTick: 2,
-        processingTime: 100,
+        processingTime: 50,
         tiers: [
-            { level: 1, capacity: 2 }
+            { level: 1, capacity: 200 }
         ],
-        accepts: ['WEB', 'API', 'FRAUD', 'MALICIOUS'],
+        accepts: ['WEB', 'API', 'FRAUD', 'MALICIOUS', 'INBOUND'],
         terminalFor: [],
         blocks: [],
         category: 'device',
@@ -71,7 +89,7 @@ const SERVICE_TYPES = {
         tiers: [
             { level: 1, capacity: 10 }
         ],
-        accepts: ['WEB', 'API', 'FRAUD', 'MALICIOUS'],
+        accepts: ['WEB', 'API', 'FRAUD', 'MALICIOUS', 'INBOUND'],
         terminalFor: [],
         blocks: [],
         category: 'device',
@@ -88,7 +106,7 @@ const SERVICE_TYPES = {
         tiers: [
             { level: 1, capacity: 20 }
         ],
-        accepts: ['WEB', 'API', 'FRAUD', 'MALICIOUS'],
+        accepts: ['WEB', 'API', 'FRAUD', 'MALICIOUS', 'INBOUND'],
         terminalFor: [],
         blocks: ['MALICIOUS'],
         category: 'device',
@@ -107,7 +125,7 @@ const SERVICE_TYPES = {
         tiers: [
             { level: 1, capacity: 100 }
         ],
-        accepts: ['WEB', 'API', 'FRAUD'],
+        accepts: ['WEB', 'API', 'FRAUD', 'INBOUND'],
         terminalFor: [],
         blocks: ['FRAUD'],
         category: 'cloud',
@@ -124,7 +142,7 @@ const SERVICE_TYPES = {
         tiers: [
             { level: 1, capacity: 50 }
         ],
-        accepts: ['WEB', 'API'],
+        accepts: ['WEB', 'API', 'INBOUND'],
         terminalFor: [],
         blocks: [],
         category: 'cloud',
@@ -143,7 +161,7 @@ const SERVICE_TYPES = {
             { level: 2, capacity: 15, upgradeCost: 200 },
             { level: 3, capacity: 25, upgradeCost: 250 }
         ],
-        accepts: ['WEB', 'API'],
+        accepts: ['WEB', 'API', 'INBOUND'],
         terminalFor: [],
         blocks: [],
         category: 'cloud',
@@ -162,7 +180,7 @@ const SERVICE_TYPES = {
             { level: 2, capacity: 30, upgradeCost: 400 },
             { level: 3, capacity: 50, upgradeCost: 600 }
         ],
-        accepts: ['WEB', 'API'],
+        accepts: ['WEB', 'API', 'INBOUND'],
         terminalFor: ['API'],
         blocks: [],
         category: 'cloud',
@@ -179,7 +197,7 @@ const SERVICE_TYPES = {
         tiers: [
             { level: 1, capacity: 100 }
         ],
-        accepts: ['WEB'],
+        accepts: ['WEB', 'INBOUND'],
         terminalFor: ['WEB'],
         blocks: [],
         category: 'cloud',

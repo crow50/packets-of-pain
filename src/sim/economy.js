@@ -10,7 +10,10 @@ function resolveState(arg) {
 
 const DEFAULT_TRAFFIC_PROFILE = {
     userToInternetPps: CONFIG.survival.baseRPS || 0.5,
-    maliciousRate: 0
+    maliciousRate: 0,
+    inboundOnly: false,
+    spawnRps: CONFIG.survival.baseRPS || 0.5,
+    rpsRampPerSecond: 0
 };
 
 const GameContext = {
@@ -116,6 +119,7 @@ export function setTrafficProfile(arg1, arg2) {
             const sim = state.simulation || state;
             sim.trafficProfile = null;
             sim.currentRPS = CONFIG.survival.baseRPS;
+            sim.rpsRampPerSecond = 0;
             sim.spawnTimer = 0;
         }
         return;
@@ -124,14 +128,21 @@ export function setTrafficProfile(arg1, arg2) {
     if (!state) return;
     const sim = state.simulation || state;
 
+    const userRate = profile.userToInternetPps !== undefined ? profile.userToInternetPps : DEFAULT_TRAFFIC_PROFILE.userToInternetPps;
+    const maliciousRate = profile.maliciousRate !== undefined ? profile.maliciousRate : DEFAULT_TRAFFIC_PROFILE.maliciousRate;
+    const spawnRps = profile.spawnRps !== undefined ? profile.spawnRps : (userRate + maliciousRate);
     const normalized = {
-        userToInternetPps: profile.userToInternetPps !== undefined ? profile.userToInternetPps : DEFAULT_TRAFFIC_PROFILE.userToInternetPps,
-        maliciousRate: profile.maliciousRate !== undefined ? profile.maliciousRate : DEFAULT_TRAFFIC_PROFILE.maliciousRate
+        userToInternetPps: userRate,
+        maliciousRate,
+        inboundOnly: Boolean(profile.inboundOnly),
+        spawnRps: Math.max(0, spawnRps !== undefined ? spawnRps : DEFAULT_TRAFFIC_PROFILE.spawnRps),
+        rpsRampPerSecond: typeof profile.rpsRampPerSecond === 'number' ? profile.rpsRampPerSecond : DEFAULT_TRAFFIC_PROFILE.rpsRampPerSecond
     };
 
     GameContext.trafficProfile = normalized;
     sim.trafficProfile = normalized;
-    sim.currentRPS = normalized.userToInternetPps + normalized.maliciousRate;
+    sim.currentRPS = normalized.spawnRps;
+    sim.rpsRampPerSecond = normalized.rpsRampPerSecond;
     sim.spawnTimer = 0;
 }
 

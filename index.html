@@ -118,7 +118,8 @@
                     </div>
 
                 </div>
-
+                
+                <!-- TODO: Make scoring more dynamic, plan to add more packets types and therefore scoring categories -->
                 <div id="hud-top-right">
                     <div id="score-panel" class="glass-panel rounded-xl p-3">
                         <div class="flex justify-between items-center border-b border-gray-700 pb-1 mb-2">
@@ -145,6 +146,7 @@
 
             <!-- Right Column -->
             <div id="hud-right-column">
+                <!-- TODO: Flip panels, tutorial then campaign -->
                 <div id="campaign-panel" class="glass-panel rounded-xl p-4 hidden border border-blue-500/30 bg-gradient-to-b from-slate-900/70 to-slate-900/20">
                     <div>
                         <p id="campaign-panel-series" class="text-[10px] uppercase tracking-[0.4em] text-blue-400/70 font-mono">baby's first network</p>
@@ -162,6 +164,15 @@
                         <button onclick="resetLevel()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
                         <button onclick="exitLevelToCampaignHub()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
                     </div>
+                </div>
+
+                <div id="tutorial-box" class="glass-panel rounded-xl p-4 hidden border border-amber-500/40 bg-amber-900/10">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] uppercase tracking-[0.4em] text-amber-300/80 font-mono">Tutorial</p>
+                        <span id="tutorial-step-counter" class="text-[10px] font-mono text-gray-400"></span>
+                    </div>
+                    <p id="tutorial-text" class="text-sm text-amber-100 mt-2 leading-relaxed"></p>
+                    <button id="tutorial-skip-btn" onclick="window.skipTutorial?.()" class="mt-3 text-[10px] uppercase tracking-wider text-amber-200/80 hover:text-amber-100 bg-amber-900/30 border border-amber-500/30 px-2 py-1 rounded">Skip Tutorial</button>
                 </div>
 
                 <div id="sandbox-panel" class="glass-panel rounded-xl p-3 hidden border border-cyan-500/30 bg-gradient-to-b from-cyan-900/20 to-slate-900/20">
@@ -237,7 +248,7 @@
                         </div>
                     </div>
                 </div>
-
+                <!-- TODO: Move below score  -->
                 <div id="details-panel" class="glass-panel rounded-xl p-3">
                     <div id="bottleneck-display" class="hidden">
                         <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Hottest Node</h4>

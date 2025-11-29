@@ -136,7 +136,7 @@ class Service {
             if (job.timer >= this.config.processingTime) {
                 this.processing.splice(i, 1);
                 let failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
-                if (this.type === 'loadBalancer') {
+                if (this.type === 'loadBalancer' || this.type === 'user') {
                     failChance = 0;
                 }
 
