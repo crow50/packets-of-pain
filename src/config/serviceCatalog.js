@@ -25,6 +25,25 @@
  * - icon: Emoji/character for shop button
  */
 const SERVICE_TYPES = {
+    // === External / pseudo devices ===
+    INTERNET: {
+        key: 'INTERNET',
+        label: 'Internet',
+        baseCost: 0,
+        upkeepPerTick: 0,
+        processingTime: 0,
+        tiers: [
+            { level: 1, capacity: 0 }
+        ],
+        accepts: [],
+        terminalFor: [],
+        blocks: [],
+        category: 'external',
+        drawable: false,
+        subtitle: 'Edge Cloud',
+        icon: '🌐',
+        tip: 'Spawn-only pseudo device. Engine-controlled and not buildable.'
+    },
     // === Generic Network Devices ===
     MODEM: {
         key: 'modem',

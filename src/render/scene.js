@@ -95,9 +95,10 @@ export function initScene(containerEl) {
         roughness: 0.2
     });
     internetMesh = new THREE.Mesh(internetGeo, internetMat);
+    internetMesh.userData = { id: 'internet', type: 'internet' };
     // Position the internet mesh - use engine state if available, fallback to default
     const internetNode = window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.internetNode;
-    const defaultPosition = new THREE.Vector3(-40, 0, 0);
+    const defaultPosition = new THREE.Vector3(-10, 0, 0);
     internetMesh.position.copy(internetNode?.position || defaultPosition);
     if (internetNode) {
         internetNode.mesh = internetMesh;

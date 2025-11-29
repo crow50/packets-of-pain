@@ -10,7 +10,7 @@ const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['modem', 'waf'];
 export function buildShopButton(type) {
     // Use service catalog as single source of truth
     const catalogEntry = getServiceType(type);
-    if (!catalogEntry) return null;
+    if (!catalogEntry || catalogEntry.drawable === false) return null;
     
     // Get display properties from catalog
     const displayName = catalogEntry.label;

@@ -64,6 +64,7 @@ class Service {
         this.config.capacity = getCapacityForTier(this.type, this.tier);
         this.load.lastTickCapacity = this.config.capacity;
         emit('serviceUpgraded', { serviceId: this.id, tier: this.tier });
+        emit('playSound', { soundName: 'upgrade' });
     }
 
     processQueue(dt) {
