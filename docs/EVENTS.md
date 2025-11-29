@@ -14,6 +14,8 @@ The engine exposes a **publish/subscribe bus** so UI and render layers can react
 | --- | --- |
 | `serviceAdded` | `{ serviceId, type, position }` |
 | `serviceRemoved` | `{ serviceId }` |
+| `serviceUpgraded` | `{ serviceId, tier }` |
+| `upgradeFailedInsufficientFunds` | `{ serviceId }` |
 | `connectionCreated` | `{ linkId, from, to }` |
 | `connectionDeleted` | `{ linkId }` |
 | `requestSpawned` | `{ requestId, type, from }` |
@@ -22,5 +24,6 @@ The engine exposes a **publish/subscribe bus** so UI and render layers can react
 | `timeScaleChanged` | `{ scale }` |
 | `toolChanged` | `{ toolName }` |
 | `budgetWarning` | `{ reason }` |
+| `playSound` | `{ soundName }` |
 
 Add new events here before emitting them. Update `docs/DEV_RULES.md` to reference this catalog in the simulation rules section.

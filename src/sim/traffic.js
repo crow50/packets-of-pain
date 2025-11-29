@@ -149,7 +149,8 @@ function spawnRequest(state) {
             type = TRAFFIC_TYPES.WEB;
         }
     }
-    const req = new Request(type);
+    const internetOrigin = sim.internetNode?.position;
+    const req = new Request(type, internetOrigin);
     sim.requests.push(req);
     emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
     const conns = sim.internetNode.connections;
@@ -169,9 +170,10 @@ function spawnRequest(state) {
 export function spawnBurstOfType(state, type, count) {
     const sim = state.simulation || state;
     const conns = sim.internetNode.connections;
+    const internetOrigin = sim.internetNode?.position;
     
     for (let i = 0; i < count; i++) {
-        const req = new Request(type);
+        const req = new Request(type, internetOrigin);
         sim.requests.push(req);
         emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
         

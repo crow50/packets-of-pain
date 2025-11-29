@@ -15,6 +15,11 @@ const FAILURE_COPY = {
 
 function createInitialState(config = {}) {
     const isSandbox = config.mode === 'sandbox';
+    const internetPosition = {
+        x: config.internetPosition?.x ?? -10,
+        y: config.internetPosition?.y ?? 0,
+        z: config.internetPosition?.z ?? 0
+    };
     
     const simulation = {
         time: 0,
@@ -32,7 +37,7 @@ function createInitialState(config = {}) {
         internetNode: {
             id: 'internet',
             type: 'internet',
-            position: new THREE.Vector3(-40, 0, 0),
+            position: { ...internetPosition },
             connections: []
         },
         spawnTimer: 0,

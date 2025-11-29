@@ -72,7 +72,7 @@ export function createService(arg1, arg2, arg3) {
 
     // Use service catalog as single source of truth
     const catalogEntry = getServiceType(type);
-    if (!catalogEntry) return;
+    if (!catalogEntry || catalogEntry.drawable === false) return;
     const baseCost = catalogEntry.baseCost;
 
     if (sim.money < baseCost) {

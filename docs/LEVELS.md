@@ -5,7 +5,8 @@ Campaign levels now live entirely under `src/config/campaign/` so the UI, shop, 
 ## Structure
 
 - **Domain files** (`domain-*.js`) describe a networking domain or "world" (e.g., Baby's First Network). Each domain exports metadata (id, title, subtitle, description) plus a `DOMAIN_..._LEVELS` array that lists every level belonging to that domain.
-- **Level entries** are plain objects with fields such as `id`, `domainId`, `title`, `subtitle`, `description`, `startingBudget`, `toolbarWhitelist`, `trafficProfile`, `preplacedNodes`, `instructions`, `winConditionId`, and `failConditionId`. These objects mirror the old `LEVELS` entries and may include domain-specific helpers or tooling hints as needed.
+- **Level entries** are plain objects with fields such as `id`, `domainId`, `title`, `subtitle`, `description`, `startingBudget`, `toolbarWhitelist`, `trafficProfile`, `internetPosition`, `preplacedNodes`, `instructions`, `winConditionId`, and `failConditionId`. These objects mirror the old `LEVELS` entries and may include domain-specific helpers or tooling hints as needed.
+	- `internetPosition` is optional; when provided it overrides the engine's default `{ x: -10, y: 0, z: 0 }` spawn point so packets (and the Internet mesh) appear where the scenario expects (e.g., far left/right, offset vertically for special events). Sandbox and survival configs can also pass this field through the runtime when they need custom ingress positions.
 - **`campaign/index.js`** collects all domains and levels, builds `LEVEL_CACHE`/`DOMAIN_CACHE`, and exports helpers (`getDomainById`, `getLevelsForDomain`, `getLevelById`, etc.) so downstream modules never import individual level files directly.
 - **Runtime helpers** consume `getLevelById` for loading/start/reset flows, `getLevelsForDomain` for rendering the campaign hub, and the shop uses the same helper to derive toolbar whitelists.
 
