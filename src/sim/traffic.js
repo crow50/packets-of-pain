@@ -16,6 +16,104 @@ function emitEvent(event, payload) {
     engine?.emit?.(event, payload);
 }
 
+function getUserNodes(sim) {
+    if (!sim?.services?.length) return [];
+    return sim.services.filter(service => service?.type === 'user');
+}
+
+function pickRequestSource(sim, trafficProfile, gameMode) {
+    const defaultSource = sim.internetNode;
+    if (trafficProfile?.inboundOnly) {
+        return { source: defaultSource, fromUser: false };
+    }
+    if (gameMode !== 'campaign') {
+        return { source: defaultSource, fromUser: false };
+    }
+
+    const userNodes = getUserNodes(sim);
+    if (!userNodes.length) {
+        return { source: defaultSource, fromUser: false };
+    }
+
+    const userRate = Math.max(0, trafficProfile?.userToInternetPps ?? 0);
+    const internetRate = Math.max(0, trafficProfile?.maliciousRate ?? 0);
+    const total = userRate + internetRate;
+    if (total <= 0) {
+        return { source: defaultSource, fromUser: false };
+    }
+
+    const spawnFromUser = Math.random() < (userRate / total);
+    if (!spawnFromUser) {
+        return { source: defaultSource, fromUser: false };
+    }
+
+    const selected = userNodes[Math.floor(Math.random() * userNodes.length)] || defaultSource;
+    return { source: selected, fromUser: Boolean(selected && selected !== defaultSource) };
+}
+
+function routeInitialRequest(state, req, sourceNode) {
+    const sim = state.simulation || state;
+    const origin = sourceNode || sim.internetNode;
+    if (!origin) {
+        failRequest(state, req);
+        return;
+    }
+
+    const connections = origin === sim.internetNode
+        ? sim.internetNode.connections
+        : (origin.connections || []);
+
+    if (!connections?.length) {
+        failRequest(state, req);
+        return;
+    }
+
+    const entryNodes = connections
+        .map(id => (id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id)))
+        .filter(Boolean);
+
+    if (!entryNodes.length) {
+        failRequest(state, req);
+        return;
+    }
+
+    let target = null;
+    if (origin === sim.internetNode) {
+        const wafEntry = entryNodes.find(s => s && s.type === 'waf');
+        target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
+    } else {
+        target = entryNodes[Math.floor(Math.random() * entryNodes.length)];
+    }
+
+    if (!target) {
+        failRequest(state, req);
+        return;
+    }
+
+    req.lastNodeId = origin?.id || 'internet';
+    req.flyTo(target);
+}
+
+function spawnInboundResponse(state, completedRequest) {
+    if (!completedRequest) return;
+    const sim = state.simulation || state;
+    const allowed = completedRequest.type === TRAFFIC_TYPES.WEB || completedRequest.type === TRAFFIC_TYPES.API;
+    if (!allowed || completedRequest.sourceType !== 'user') return;
+
+    const userService = sim.services?.find(s => s.id === completedRequest.sourceId && s.type === 'user');
+    if (!userService) return;
+
+    const inboundReq = new Request(TRAFFIC_TYPES.INBOUND, sim.internetNode?.position);
+    inboundReq.sourceId = sim.internetNode?.id || 'internet';
+    inboundReq.sourceType = 'internet';
+    inboundReq.targetUserId = userService.id;
+    inboundReq.isResponse = true;
+
+    sim.requests.push(inboundReq);
+    emitEvent('requestSpawned', { requestId: inboundReq.id, type: inboundReq.type, from: toPlainPosition(inboundReq.position) });
+    routeInitialRequest(state, inboundReq, sim.internetNode);
+}
+
 
 export function updateScore(arg1, arg2, arg3) {
     // Overload: updateScore(req, outcome) OR updateScore(state, req, outcome)
@@ -80,6 +178,7 @@ export function finishRequest(arg1, arg2) {
     sim.requestsProcessed++;
     updateScore(state, req, 'COMPLETED');
     emitEvent('requestFinished', { requestId: req.id });
+    spawnInboundResponse(state, req);
     removeRequest(state, req);
 }
 
@@ -138,8 +237,9 @@ function spawnRequest(state) {
     let type = getTrafficType(sim);
     const trafficProfile = sim.trafficProfile || GameContext.trafficProfile;
     const gameMode = ui.gameMode || 'sandbox';
+    const inboundOnly = Boolean(trafficProfile?.inboundOnly);
     
-    if (gameMode === 'campaign' && trafficProfile) {
+    if (!inboundOnly && gameMode === 'campaign' && trafficProfile) {
         const { userToInternetPps = 0, maliciousRate = 0 } = trafficProfile;
         const total = userToInternetPps + maliciousRate;
         if (total > 0) {
@@ -149,48 +249,32 @@ function spawnRequest(state) {
             type = TRAFFIC_TYPES.WEB;
         }
     }
-    const internetOrigin = sim.internetNode?.position;
-    const req = new Request(type, internetOrigin);
+    if (inboundOnly) {
+        type = TRAFFIC_TYPES.INBOUND;
+    }
+    const { source: sourceNode = sim.internetNode } = pickRequestSource(sim, trafficProfile, gameMode);
+    const sourcePosition = sourceNode?.position || sim.internetNode?.position;
+
+    const req = new Request(type, sourcePosition);
+    req.sourceId = sourceNode?.id || 'internet';
+    req.sourceType = sourceNode?.type || 'internet';
     sim.requests.push(req);
     emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
-    const conns = sim.internetNode.connections;
-    if (conns.length > 0) {
-        const entryNodes = conns.map(id => sim.services.find(s => s.id === id));
-        const wafEntry = entryNodes.find(s => s && s.type === 'waf');
-        const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
-
-        if (target) {
-            req.lastNodeId = 'internet';
-            req.flyTo(target);
-        } else failRequest(state, req);
-    } else failRequest(state, req);
+    routeInitialRequest(state, req, sourceNode);
 }
 
 // Spawn a burst of requests of a specific type (for sandbox testing)
 export function spawnBurstOfType(state, type, count) {
     const sim = state.simulation || state;
-    const conns = sim.internetNode.connections;
     const internetOrigin = sim.internetNode?.position;
     
     for (let i = 0; i < count; i++) {
         const req = new Request(type, internetOrigin);
+        req.sourceId = sim.internetNode?.id || 'internet';
+        req.sourceType = 'internet';
         sim.requests.push(req);
         emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
-        
-        if (conns.length > 0) {
-            const entryNodes = conns.map(id => sim.services.find(s => s.id === id));
-            const wafEntry = entryNodes.find(s => s && s.type === 'waf');
-            const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
-
-            if (target) {
-                req.lastNodeId = 'internet';
-                req.flyTo(target);
-            } else {
-                failRequest(state, req);
-            }
-        } else {
-            failRequest(state, req);
-        }
+        routeInitialRequest(state, req, sim.internetNode);
     }
 }
 
@@ -230,6 +314,11 @@ export function gameTick(arg1, arg2) {
     const gameMode = ui.gameMode || 'sandbox';
     if (gameMode === 'survival') {
         sim.currentRPS += CONFIG.survival.rampUp * scaledDt;
+    } else if (gameMode === 'campaign') {
+        const ramp = sim.trafficProfile?.rpsRampPerSecond ?? 0;
+        if (ramp) {
+            sim.currentRPS = Math.max(0, sim.currentRPS + ramp * scaledDt);
+        }
     }
 
     sim.services.forEach(s => s.update(scaledDt));

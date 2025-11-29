@@ -21,13 +21,65 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 		toolbarWhitelist: ["Select", "Modem", "LinkTool"],
 		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
-			{ type: "User", id: "user-1", position: { x: -4, y: 0 } },
-			{ type: "Internet", id: "inet-1", position: { x: 4, y: 0 } },
+			{ type: "User", id: "user-1", position: { x: 0, y: 0 } },
+			{ type: "Internet", id: "inet-1", position: { x: 16, y: 0 } },
 		],
 		trafficProfile: {
 			mode: "simple",
-			userToInternetPps: 1,
+			userToInternetPps: 0,
 			maliciousRate: 0,
+			inboundOnly: true,
+			spawnRps: 0.25,
+			rpsRampPerSecond: 0,
+		},
+		tutorial: {
+			enabled: true,
+			trigger: { type: "level-start" },
+			steps: [
+				{
+					id: "select-modem",
+					text: "Start paused and click the Modem card in the shop to equip it. It's the gateway device we'll build with.",
+					highlight: { elementId: "tool-modem" },
+					toolWhitelist: ["Select", "Modem"],
+					condition: { type: "activeToolIs", toolId: "modem" }
+				},
+				{
+					id: "place-modem",
+					text: "Place that Modem between the User and Internet nodes. Drop it roughly in the center lane.",
+					highlight: { elementId: "canvas-container" },
+					toolWhitelist: ["Select", "Modem"],
+					condition: { type: "hasServiceOfType", serviceType: "MODEM", countAtLeast: 1 }
+				},
+				{
+					id: "select-link-tool",
+					text: "Great! Switch to the Link tool so we can wire packets through the Modem.",
+					highlight: { elementId: "tool-connect" },
+					toolWhitelist: ["Select", "LinkTool"],
+					condition: { type: "activeToolIs", toolId: "connect" }
+				},
+				{
+					id: "connect-internet",
+					text: "Drag from the Modem to the Internet node. Solid lines mean packets can flow.",
+					highlight: { elementId: "canvas-container" },
+					toolWhitelist: ["Select", "LinkTool"],
+					condition: { type: "hasConnectionBetween", fromType: "MODEM", toType: "INTERNET", bidirectional: true }
+				},
+				{
+					id: "connect-user",
+					text: "Now tether the Modem back to your home User so it has two links feeding it.",
+					highlight: { elementId: "canvas-container" },
+					toolWhitelist: ["Select", "LinkTool"],
+					condition: { type: "serviceConnectionsAtLeast", serviceType: "MODEM", countAtLeast: 2 }
+				},
+				{
+					id: "press-play",
+					text: "Hit Play to unpause time and watch packets test your tiny network.",
+					highlight: { elementId: "btn-play" },
+					timeControlTarget: "btn-play",
+					toolWhitelist: ["Select"],
+					condition: { type: "timeScaleAtLeast", value: 1 }
+				}
+			]
 		},
 		instructions: [
 			"Use the time controls (pause/play/fast-forward) to slow or speed traffic while you plan.",

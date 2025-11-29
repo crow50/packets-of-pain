@@ -21,6 +21,7 @@ import { initHudMenu } from "./ui/menuController.js";
 import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 import { initWarningsPill } from "./ui/hud.js";
+import { updateTutorial } from "./ui/tutorialController.js";
 
 function renderScene() {
     syncRenderState();
@@ -31,6 +32,7 @@ function renderScene() {
 function handleFrameSideEffects(engine, stepResult) {
     updateSimulationHud(engine.getState());
     updateTooltip();
+    updateTutorial(engine);
 
     if (stepResult?.status === "gameover" && stepResult.failure) {
         showGameOverModal(stepResult.failure);
