@@ -296,15 +296,11 @@ Responsible for defining data, not behavior:
     * base RPS
     * wave definitions (duration, WEB/API/FRAUD mix over time).
 
-* `campaignLevels.js` / `tutorialLevels.js`
+* `campaign/` (e.g., `src/config/campaign/index.js`, domain-level files)
 
-  * Level definitions:
-
-    * startingBudget
-    * trafficProfileId
-    * unlockedServices
-    * objectives
-    * hints.
+  * Domains own their metadata plus an array of level definitions (starting budget, traffic profile, toolbar whitelist, objectives, win/fail conditions, etc.).
+  * The `campaign` index builds domain/level caches and exports helpers such as `getLevelsForDomain` and `getLevelById` so UI, shop, and runtime code can stay in sync without a global `LEVELS` map.
+  * See `docs/LEVELS.md` for guidance on extending domains or adding new campaign levels.
 
 * `config.js`
 

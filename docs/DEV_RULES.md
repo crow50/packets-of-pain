@@ -14,6 +14,7 @@ If a change violates them, it’s probably going to turn into pain (of the wrong
 
 - No DOM or Three.js in sim modules (`traffic`, `economy`, `routing`, `tools`, core entity logic).
 - All render/UI side effects must flow through the engine event bus documented in `docs/EVENTS.md`; add a new event to that catalog before emitting it.
+- When defining or emitting events, update `docs/EVENTS.md` so the catalog stays authoritative for render/UI listeners.
 - All service behavior (capacity, cost, accepts/blocks/terminal) comes from `serviceCatalog.js`.
 - All routing decisions go through `routing.getNextHop(...)`.
 - Overload/drops and reputation penalties are implemented in one place and tracked via `sim.metrics`.
