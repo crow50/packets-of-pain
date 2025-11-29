@@ -76,6 +76,47 @@ function createLoadRing(mesh) {
     return ring;
 }
 
+function createTierRing(mesh, tierLevel) {
+    const baseRadius = 3.2;
+    const radiusIncrement = 0.4;
+    const innerRadius = baseRadius + (tierLevel - 2) * radiusIncrement;
+    const outerRadius = innerRadius + 0.15;
+    
+    const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.7
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -mesh.position.y + 0.15;
+    mesh.add(ring);
+    return ring;
+}
+
+function updateTierRings(entry, tier) {
+    if (!entry || !entry.mesh) return;
+    
+    // Remove existing tier rings
+    if (entry.tierRings) {
+        entry.tierRings.forEach(ring => {
+            if (ring.geometry) ring.geometry.dispose();
+            if (ring.material) ring.material.dispose();
+            entry.mesh.remove(ring);
+        });
+    }
+    
+    entry.tierRings = [];
+    
+    // Create tier rings (tier 2 = 1 ring, tier 3 = 2 rings)
+    for (let i = 2; i <= tier; i++) {
+        const ring = createTierRing(entry.mesh, i);
+        entry.tierRings.push(ring);
+    }
+}
+
 function buildServiceMesh({ serviceId, type, position }) {
     const normalizedType = type?.toLowerCase?.() ?? 'unknown';
     const definition = SERVICE_MESH_DEFINITIONS[normalizedType] || DEFAULT_DEFINITION;
@@ -90,16 +131,23 @@ function buildServiceMesh({ serviceId, type, position }) {
     const loadRing = createLoadRing(mesh);
     serviceGroup.add(mesh);
 
-    return { mesh, loadRing, yOffset: definition.yOffset };
+    return { mesh, loadRing, yOffset: definition.yOffset, tierRings: [] };
 }
 
 function disposeServiceMesh(entry) {
     if (!entry) return;
-    const { mesh, loadRing } = entry;
+    const { mesh, loadRing, tierRings } = entry;
     if (loadRing) {
         if (loadRing.geometry) loadRing.geometry.dispose();
         if (loadRing.material) loadRing.material.dispose();
         mesh.remove(loadRing);
+    }
+    if (tierRings) {
+        tierRings.forEach(ring => {
+            if (ring.geometry) ring.geometry.dispose();
+            if (ring.material) ring.material.dispose();
+            mesh.remove(ring);
+        });
     }
     if (mesh) {
         serviceGroup.remove(mesh);
@@ -139,6 +187,13 @@ function handleServiceRemoved({ serviceId }) {
     serviceMeshes.delete(serviceId);
 }
 
+function handleServiceUpgraded({ serviceId, tier }) {
+    const entry = serviceMeshes.get(serviceId);
+    if (entry) {
+        updateTierRings(entry, tier);
+    }
+}
+
 function sync(state) {
     if (!state) return;
     const services = state.simulation?.services || [];
@@ -167,6 +222,14 @@ function sync(state) {
         }
         const utilization = service.load?.utilization ?? 0;
         setLoadRingColor(entry, utilization);
+        
+        // Ensure tier rings are synced
+        const currentTier = service.tier || 1;
+        const expectedRingCount = Math.max(0, currentTier - 1);
+        const actualRingCount = entry.tierRings?.length || 0;
+        if (actualRingCount !== expectedRingCount) {
+            updateTierRings(entry, currentTier);
+        }
     });
 }
 
@@ -182,6 +245,7 @@ export function init(engine) {
     engineRef = engine;
     subscribe('serviceAdded', handleServiceAdded);
     subscribe('serviceRemoved', handleServiceRemoved);
+    subscribe('serviceUpgraded', handleServiceUpgraded);
 }
 
 export function dispose() {

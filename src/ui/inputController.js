@@ -43,6 +43,25 @@ function updateUIState(partial) {
     if ('linkSourceId' in partial) engine.setLinkSource(partial.linkSourceId);
 }
 
+function positionTooltipAtNode(tooltip, serviceId) {
+    if (!tooltip || !camera) return;
+    const engine = getEngine();
+    const services = engine?.getSimulation()?.services || [];
+    const svc = services.find(s => s.id === serviceId);
+    if (!svc || !svc.position) return;
+
+    // Convert world position to screen coordinates
+    const worldPos = new THREE.Vector3(svc.position.x, svc.position.y || 0, svc.position.z);
+    const screenPos = worldPos.clone().project(camera);
+    
+    const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (screenPos.y * -0.5 + 0.5) * window.innerHeight;
+    
+    tooltip.style.left = `${x + 15}px`;
+    tooltip.style.top = `${y + 15}px`;
+    tooltip.style.display = 'block';
+}
+
 export function createInputController({ container }) {
     if (!container) {
         throw new Error("Input controller requires a container element");
@@ -84,11 +103,24 @@ export function createInputController({ container }) {
             const snapped = snapToGrid(target);
             copyPosition(draggedNode.position, snapped);
             updateLinkVisuals(draggedNode.id);
+            
+            // Update tooltip position during drag if this is the selected node
+            const selectedNodeId = getEngine()?.getUIState()?.selectedNodeId;
+            if (selectedNodeId === draggedNode.id) {
+                const tooltip = document.getElementById('tooltip');
+                if (tooltip) {
+                    positionTooltipAtNode(tooltip, draggedNode.id);
+                }
+            }
             return;
         }
 
-        if (e.target !== renderer.domElement) {
-            const tooltip = document.getElementById('tooltip');
+        // Allow interactions with tooltip without hiding it
+        const tooltip = document.getElementById('tooltip');
+        const isCanvas = e.target === renderer.domElement;
+        const isTooltip = tooltip && (e.target === tooltip || tooltip.contains(e.target));
+        const selectedNodeId = getEngine()?.getUIState()?.selectedNodeId;
+        if (!isCanvas && !isTooltip && !selectedNodeId) {
             if (tooltip) tooltip.style.display = 'none';
             updateUIState({ hovered: null });
             return;
@@ -97,15 +129,25 @@ export function createInputController({ container }) {
         const intersect = getIntersect(e.clientX, e.clientY);
         updateUIState({ hovered: intersect });
 
-        const tooltip = document.getElementById('tooltip');
-        if (!tooltip || !intersect) return;
-
-        if (intersect.type === 'service' || intersect.type === 'link') {
-            tooltip.style.left = `${e.clientX + 15}px`;
-            tooltip.style.top = `${e.clientY + 15}px`;
-            tooltip.style.display = 'block';
+        // Re-fetch tooltip element
+        const tooltip2 = document.getElementById('tooltip');
+        if (!tooltip2) return;
+        
+        // If a node is selected, pin tooltip to that node
+        const selectedNodeId2 = getEngine()?.getUIState()?.selectedNodeId;
+        if (selectedNodeId2) {
+            positionTooltipAtNode(tooltip2, selectedNodeId2);
+            return;
+        }
+        
+        // Otherwise, follow hover behavior
+        if (!intersect) return;
+        if (intersect.type === 'service' || intersect.type === 'link' || intersect.type === 'internet') {
+            tooltip2.style.left = `${e.clientX + 15}px`;
+            tooltip2.style.top = `${e.clientY + 15}px`;
+            tooltip2.style.display = 'block';
         } else {
-            tooltip.style.display = 'none';
+            tooltip2.style.display = 'none';
         }
     }
 
@@ -132,10 +174,17 @@ export function createInputController({ container }) {
 
             if (activeTool === 'select') {
                 if (intersect.type === 'service') {
+                    // Begin drag, but also persist tooltip visibility on selection
                     isDraggingNode = true;
                     draggedNode = services.find(s => s.id === intersect.id);
                     container.style.cursor = 'grabbing';
                     updateUIState({ selectedNodeId: intersect.id });
+                    // Set hovered to this service so tooltip stays visible
+                    updateUIState({ hovered: intersect });
+                    const tooltip = document.getElementById('tooltip');
+                    if (tooltip) {
+                        positionTooltipAtNode(tooltip, intersect.id);
+                    }
                 } else {
                     updateUIState({ selectedNodeId: null });
                 }
@@ -155,6 +204,13 @@ export function createInputController({ container }) {
                 } else {
                     // Clicked elsewhere: cancel linking
                     updateUIState({ linkSourceId: null });
+                }
+            } else if (intersect.type === 'service') {
+                // Check if clicking on upgradeable service with matching tool
+                const service = services.find(s => s.id === intersect.id);
+                if (service && service.type === activeTool) {
+                    // Attempt upgrade
+                    engine?.upgradeService(intersect.id);
                 }
             } else if (intersect.type === 'ground') {
                 createService(activeTool, snapToGrid(intersect.pos));

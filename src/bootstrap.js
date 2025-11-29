@@ -16,6 +16,7 @@ import { updateSimulationHud, showGameOverModal, init as initHudController } fro
 import { initToolSync, disposeToolSync } from "./ui/toolSync.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
+import { getLevelById } from "./config/campaign/index.js";
 import { initHudMenu } from "./ui/menuController.js";
 import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
@@ -35,6 +36,8 @@ function handleFrameSideEffects(engine, stepResult) {
         showGameOverModal(stepResult.failure);
     }
 }
+
+const DEFAULT_INTERNET_POSITION = { x: -10, y: 0, z: 0 };
 
 function buildEngineConfig(modeConfig) {
     const isCampaign = modeConfig.mode === GAME_MODES.CAMPAIGN;
@@ -56,6 +59,10 @@ function buildEngineConfig(modeConfig) {
         baseConfig.trafficDistribution = CONFIG.sandbox.trafficDistribution;
         baseConfig.burstCount = CONFIG.sandbox.burstCount;
     }
+
+    const levelConfig = modeConfig.levelId ? getLevelById(modeConfig.levelId) : null;
+    const internetPosition = modeConfig.internetPosition || levelConfig?.internetPosition || DEFAULT_INTERNET_POSITION;
+    baseConfig.internetPosition = { ...internetPosition };
     
     return baseConfig;
 }
@@ -151,7 +158,10 @@ export function bootstrap() {
 
     function popStartSandbox() {
         startSandbox();
-        const modeConfig = { mode: GAME_MODES.SANDBOX };
+        const modeConfig = {
+            mode: GAME_MODES.SANDBOX,
+            internetPosition: DEFAULT_INTERNET_POSITION
+        };
         runtime.startMode(modeConfig);
         hydrateModeState(modeConfig);
     }

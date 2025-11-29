@@ -14,13 +14,14 @@ function clonePosition(source) {
 }
 
 class Request {
-    constructor(type) {
+    constructor(type, originPosition) {
         this.id = Math.random().toString(36);
         this.value = 10;
         this.type = type;
 
         const internetNode = getEngine()?.getSimulation()?.internetNode;
-        const startPos = clonePosition(internetNode?.position);
+        const spawnSource = originPosition || internetNode?.position;
+        const startPos = clonePosition(spawnSource);
 
         this.position = { ...startPos };
         this.origin = { ...startPos };

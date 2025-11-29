@@ -19,6 +19,7 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 			"Place your first modem and create a working link between a user and the internet.",
 		startingBudget: 100,
 		toolbarWhitelist: ["Select", "Modem", "LinkTool"],
+		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
 			{ type: "User", id: "user-1", position: { x: -4, y: 0 } },
 			{ type: "Internet", id: "inet-1", position: { x: 4, y: 0 } },
@@ -47,6 +48,7 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 		description: "Learn to deploy a Firewall so malicious packets stay at the border.",
 		startingBudget: 150,
 		toolbarWhitelist: ["Select", "LinkTool", "Firewall"],
+		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
 			{ type: "User", id: "user-1", position: { x: -6, y: 0 } },
 			{ type: "Internet", id: "inet-1", position: { x: 6, y: 0 } },
@@ -74,6 +76,7 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 		description: "Multiple users flood the network, so build a resilient path.",
 		startingBudget: 200,
 		toolbarWhitelist: ["Select", "LinkTool", "Firewall", "Switch"],
+		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
 			{ type: "User", id: "user-1", position: { x: -7, y: 0 } },
 			{ type: "User", id: "user-2", position: { x: -3, y: 0 } },
