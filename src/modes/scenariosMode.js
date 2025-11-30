@@ -4,6 +4,7 @@ import { resetGame } from "../gameCore.js";
 import { setModeBehaviors, resetModeBehaviors } from "./modeBehaviors.js";
 import { campaignTrafficSourceBehavior } from "./trafficBehaviors.js";
 import { loadScenarioSession, openScenariosBrowser } from "../ui/scenariosController.js";
+import { showScenarioPanel } from "../ui/hud.js";
 
 export const ScenariosModeController = {
     id: GAME_MODES.SCENARIOS,
@@ -30,6 +31,7 @@ export const ScenariosModeController = {
     teardown() {
         resetModeBehaviors();
         setScenarioId(null);
+        showScenarioPanel(false);
     },
     onTick() {},
     onGameOver() {}
