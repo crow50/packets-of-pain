@@ -98,8 +98,26 @@ function showCurrentStep() {
     applyHighlight(step.highlight);
     applyToolbarForStep(step);
 
-    const lockTarget = step.timeControlTarget || step.lockTimeControlTo || null;
+    const lockTarget = getTimeControlTargetForStep(step);
     setTimeControlRestriction(lockTarget);
+}
+
+function resolveDefaultTimeControlTarget(tutorialConfig) {
+    if (!tutorialConfig) return 'btn-pause';
+    if (tutorialConfig.defaultTimeControlTarget === null) return null;
+    if (typeof tutorialConfig.defaultTimeControlTarget === 'string') {
+        return tutorialConfig.defaultTimeControlTarget;
+    }
+    return tutorialConfig.lockTimeByDefault === false ? null : 'btn-pause';
+}
+
+function getTimeControlTargetForStep(step) {
+    if (!tutorialState) return null;
+    if (step?.allowAllTimeControls) return null;
+    if (step?.timeControlTarget || step?.lockTimeControlTo) {
+        return step.timeControlTarget || step.lockTimeControlTo || null;
+    }
+    return tutorialState.defaultTimeControlTarget ?? null;
 }
 
 function normalizeServiceType(value) {
@@ -244,7 +262,8 @@ export function startTutorial(levelConfig, engine) {
         engine,
         baseToolbarWhitelist: Array.isArray(GameContext.toolbarWhitelist)
             ? [...GameContext.toolbarWhitelist]
-            : []
+            : [],
+        defaultTimeControlTarget: resolveDefaultTimeControlTarget(levelConfig.tutorial)
     };
 
     showCurrentStep();

@@ -11,8 +11,9 @@ import {
     renderCampaignObjectives
 } from "./hud.js";
 import { applyToolbarWhitelist } from "./toolbarController.js";
-import { getLevelById, getLevelsForDomain } from "../config/campaign/index.js";
+import { getDomainById, getLevelById, getLevelsForDomain } from "../config/campaign/index.js";
 import { configureTutorial, stopTutorial } from "./tutorialController.js";
+import { configureLevelConditions, resetLevelConditions } from "./levelConditions.js";
 import Service from "../entities/Service.js";
 import { copyPosition, toPlainPosition, toPosition } from "../sim/vectorUtils.js";
 import { linkInternetMesh } from "../render/scene.js";
@@ -69,6 +70,10 @@ function spawnNodeFromConfig(nodeConfig) {
     }
 
     service.isCampaignPreplaced = true;
+    const lockPosition = nodeConfig.lockPosition ?? nodeConfig.locked;
+    service.positionLocked = lockPosition !== undefined
+        ? Boolean(lockPosition)
+        : service.type === 'user';
     sim.services.push(service);
     engine.emit?.('serviceAdded', {
         serviceId: service.id,
@@ -101,6 +106,26 @@ function setLevelInstructions(instructions = []) {
 
 function setCurrentLevelContext(levelId) {
     GameContext.currentLevelId = levelId;
+}
+
+function resolveTopologyGuidance(level) {
+    if (level && Array.isArray(level.topologyGuidance) && level.topologyGuidance.length) {
+        return level.topologyGuidance;
+    }
+    if (!level) return [];
+    const domain = getDomainById(level.domainId);
+    if (domain && Array.isArray(domain.topologyGuidance) && domain.topologyGuidance.length) {
+        return domain.topologyGuidance;
+    }
+    return [];
+}
+
+function setTopologyGuidanceFromLevel(level) {
+    GameContext.topologyGuidance = resolveTopologyGuidance(level);
+}
+
+function clearTopologyGuidance() {
+    GameContext.topologyGuidance = [];
 }
 
 function setCampaignLevelObjectives(levelId) {
@@ -208,16 +233,20 @@ export function loadLevelConfig(levelId) {
     setLevelDescription(level.description);
     setLevelInstructions(level.instructions);
     setCurrentLevelContext(levelId);
+    setTopologyGuidanceFromLevel(level);
     setShopForLevel(levelId);
     setCampaignLevelObjectives(levelId);
     const engine = window.__POP_RUNTIME__?.current?.engine;
     stopTutorial();
     configureTutorial(level, engine);
+    configureLevelConditions(level);
 }
 
 export function startCampaign() {
     GameContext.mode = GAME_MODES.CAMPAIGN;
+    clearTopologyGuidance();
     stopTutorial();
+    resetLevelConditions();
     window.setCampaignUIActive?.(true);
     setCampaignShop();
     showView('campaign-hub');
@@ -232,6 +261,7 @@ export function startCampaignLevel(levelId) {
     }
     GameContext.mode = GAME_MODES.CAMPAIGN;
     GameContext.currentLevelId = levelId;
+    setTopologyGuidanceFromLevel(level);
     window.setCampaignUIActive?.(true);
     showLevelInstructionsPanel(true);
     showView('campaign');
@@ -249,7 +279,9 @@ export function exitLevelToCampaignHub() {
     if (GameContext.mode !== GAME_MODES.CAMPAIGN) return;
     GameContext.mode = GAME_MODES.CAMPAIGN;
     GameContext.currentLevelId = null;
+    clearTopologyGuidance();
     stopTutorial();
+    resetLevelConditions();
     window.setCampaignUIActive?.(true);
     window.resetSimulationState?.();
     setTrafficProfile(null);

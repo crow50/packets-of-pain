@@ -22,6 +22,7 @@ import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 import { initWarningsPill } from "./ui/hud.js";
 import { updateTutorial } from "./ui/tutorialController.js";
+import { initLevelConditions, disposeLevelConditions, updateLevelConditions } from "./ui/levelConditions.js";
 
 function renderScene() {
     syncRenderState();
@@ -33,6 +34,7 @@ function handleFrameSideEffects(engine, stepResult) {
     updateSimulationHud(engine.getState());
     updateTooltip();
     updateTutorial(engine);
+    updateLevelConditions(engine);
 
     if (stepResult?.status === "gameover" && stepResult.failure) {
         showGameOverModal(stepResult.failure);
@@ -114,6 +116,7 @@ function createRuntime() {
             initSandboxControls(engine); // Initialize sandbox controls (shows panel only in sandbox mode)
             initRenderManagers(engine);
             initToolSync(engine);
+            initLevelConditions(engine);
             
             // Link the internet mesh to engine's internetNode after both exist
             linkInternetMesh(engine.getSimulation()?.internetNode);
@@ -139,6 +142,7 @@ function createRuntime() {
             disposeRenderManagers();
             disposeScene();
             this.current = null;
+            disposeLevelConditions();
         },
         restartCurrentMode() {
             if (!this.current) return null;

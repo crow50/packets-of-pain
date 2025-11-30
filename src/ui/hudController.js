@@ -1,3 +1,5 @@
+import { GameContext } from "../sim/economy.js";
+
 // Module-level engine reference, set via init()
 let _engine = null;
 
@@ -109,7 +111,9 @@ function updateTopologyWarnings(sim) {
         return;
     }
 
-    const warnings = sim?.topologyWarnings?.warnings || [];
+    const customGuidance = Array.isArray(GameContext.topologyGuidance) ? GameContext.topologyGuidance : [];
+    const usingGuidance = customGuidance.length > 0;
+    const warnings = usingGuidance ? customGuidance : (sim?.topologyWarnings?.warnings || []);
     if (warnings.length === 0) {
         resetSection();
         return;
@@ -117,11 +121,17 @@ function updateTopologyWarnings(sim) {
 
     pill.classList.remove('hidden');
     if (pillLabel) {
-        const label = warnings.length === 1 ? 'Issue' : 'Issues';
-        pillLabel.textContent = `⚠ ${warnings.length} ${label}`;
+        if (usingGuidance) {
+            const label = warnings.length === 1 ? 'Guide' : 'Guides';
+            pillLabel.textContent = `ℹ ${warnings.length} ${label}`;
+        } else {
+            const label = warnings.length === 1 ? 'Issue' : 'Issues';
+            pillLabel.textContent = `⚠ ${warnings.length} ${label}`;
+        }
     }
 
-    list.innerHTML = warnings.map(w => `<li class="flex items-start gap-1"><span class="text-red-500">•</span>${w}</li>`).join('');
+    const bulletClass = usingGuidance ? 'text-blue-400' : 'text-red-500';
+    list.innerHTML = warnings.map(w => `<li class="flex items-start gap-1"><span class="${bulletClass}">•</span>${w}</li>`).join('');
     const expanded = section.dataset.expanded === 'true';
     section.classList.toggle('hidden', !expanded);
 }
@@ -160,12 +170,13 @@ function updateBottleneckDisplay() {
     }
 }
 
-export function showGameOverModal(copy) {
+export function showGameOverModal(copy, actions) {
     const modal = document.getElementById("modal");
     if (!modal) return;
 
     const titleEl = document.getElementById("modal-title");
     const descEl = document.getElementById("modal-desc");
+    const actionsEl = document.getElementById('modal-actions');
 
     if (titleEl && copy?.title) {
         titleEl.innerText = copy.title;
@@ -174,5 +185,35 @@ export function showGameOverModal(copy) {
         descEl.innerText = copy.message;
     }
 
+    if (actionsEl) {
+        actionsEl.innerHTML = '';
+        const defaultActions = [{
+            label: 'Try Again',
+            onClick: () => window.restartGame?.()
+        }];
+        const buttonDefs = Array.isArray(actions) && actions.length ? actions : defaultActions;
+        buttonDefs.forEach(action => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-sm';
+            btn.innerText = action.label || 'Action';
+            if (typeof action.onClick === 'function') {
+                btn.addEventListener('click', action.onClick);
+            }
+            actionsEl.appendChild(btn);
+        });
+    }
+
     modal.classList.remove("hidden");
+}
+
+export function hideGameOverModal() {
+    const modal = document.getElementById('modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    const actionsEl = document.getElementById('modal-actions');
+    if (actionsEl) {
+        actionsEl.innerHTML = '';
+    }
 }

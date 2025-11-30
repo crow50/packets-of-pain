@@ -73,6 +73,11 @@ export function createInputController({ container }) {
     let isDraggingNode = false;
     let draggedNode = null;
 
+    function isServiceDraggable(service) {
+        if (!service) return false;
+        return service.positionLocked !== true;
+    }
+
     const listeners = [];
 
     function addListener(target, type, handler, options) {
@@ -174,10 +179,11 @@ export function createInputController({ container }) {
 
             if (activeTool === 'select') {
                 if (intersect.type === 'service') {
-                    // Begin drag, but also persist tooltip visibility on selection
-                    isDraggingNode = true;
-                    draggedNode = services.find(s => s.id === intersect.id);
-                    container.style.cursor = 'grabbing';
+                    const targetService = services.find(s => s.id === intersect.id);
+                    const draggable = isServiceDraggable(targetService);
+                    isDraggingNode = draggable;
+                    draggedNode = draggable ? targetService : null;
+                    container.style.cursor = draggable ? 'grabbing' : 'pointer';
                     updateUIState({ selectedNodeId: intersect.id });
                     // Set hovered to this service so tooltip stays visible
                     updateUIState({ hovered: intersect });
