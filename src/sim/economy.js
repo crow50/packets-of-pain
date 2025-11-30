@@ -20,7 +20,8 @@ const GameContext = {
     mode: "sandbox",
     currentLevelId: null,
     trafficProfile: null,
-    toolbarWhitelist: []
+    toolbarWhitelist: [],
+    topologyGuidance: []
 };
 window.GameContext = GameContext;
 

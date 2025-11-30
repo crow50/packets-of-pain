@@ -4,8 +4,8 @@ import { applyToolbarWhitelist } from "./toolbarController.js";
 
 const { getServiceType, SHOP_ORDER } = window.ServiceCatalog;
 const SHOP_DEFAULT_ORDER = SHOP_ORDER;
-const CAMPAIGN_HUB_SHOP_ORDER = ['modem', 'firewall', 'waf'];
-const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['modem', 'waf'];
+const CAMPAIGN_HUB_SHOP_ORDER = ['modem', 'firewall'];
+const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['modem'];
 
 export function buildShopButton(type) {
     // Use service catalog as single source of truth

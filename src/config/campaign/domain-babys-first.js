@@ -6,6 +6,11 @@ export const BABYS_FIRST_NETWORK_DOMAIN = {
 		"Take your first steps assembling modems, firewalls, and switches in a guided playground.",
 	icon: "🔰",
 	order: 0,
+	topologyGuidance: [
+		"Campaign missions may lock tools until tutorials complete a step.",
+		"Some preplaced nodes (like Users) stay anchored—plan around their fixed spots.",
+		"Keep links short and straight to minimize packet travel time."
+	]
 };
 
 export const DOMAIN_BABYS_FIRST_LEVELS = [
@@ -18,11 +23,10 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 		description:
 			"Place your first modem and create a working link between a user and the internet.",
 		startingBudget: 100,
-		toolbarWhitelist: ["Select", "Modem", "LinkTool"],
+		toolbarWhitelist: ["Select", "LinkTool", "Delete", "Modem"],
 		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
 			{ type: "User", id: "user-1", position: { x: 0, y: 0 } },
-			{ type: "Internet", id: "inet-1", position: { x: 16, y: 0 } },
 		],
 		trafficProfile: {
 			mode: "simple",
@@ -40,35 +44,35 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 					id: "select-modem",
 					text: "Start paused and click the Modem card in the shop to equip it. It's the gateway device we'll build with.",
 					highlight: { elementId: "tool-modem" },
-					toolWhitelist: ["Select", "Modem"],
+					toolWhitelist: ["Modem"],
 					condition: { type: "activeToolIs", toolId: "modem" }
 				},
 				{
 					id: "place-modem",
 					text: "Place that Modem between the User and Internet nodes. Drop it roughly in the center lane.",
 					highlight: { elementId: "canvas-container" },
-					toolWhitelist: ["Select", "Modem"],
+					toolWhitelist: ["Modem"],
 					condition: { type: "hasServiceOfType", serviceType: "MODEM", countAtLeast: 1 }
 				},
 				{
 					id: "select-link-tool",
 					text: "Great! Switch to the Link tool so we can wire packets through the Modem.",
 					highlight: { elementId: "tool-connect" },
-					toolWhitelist: ["Select", "LinkTool"],
+					toolWhitelist: ["LinkTool"],
 					condition: { type: "activeToolIs", toolId: "connect" }
 				},
 				{
 					id: "connect-internet",
 					text: "Drag from the Modem to the Internet node. Solid lines mean packets can flow.",
 					highlight: { elementId: "canvas-container" },
-					toolWhitelist: ["Select", "LinkTool"],
+					toolWhitelist: ["LinkTool"],
 					condition: { type: "hasConnectionBetween", fromType: "MODEM", toType: "INTERNET", bidirectional: true }
 				},
 				{
 					id: "connect-user",
 					text: "Now tether the Modem back to your home User so it has two links feeding it.",
 					highlight: { elementId: "canvas-container" },
-					toolWhitelist: ["Select", "LinkTool"],
+					toolWhitelist: ["LinkTool"],
 					condition: { type: "serviceConnectionsAtLeast", serviceType: "MODEM", countAtLeast: 2 }
 				},
 				{
@@ -76,7 +80,7 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 					text: "Hit Play to unpause time and watch packets test your tiny network.",
 					highlight: { elementId: "btn-play" },
 					timeControlTarget: "btn-play",
-					toolWhitelist: ["Select"],
+					toolWhitelist: [],
 					condition: { type: "timeScaleAtLeast", value: 1 }
 				}
 			]
@@ -88,8 +92,13 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 			"Place the Modem between the User and Internet nodes.",
 			"Use the Link tool to chain User → Modem → Internet and keep packets flowing for 10 seconds.",
 		],
+		topologyGuidance: [
+			"Use the User's fixed spot as an anchor and drop the Modem mid-lane for short links.",
+			"Keep the Modem roughly centered so both links stay short.",
+			"Avoid crossing wires; reroute with Select if a link looks messy."
+		],
 		winConditionId: "baby1_packets_10s",
-		failConditionId: "baby_generic_satisfaction_or_score",
+		failConditionId: "baby_no_packets_timeout",
 	},
 	{
 		id: "baby-2",
@@ -115,6 +124,11 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 			"Connect the Firewall between the User and Internet.",
 			"Allow regular packets through while blocking malicious ones.",
 			"Survive until your Firewall has blocked 3 hostile packets.",
+		],
+		topologyGuidance: [
+			"A Firewall near the Internet stops threats before they reach the LAN.",
+			"Ensure every User path travels through the Firewall before hitting the Internet.",
+			"If packets bypass the Firewall, break and reroute those links."
 		],
 		winConditionId: "baby2_firewall_blocks",
 		failConditionId: "baby_generic_satisfaction_or_score",
@@ -143,6 +157,11 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 			"Handle two users simultaneously by linking them to your topology.",
 			"Place a Firewall and Switch to separate fraud from legitimate traffic.",
 			"Keep packet flow steady for 15 seconds to win.",
+		],
+		topologyGuidance: [
+			"Use a Switch to fan-out links so both Users share the Modem fairly.",
+			"Keep the Firewall upstream so every packet is inspected once.",
+			"Since Users stay fixed, route extra segments to give each a clean lane."
 		],
 		winConditionId: "baby3_multi_user",
 		failConditionId: "baby_generic_satisfaction_or_score",
