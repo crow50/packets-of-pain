@@ -60,7 +60,9 @@ function createInitialState(config = {}) {
         // Sandbox-specific fields (defaults from config or gameConfig)
         upkeepEnabled: config.upkeepEnabled ?? !isSandbox,
         trafficDistribution: config.trafficDistribution ?? null,
-        burstCount: config.burstCount ?? 10
+        burstCount: config.burstCount ?? 10,
+        // Ramp control: sandbox requires unpause (timeScale >= 1) to ramp RPS
+        rampRequiresUnpause: config.rampRequiresUnpause ?? isSandbox
     };
 
     const ui = {

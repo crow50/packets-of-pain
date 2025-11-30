@@ -1,6 +1,5 @@
 import Request from "../entities/Request.js";
 import { toPlainPosition } from "./vectorUtils.js";
-import { GAME_MODES } from "../modes/constants.js";
 import { getModeBehaviors } from "../modes/modeBehaviors.js";
 
 function getEngine() {
@@ -36,7 +35,7 @@ function emitEvent(event, payload) {
     engine?.emit?.(event, payload);
 }
 
-function pickRequestSource(sim, trafficProfile, gameMode) {
+function pickRequestSource(sim, trafficProfile) {
     const defaultSource = sim.internetNode;
     const defaultResult = { source: defaultSource, fromUser: false };
     if (trafficProfile?.inboundOnly) {
@@ -48,7 +47,6 @@ function pickRequestSource(sim, trafficProfile, gameMode) {
         const custom = behaviors.pickTrafficSource({
             sim,
             trafficProfile,
-            gameMode,
             defaultResult
         });
         if (custom && custom.source) {
@@ -258,23 +256,22 @@ function spawnRequest(state) {
 
     let type = getTrafficType(sim);
     const trafficProfile = sim.trafficProfile;
-    const gameMode = ui.gameMode || 'sandbox';
     const inboundOnly = Boolean(trafficProfile?.inboundOnly);
     
-    if (!inboundOnly && gameMode === 'campaign' && trafficProfile) {
+    // If a traffic profile with user/malicious rates is set, use those to determine type
+    // This is mode-agnostic: any mode can set a trafficProfile
+    if (!inboundOnly && trafficProfile) {
         const { userToInternetPps = 0, maliciousRate = 0 } = trafficProfile;
         const total = userToInternetPps + maliciousRate;
         if (total > 0) {
             const fraudChance = maliciousRate / total;
             type = Math.random() < fraudChance ? TRAFFIC_TYPES.FRAUD : TRAFFIC_TYPES.WEB;
-        } else {
-            type = TRAFFIC_TYPES.WEB;
         }
     }
     if (inboundOnly) {
         type = TRAFFIC_TYPES.INBOUND;
     }
-    const { source: sourceNode = sim.internetNode } = pickRequestSource(sim, trafficProfile, gameMode);
+    const { source: sourceNode = sim.internetNode } = pickRequestSource(sim, trafficProfile);
     const sourcePosition = sourceNode?.position || sim.internetNode?.position;
 
     const req = new Request(type, sourcePosition);
@@ -331,13 +328,14 @@ export function gameTick(arg1, arg2) {
         sim.spawnTimer = 0;
     }
 
-    const gameMode = ui.gameMode || GAME_MODES.SANDBOX;
     const packetIncreaseInterval =
         typeof sim.packetIncreaseInterval === 'number'
             ? sim.packetIncreaseInterval
             : (CONFIG?.packetIncreaseInterval ?? 0);
-    const allowSandboxRamp = gameMode !== GAME_MODES.SANDBOX || (ui.timeScale ?? 0) >= 1;
-    if (packetIncreaseInterval > 0 && allowSandboxRamp) {
+    // Ramp control: allow if rampRequiresUnpause is false, or if time is running
+    const rampRequiresUnpause = sim.rampRequiresUnpause ?? true;
+    const allowRamp = !rampRequiresUnpause || (ui.timeScale ?? 0) >= 1;
+    if (packetIncreaseInterval > 0 && allowRamp) {
         sim.currentRPS = Math.max(0, sim.currentRPS + packetIncreaseInterval * scaledDt);
     }
 
