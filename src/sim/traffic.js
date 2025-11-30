@@ -5,6 +5,24 @@ function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
 
+function getServiceDefinition(node) {
+    if (!node) return null;
+    return window.ServiceCatalog?.getServiceType?.(node.type);
+}
+
+function nodeAcceptsTraffic(node, trafficType) {
+    const def = getServiceDefinition(node);
+    if (!def || !Array.isArray(def.accepts)) return false;
+    return def.accepts.includes(trafficType);
+}
+
+function pickPreferredEntryNode(nodes, trafficType) {
+    if (!Array.isArray(nodes) || nodes.length === 0) return null;
+    const accepting = nodes.filter(node => nodeAcceptsTraffic(node, trafficType));
+    const pool = accepting.length ? accepting : nodes;
+    return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
 function resolveState(arg) {
     if (arg && (arg.simulation || arg.ui)) return arg;
     const engine = getEngine();
@@ -83,6 +101,14 @@ function routeInitialRequest(state, req, sourceNode) {
         target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
     } else {
         target = entryNodes[Math.floor(Math.random() * entryNodes.length)];
+    }
+
+    if (origin === sim.internetNode) {
+        const nonUserNodes = entryNodes.filter(node => node?.type !== 'user');
+        const pool = nonUserNodes.length ? nonUserNodes : entryNodes;
+        target = pickPreferredEntryNode(pool, req.type);
+    } else {
+        target = entryNodes[Math.floor(Math.random() * entryNodes.length)] || null;
     }
 
     if (!target) {

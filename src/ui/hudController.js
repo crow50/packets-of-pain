@@ -112,8 +112,9 @@ function updateTopologyWarnings(sim) {
     }
 
     const customGuidance = Array.isArray(GameContext.topologyGuidance) ? GameContext.topologyGuidance : [];
-    const usingGuidance = customGuidance.length > 0;
-    const warnings = usingGuidance ? customGuidance : (sim?.topologyWarnings?.warnings || []);
+    const simWarnings = Array.isArray(sim?.topologyWarnings?.warnings) ? sim.topologyWarnings.warnings : [];
+    const usingGuidance = simWarnings.length === 0 && customGuidance.length > 0;
+    const warnings = simWarnings.length > 0 ? simWarnings : customGuidance;
     if (warnings.length === 0) {
         resetSection();
         return;
