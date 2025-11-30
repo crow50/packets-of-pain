@@ -1,4 +1,4 @@
-import { GameContext } from "../sim/economy.js";
+import { getTopologyGuidance } from "../modes/modeState.js";
 
 // Module-level engine reference, set via init()
 let _engine = null;
@@ -111,7 +111,7 @@ function updateTopologyWarnings(sim) {
         return;
     }
 
-    const customGuidance = Array.isArray(GameContext.topologyGuidance) ? GameContext.topologyGuidance : [];
+    const customGuidance = getTopologyGuidance();
     const simWarnings = Array.isArray(sim?.topologyWarnings?.warnings) ? sim.topologyWarnings.warnings : [];
     const usingGuidance = simWarnings.length === 0 && customGuidance.length > 0;
     const warnings = simWarnings.length > 0 ? simWarnings : customGuidance;

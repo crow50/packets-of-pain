@@ -1,9 +1,16 @@
 import { setSandboxShop } from "./shop.js";
+import { GAME_MODES } from "../modes/constants.js";
 
 const CAMPAIGN_INTRO_OBJECTIVES = [
     { text: "Choose the tutorial level to begin Baby's First Network.", colorClass: 'bg-blue-500', pulse: true },
     { text: 'Follow each mission briefing carefully to unlock the next node.', colorClass: 'bg-slate-500' }
 ];
+
+const BODY_MODE_CLASSES = {
+    [GAME_MODES.CAMPAIGN]: 'campaign-mode',
+    [GAME_MODES.SANDBOX]: 'sandbox-mode',
+    [GAME_MODES.SCENARIOS]: 'scenarios-mode'
+};
 
 let currentView = 'main-menu';
 let faqSource = 'menu';
@@ -48,6 +55,10 @@ export function showCampaignPanel(show = true) {
     if (panel) panel.classList.toggle('hidden', !show);
 }
 
+export function showLevelInstructionsPanel(visible) {
+    showCampaignPanel(visible);
+}
+
 // Legacy aliases for compatibility
 export function setObjectivesTitle(text) {
     setCampaignPanelTitle(text);
@@ -68,6 +79,41 @@ export function showObjectivesPanel(show = true) {
     showCampaignPanel(show);
 }
 
+function updateGameModeLabel(modeId = GAME_MODES.SANDBOX) {
+    const label = document.getElementById('game-mode-label');
+    if (!label) return;
+    let nextText = 'SANDBOX';
+    if (modeId === GAME_MODES.CAMPAIGN) nextText = 'CAMPAIGN';
+    if (modeId === GAME_MODES.SCENARIOS) nextText = 'SCENARIO';
+    label.innerText = nextText;
+    label.classList.toggle('text-blue-400', modeId === GAME_MODES.CAMPAIGN);
+    label.classList.toggle('text-purple-400', modeId === GAME_MODES.SCENARIOS);
+    label.classList.toggle('text-red-500', modeId === GAME_MODES.SANDBOX);
+}
+
+function applyBodyMode(modeId = null) {
+    const body = document.body;
+    if (!body) return;
+    Object.values(BODY_MODE_CLASSES).forEach(cls => body.classList.remove(cls));
+    if (modeId && BODY_MODE_CLASSES[modeId]) {
+        body.classList.add(BODY_MODE_CLASSES[modeId]);
+    }
+}
+
+export function setModeUIActive(modeId, options = {}) {
+    const normalizedMode = modeId ?? null;
+    applyBodyMode(normalizedMode);
+    updateGameModeLabel(normalizedMode ?? GAME_MODES.SANDBOX);
+
+    const defaultObjectives = normalizedMode === GAME_MODES.CAMPAIGN || normalizedMode === GAME_MODES.SCENARIOS;
+    const shouldShowObjectives = options.showObjectives ?? defaultObjectives;
+    showObjectivesPanel(!!shouldShowObjectives);
+
+    if (!shouldShowObjectives) {
+        showLevelInstructionsPanel(false);
+    }
+}
+
 function setOverlayState(el, isActive) {
     el.classList.toggle('hidden', !isActive);
     el.style.pointerEvents = isActive ? 'auto' : 'none';
@@ -76,11 +122,17 @@ function setOverlayState(el, isActive) {
 export function setHUDMode(mode) {
     const campaignPanel = document.getElementById('campaign-panel');
     const sandboxPanel = document.getElementById('sandbox-panel');
+    const scenariosPanel = document.getElementById('scenarios-panel');
 
-    if (campaignPanel) campaignPanel.classList.toggle('hidden', mode !== 'campaign');
     if (sandboxPanel) sandboxPanel.classList.toggle('hidden', mode !== 'sandbox');
 
-    document.body?.classList.toggle('campaign-mode', mode === 'campaign');
+    if (scenariosPanel) {
+        scenariosPanel.classList.toggle('hidden', mode !== 'scenarios');
+        if (campaignPanel) campaignPanel.classList.toggle('hidden', mode !== 'campaign');
+    } else if (campaignPanel) {
+        const showCampaignPanel = mode === 'campaign' || mode === 'scenarios';
+        campaignPanel.classList.toggle('hidden', !showCampaignPanel);
+    }
 }
 
 export function initWarningsPill() {
@@ -105,7 +157,7 @@ export function showView(viewName) {
     const menuEl = document.getElementById('main-menu-modal');
     if (!sandboxEl || !campaignHubEl || !menuEl) return;
 
-    const isGameView = viewName === 'sandbox' || viewName === 'campaign';
+    const isGameView = ['sandbox', 'campaign', 'scenarios'].includes(viewName);
 
     setOverlayState(sandboxEl, isGameView);
     setOverlayState(campaignHubEl, viewName === 'campaign-hub');
@@ -119,6 +171,8 @@ export function showView(viewName) {
         setHUDMode('campaign');
     } else if (viewName === 'sandbox') {
         setHUDMode('sandbox');
+    } else if (viewName === 'scenarios') {
+        setHUDMode('scenarios');
     } else {
         setHUDMode(null);
     }
@@ -133,7 +187,7 @@ export function showMainMenu() {
         if (!sound.ctx) sound.init();
         sound.playMenuBGM?.();
     }
-    window.setCampaignUIActive?.(false);
+    setModeUIActive(null, { showObjectives: false });
     setSandboxShop();
 
     document.getElementById('main-menu-modal')?.classList.remove('hidden');

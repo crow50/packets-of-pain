@@ -1,13 +1,16 @@
-import { GameContext } from "../sim/economy.js";
+import { setToolbarWhitelist } from "../modes/modeState.js";
 
 function normalizeToolbarList(list = []) {
     if (!Array.isArray(list)) return [];
     return list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
 }
 
+let currentWhitelist = [];
+
 export function applyToolbarWhitelist(list = []) {
-    GameContext.toolbarWhitelist = list;
-    const normalized = normalizeToolbarList(list);
+    currentWhitelist = Array.isArray(list) ? [...list] : [];
+    setToolbarWhitelist(currentWhitelist);
+    const normalized = normalizeToolbarList(currentWhitelist);
     const allowedToolIds = new Set();
 
     document.querySelectorAll('[data-tool-name]').forEach(btn => {
@@ -39,3 +42,7 @@ export function applyToolbarWhitelist(list = []) {
 }
 
 window.applyToolbarWhitelist = applyToolbarWhitelist;
+
+export function getCurrentToolbarWhitelist() {
+    return [...currentWhitelist];
+}

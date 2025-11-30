@@ -1,4 +1,4 @@
-import { GameContext, setBudget, resetSatisfaction, resetScore, setTrafficProfile } from "../sim/economy.js";
+import { setBudget, resetSatisfaction, resetScore, setTrafficProfile } from "../sim/economy.js";
 import { updateScore } from "../sim/traffic.js";
 import { setShopForLevel, setCampaignShop } from "./shop.js";
 import { 
@@ -8,7 +8,9 @@ import {
     setCampaignPanelTitle,
     setCampaignPanelSeries,
     setCampaignPanelIntro,
-    renderCampaignObjectives
+    renderCampaignObjectives,
+    showLevelInstructionsPanel,
+    setModeUIActive
 } from "./hud.js";
 import { applyToolbarWhitelist } from "./toolbarController.js";
 import { getDomainById, getLevelById, getLevelsForDomain } from "../config/campaign/index.js";
@@ -17,6 +19,8 @@ import { configureLevelConditions, resetLevelConditions } from "./levelCondition
 import Service from "../entities/Service.js";
 import { copyPosition, toPlainPosition, toPosition } from "../sim/vectorUtils.js";
 import { linkInternetMesh } from "../render/scene.js";
+import { GAME_MODES } from "../modes/constants.js";
+import { getActiveMode, getCampaignLevel, setActiveMode, setCampaignLevel, setTopologyGuidance } from "../modes/modeState.js";
 
 const BABY_DOMAIN_ID = "babys-first-network";
 const LEVEL_UNLOCK_CHAIN = {
@@ -24,12 +28,9 @@ const LEVEL_UNLOCK_CHAIN = {
     "baby-3": "baby-2",
 };
 
-export const GAME_MODES = {
-    SANDBOX: "sandbox",
-    CAMPAIGN: "campaign",
-};
+export { GAME_MODES };
 
-function spawnNodeFromConfig(nodeConfig) {
+export function spawnNodeFromConfig(nodeConfig) {
     if (!nodeConfig || !nodeConfig.type) return null;
     const engine = window.__POP_RUNTIME__?.current?.engine;
     const sim = engine?.getSimulation?.();
@@ -85,10 +86,6 @@ function spawnNodeFromConfig(nodeConfig) {
     return service;
 }
 
-export function showLevelInstructionsPanel(visible) {
-    showCampaignPanel(visible);
-}
-
 function setLevelHeader(title, series) {
     setCampaignPanelTitle(title || 'Campaign Objectives');
     setCampaignPanelSeries(series || "baby's first network");
@@ -105,7 +102,7 @@ function setLevelInstructions(instructions = []) {
 }
 
 function setCurrentLevelContext(levelId) {
-    GameContext.currentLevelId = levelId;
+    setCampaignLevel(levelId);
 }
 
 function resolveTopologyGuidance(level) {
@@ -121,11 +118,11 @@ function resolveTopologyGuidance(level) {
 }
 
 function setTopologyGuidanceFromLevel(level) {
-    GameContext.topologyGuidance = resolveTopologyGuidance(level);
+    setTopologyGuidance(resolveTopologyGuidance(level));
 }
 
 function clearTopologyGuidance() {
-    GameContext.topologyGuidance = [];
+    setTopologyGuidance([]);
 }
 
 function setCampaignLevelObjectives(levelId) {
@@ -243,11 +240,11 @@ export function loadLevelConfig(levelId) {
 }
 
 export function startCampaign() {
-    GameContext.mode = GAME_MODES.CAMPAIGN;
+    setActiveMode(GAME_MODES.CAMPAIGN);
     clearTopologyGuidance();
     stopTutorial();
     resetLevelConditions();
-    window.setCampaignUIActive?.(true);
+    setModeUIActive(GAME_MODES.CAMPAIGN);
     setCampaignShop();
     showView('campaign-hub');
     setCampaignIntroObjectives();
@@ -259,10 +256,10 @@ export function startCampaignLevel(levelId) {
         console.error('Unknown levelId', levelId);
         return;
     }
-    GameContext.mode = GAME_MODES.CAMPAIGN;
-    GameContext.currentLevelId = levelId;
+    setActiveMode(GAME_MODES.CAMPAIGN);
+    setCampaignLevel(levelId);
     setTopologyGuidanceFromLevel(level);
-    window.setCampaignUIActive?.(true);
+    setModeUIActive(GAME_MODES.CAMPAIGN);
     showLevelInstructionsPanel(true);
     showView('campaign');
     loadLevelConfig(levelId);
@@ -271,18 +268,20 @@ export function startCampaignLevel(levelId) {
 }
 
 export function resetLevel() {
-    if (GameContext.mode !== GAME_MODES.CAMPAIGN || !GameContext.currentLevelId) return;
-    loadLevelConfig(GameContext.currentLevelId);
+    if (getActiveMode() !== GAME_MODES.CAMPAIGN) return;
+    const levelId = getCampaignLevel();
+    if (!levelId) return;
+    loadLevelConfig(levelId);
 }
 
 export function exitLevelToCampaignHub() {
-    if (GameContext.mode !== GAME_MODES.CAMPAIGN) return;
-    GameContext.mode = GAME_MODES.CAMPAIGN;
-    GameContext.currentLevelId = null;
+    if (getActiveMode() !== GAME_MODES.CAMPAIGN) return;
+    setActiveMode(GAME_MODES.CAMPAIGN);
+    setCampaignLevel(null);
     clearTopologyGuidance();
     stopTutorial();
     resetLevelConditions();
-    window.setCampaignUIActive?.(true);
+    setModeUIActive(GAME_MODES.CAMPAIGN);
     window.resetSimulationState?.();
     setTrafficProfile(null);
     showLevelInstructionsPanel(false);

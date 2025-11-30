@@ -1,4 +1,4 @@
-import { initGame, resetGame, startSandbox } from "./gameCore.js";
+import { initGame } from "./gameCore.js";
 import { createEngine } from "./core/engine.js";
 import { createLoop } from "./core/loop.js";
 import {
@@ -15,14 +15,18 @@ import { initRenderManagers, disposeRenderManagers, syncRenderState } from "./re
 import { updateSimulationHud, showGameOverModal, init as initHudController } from "./ui/hudController.js";
 import { initToolSync, disposeToolSync } from "./ui/toolSync.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
-import { GAME_MODES, startCampaign, startCampaignLevel } from "./ui/campaign.js";
+import { startCampaign } from "./ui/campaign.js";
 import { getLevelById } from "./config/campaign/index.js";
+import { getScenarioById } from "./config/scenarios/index.js";
 import { initHudMenu } from "./ui/menuController.js";
 import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 import { initWarningsPill } from "./ui/hud.js";
 import { updateTutorial } from "./ui/tutorialController.js";
 import { initLevelConditions, disposeLevelConditions, updateLevelConditions } from "./ui/levelConditions.js";
+import { GAME_MODES } from "./modes/constants.js";
+import { getModeController } from "./modes/index.js";
+import { initScenariosController } from "./ui/scenariosController.js";
 
 function renderScene() {
     syncRenderState();
@@ -30,14 +34,17 @@ function renderScene() {
     renderer.render(scene, camera);
 }
 
-function handleFrameSideEffects(engine, stepResult) {
+function handleFrameSideEffects(engine, stepResult, controller, modeConfig) {
     updateSimulationHud(engine.getState());
     updateTooltip();
     updateTutorial(engine);
     updateLevelConditions(engine);
 
+    controller?.onTick?.({ engine, stepResult, modeConfig });
+
     if (stepResult?.status === "gameover" && stepResult.failure) {
         showGameOverModal(stepResult.failure);
+        controller?.onGameOver?.({ engine, failure: stepResult.failure, modeConfig });
     }
 }
 
@@ -47,15 +54,31 @@ function buildEngineConfig(modeConfig) {
     const isCampaign = modeConfig.mode === GAME_MODES.CAMPAIGN;
     const isSandbox = modeConfig.mode === GAME_MODES.SANDBOX;
     const initialTimeScale = typeof modeConfig.initialTimeScale === "number" ? modeConfig.initialTimeScale : 0;
+    const levelConfig = modeConfig.levelId ? getLevelById(modeConfig.levelId) : null;
     
+    const explicitBudget = typeof modeConfig.startBudget === "number" ? modeConfig.startBudget : null;
+    const explicitBaseRPS = typeof modeConfig.baseRPS === "number" ? modeConfig.baseRPS : null;
+
     const baseConfig = {
         mode: modeConfig.mode || GAME_MODES.SANDBOX,
-        startBudget: isCampaign ? 0 : (isSandbox ? CONFIG.sandbox.defaultBudget : CONFIG.survival.startBudget),
+        startBudget: explicitBudget !== null
+            ? explicitBudget
+            : (isCampaign ? 0 : (isSandbox ? CONFIG.sandbox.defaultBudget : CONFIG.survival.startBudget)),
         startReputation: 100,
-        baseRPS: isSandbox ? CONFIG.sandbox.defaultRPS : CONFIG.survival.baseRPS,
+        baseRPS: explicitBaseRPS !== null
+            ? explicitBaseRPS
+            : (isSandbox ? CONFIG.sandbox.defaultRPS : CONFIG.survival.baseRPS),
         initialTimeScale,
         trafficProfile: modeConfig.trafficProfile || null
     };
+
+    const packetIncreaseInterval = (typeof modeConfig.packetIncreaseInterval === 'number')
+        ? modeConfig.packetIncreaseInterval
+        : (typeof levelConfig?.packetIncreaseInterval === 'number'
+            ? levelConfig.packetIncreaseInterval
+            : CONFIG.packetIncreaseInterval);
+
+    baseConfig.packetIncreaseInterval = packetIncreaseInterval;
     
     // Add sandbox-specific config
     if (isSandbox) {
@@ -64,26 +87,10 @@ function buildEngineConfig(modeConfig) {
         baseConfig.burstCount = CONFIG.sandbox.burstCount;
     }
 
-    const levelConfig = modeConfig.levelId ? getLevelById(modeConfig.levelId) : null;
     const internetPosition = modeConfig.internetPosition || levelConfig?.internetPosition || DEFAULT_INTERNET_POSITION;
     baseConfig.internetPosition = { ...internetPosition };
     
     return baseConfig;
-}
-
-function hydrateModeState(modeConfig) {
-    if (!modeConfig) return;
-    const menu = document.getElementById('main-menu-modal');
-    menu?.classList.add('hidden');
-
-    if (modeConfig.mode === GAME_MODES.CAMPAIGN) {
-        resetGame('campaign');
-        if (modeConfig.levelId) {
-            startCampaignLevel(modeConfig.levelId);
-        }
-    } else {
-        resetGame('survival');
-    }
 }
 
 function createRuntime() {
@@ -91,17 +98,23 @@ function createRuntime() {
         current: null,
         startMode(modeConfig = {}) {
             this.stop();
+            const resolvedMode = modeConfig.mode || GAME_MODES.SANDBOX;
+            const controller = getModeController(resolvedMode);
+            const normalizedConfig = { ...modeConfig, mode: resolvedMode };
 
             const container = document.getElementById('canvas-container');
             if (!container) {
                 throw new Error('Missing #canvas-container element');
             }
 
+            const menu = document.getElementById('main-menu-modal');
+            menu?.classList.add('hidden');
+
             initScene(container);
             initInteractions();
             resetCamera();
 
-            const engineConfig = buildEngineConfig(modeConfig);
+            const engineConfig = buildEngineConfig(normalizedConfig);
             const engine = createEngine(engineConfig);
             
             // Use shared sound service from menu (preserves mute state)
@@ -126,18 +139,21 @@ function createRuntime() {
             const loop = createLoop({
                 engine,
                 render: renderScene,
-                afterFrame: (stepResult) => handleFrameSideEffects(engine, stepResult)
+                afterFrame: (stepResult) => handleFrameSideEffects(engine, stepResult, controller, normalizedConfig)
             });
 
             loop.start();
 
-            this.current = { engine, loop, input, modeConfig };
+            this.current = { engine, loop, input, modeConfig: normalizedConfig, controller };
+            controller?.init?.({ engine, modeConfig: normalizedConfig, runtime: this });
             return this.current;
         },
         stop() {
             if (!this.current) return;
-            this.current.loop.stop();
-            this.current.input.detach();
+            const { loop, input, controller, engine, modeConfig } = this.current;
+            loop.stop();
+            controller?.teardown?.({ engine, modeConfig, runtime: this });
+            input.detach();
             disposeToolSync();
             disposeRenderManagers();
             disposeScene();
@@ -158,24 +174,40 @@ export function bootstrap() {
     initHudMenu(); // Initialize hamburger menu
     initWarningsPill();
     initTimeControls();
+    initScenariosController();
     const runtime = createRuntime();
 
     window.__POP_RUNTIME__ = runtime;
 
     function popStartSandbox() {
-        startSandbox();
         const modeConfig = {
             mode: GAME_MODES.SANDBOX,
             internetPosition: DEFAULT_INTERNET_POSITION
         };
         runtime.startMode(modeConfig);
-        hydrateModeState(modeConfig);
     }
 
     function popStartCampaignLevel(levelId) {
         const modeConfig = { mode: GAME_MODES.CAMPAIGN, levelId };
         runtime.startMode(modeConfig);
-        hydrateModeState(modeConfig);
+    }
+
+    function popStartScenario(scenarioId) {
+        const scenario = getScenarioById(scenarioId);
+        if (!scenario) {
+            console.error('[Scenarios] Unknown scenario id', scenarioId);
+            return;
+        }
+        const modeConfig = {
+            mode: GAME_MODES.SCENARIOS,
+            scenarioId: scenario.id,
+            scenarioConfig: scenario,
+            startBudget: typeof scenario.startingBudget === 'number' ? scenario.startingBudget : undefined,
+            packetIncreaseInterval: typeof scenario.packetIncreaseInterval === 'number' ? scenario.packetIncreaseInterval : undefined,
+            trafficProfile: scenario.trafficProfile || null,
+            internetPosition: scenario.internetPosition || undefined
+        };
+        runtime.startMode(modeConfig);
     }
 
     window.POP = {
@@ -184,11 +216,9 @@ export function bootstrap() {
             startCampaign();
         },
         startCampaignLevel: popStartCampaignLevel,
+        startScenario: popStartScenario,
         restartCurrentMode() {
-            const modeConfig = runtime.restartCurrentMode();
-            if (modeConfig) {
-                hydrateModeState(modeConfig);
-            }
+            runtime.restartCurrentMode();
         }
     };
 
@@ -196,6 +226,7 @@ export function bootstrap() {
     window.startSandbox = () => window.POP.startSandbox();
     window.startCampaign = () => window.POP.startCampaign();
     window.startCampaignLevel = (levelId) => window.POP.startCampaignLevel(levelId);
+    window.startScenario = (scenarioId) => window.POP.startScenario(scenarioId);
 
     return runtime;
 }

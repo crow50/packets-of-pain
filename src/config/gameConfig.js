@@ -17,6 +17,7 @@ const TRAFFIC_TYPES = {
 };
 
 const CONFIG = {
+    packetIncreaseInterval: 0.1,
     gridSize: 30,
     tileSize: 4,
     colors: {
@@ -37,7 +38,6 @@ const CONFIG = {
     survival: {
         startBudget: 2000,
         baseRPS: 0.5,
-        rampUp: 0.025,
         trafficDistribution: {
             [TRAFFIC_TYPES.WEB]: 0.50,
             [TRAFFIC_TYPES.API]: 0.45,
