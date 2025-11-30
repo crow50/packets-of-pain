@@ -109,6 +109,9 @@
                                 <button id="hud-menu-panels" class="hud-menu-item glass-panel" role="menuitem">
                                     <span class="mr-2" id="hud-menu-panels-icon">📊</span> Panels: <span id="hud-menu-panels-status">On</span>
                                 </button>
+                                <button id="hud-menu-scenarios" class="hud-menu-item glass-panel" role="menuitem">
+                                    <span class="mr-2">🎯</span> Scenarios Browser
+                                </button>
                                 <div class="hud-menu-divider"></div>
                                 <button id="hud-menu-main" class="hud-menu-item danger glass-panel" role="menuitem">
                                     <span class="mr-2">🚪</span> Main Menu
@@ -341,6 +344,20 @@
         </div>
     </div>
 
+    <div id="scenarios-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-4xl rounded-3xl border border-purple-500/40 p-8 space-y-6 text-white">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.4em] text-purple-300/80">Scenarios</p>
+                    <h2 class="text-3xl font-black">Operations Lab</h2>
+                    <p class="text-gray-300">Drop into curated challenges without touching campaign progression.</p>
+                </div>
+                <button id="scenarios-close" class="text-xs font-bold uppercase tracking-[0.4em] text-gray-300 border border-gray-600 rounded-full px-4 py-2 hover:text-white">Close</button>
+            </div>
+            <div id="scenarios-list" class="grid gap-4 max-h-[70vh] overflow-y-auto pr-1"></div>
+        </div>
+    </div>
+
     <!-- End/Next Level Modal -->
     <div id="modal"
         class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center backdrop-blur-sm">
@@ -374,6 +391,11 @@
                 <button onclick="startSandbox()"
                     class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-lg border border-green-400/50">
                     Sandbox Mode
+                </button>
+
+                <button id="main-menu-scenarios"
+                    class="w-full bg-purple-700/80 hover:bg-purple-600 text-white font-bold py-3 px-8 rounded-lg border border-purple-400/60 transition hover:shadow-[0_0_15px_rgba(168,85,247,0.45)] font-mono uppercase">
+                    Scenario Lab
                 </button>
 
                 <button onclick="startCampaign()"

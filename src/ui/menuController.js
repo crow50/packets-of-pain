@@ -1,3 +1,5 @@
+import { openScenariosBrowser } from "./scenariosController.js";
+
 /**
  * menuController.js - Hamburger menu dropdown controller
  * 
@@ -23,6 +25,7 @@ export function initHudMenu() {
     const panelsBtn = document.getElementById('hud-menu-panels');
     const panelsStatus = document.getElementById('hud-menu-panels-status');
     const panelsIcon = document.getElementById('hud-menu-panels-icon');
+    const scenariosBtn = document.getElementById('hud-menu-scenarios');
     const mainBtn = document.getElementById('hud-menu-main');
 
     if (!btn || !dropdown) return;
@@ -94,6 +97,11 @@ export function initHudMenu() {
     panelsBtn?.addEventListener('click', () => {
         toggleScorePanel();
         updatePanelsStatus();
+    });
+
+    scenariosBtn?.addEventListener('click', () => {
+        setOpen(false);
+        openScenariosBrowser('hud');
     });
 
     // Return to main menu

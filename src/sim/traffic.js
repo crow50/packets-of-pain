@@ -1,5 +1,7 @@
 import Request from "../entities/Request.js";
 import { toPlainPosition } from "./vectorUtils.js";
+import { GAME_MODES } from "../modes/constants.js";
+import { getModeBehaviors } from "../modes/modeBehaviors.js";
 
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
@@ -34,39 +36,27 @@ function emitEvent(event, payload) {
     engine?.emit?.(event, payload);
 }
 
-function getUserNodes(sim) {
-    if (!sim?.services?.length) return [];
-    return sim.services.filter(service => service?.type === 'user');
-}
-
 function pickRequestSource(sim, trafficProfile, gameMode) {
     const defaultSource = sim.internetNode;
+    const defaultResult = { source: defaultSource, fromUser: false };
     if (trafficProfile?.inboundOnly) {
-        return { source: defaultSource, fromUser: false };
-    }
-    if (gameMode !== 'campaign') {
-        return { source: defaultSource, fromUser: false };
+        return defaultResult;
     }
 
-    const userNodes = getUserNodes(sim);
-    if (!userNodes.length) {
-        return { source: defaultSource, fromUser: false };
+    const behaviors = getModeBehaviors();
+    if (typeof behaviors.pickTrafficSource === 'function') {
+        const custom = behaviors.pickTrafficSource({
+            sim,
+            trafficProfile,
+            gameMode,
+            defaultResult
+        });
+        if (custom && custom.source) {
+            return custom;
+        }
     }
 
-    const userRate = Math.max(0, trafficProfile?.userToInternetPps ?? 0);
-    const internetRate = Math.max(0, trafficProfile?.maliciousRate ?? 0);
-    const total = userRate + internetRate;
-    if (total <= 0) {
-        return { source: defaultSource, fromUser: false };
-    }
-
-    const spawnFromUser = Math.random() < (userRate / total);
-    if (!spawnFromUser) {
-        return { source: defaultSource, fromUser: false };
-    }
-
-    const selected = userNodes[Math.floor(Math.random() * userNodes.length)] || defaultSource;
-    return { source: selected, fromUser: Boolean(selected && selected !== defaultSource) };
+    return defaultResult;
 }
 
 function routeInitialRequest(state, req, sourceNode) {
@@ -267,7 +257,7 @@ function spawnRequest(state) {
     const ui = state.ui || state;
 
     let type = getTrafficType(sim);
-    const trafficProfile = sim.trafficProfile || GameContext.trafficProfile;
+    const trafficProfile = sim.trafficProfile;
     const gameMode = ui.gameMode || 'sandbox';
     const inboundOnly = Boolean(trafficProfile?.inboundOnly);
     
@@ -319,10 +309,8 @@ export function initTrafficForMode(arg1, arg2) {
     const sim = state.simulation || state;
 
     sim.spawnTimer = 0;
-    sim.currentRPS = CONFIG.survival.baseRPS;
-    if (mode === 'campaign') {
-        sim.currentRPS = CONFIG.survival.baseRPS;
-    }
+    const baseRPS = typeof sim.baseRPS === 'number' ? sim.baseRPS : CONFIG.survival.baseRPS;
+    sim.currentRPS = baseRPS;
 }
 
 export function gameTick(arg1, arg2) {
@@ -343,14 +331,19 @@ export function gameTick(arg1, arg2) {
         sim.spawnTimer = 0;
     }
 
-    const gameMode = ui.gameMode || 'sandbox';
-    if (gameMode === 'survival') {
-        sim.currentRPS += CONFIG.survival.rampUp * scaledDt;
-    } else if (gameMode === 'campaign') {
-        const ramp = sim.trafficProfile?.rpsRampPerSecond ?? 0;
-        if (ramp) {
-            sim.currentRPS = Math.max(0, sim.currentRPS + ramp * scaledDt);
-        }
+    const gameMode = ui.gameMode || GAME_MODES.SANDBOX;
+    const packetIncreaseInterval =
+        typeof sim.packetIncreaseInterval === 'number'
+            ? sim.packetIncreaseInterval
+            : (CONFIG?.packetIncreaseInterval ?? 0);
+    const allowSandboxRamp = gameMode !== GAME_MODES.SANDBOX || (ui.timeScale ?? 0) >= 1;
+    if (packetIncreaseInterval > 0 && allowSandboxRamp) {
+        sim.currentRPS = Math.max(0, sim.currentRPS + packetIncreaseInterval * scaledDt);
+    }
+
+    const profileRamp = sim.trafficProfile?.rpsRampPerSecond ?? 0;
+    if (profileRamp) {
+        sim.currentRPS = Math.max(0, sim.currentRPS + profileRamp * scaledDt);
     }
 
     sim.services.forEach(s => s.update(scaledDt));
