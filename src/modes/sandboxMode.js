@@ -6,6 +6,7 @@ import { setTrafficProfile } from "../sim/economy.js";
 import { setTool } from "../sim/tools.js";
 import { stopTutorial } from "../ui/tutorialController.js";
 import { enterSandboxHUD } from "../ui/sandboxMode.js";
+import { hideSandboxPanel } from "../ui/sandboxController.js";
 
 export const SandboxModeController = {
     id: GAME_MODES.SANDBOX,
@@ -24,6 +25,8 @@ export const SandboxModeController = {
     },
     teardown() {
         resetModeBehaviors();
+        hideSandboxPanel();
+        setTopologyGuidance([]);
     },
     onTick() {},
     onGameOver() {}

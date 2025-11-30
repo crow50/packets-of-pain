@@ -12,7 +12,7 @@ import {
 } from "./render/scene.js";
 import { initInteractions, updateTooltip, init as initInteractionsModule } from "./render/interactions.js";
 import { initRenderManagers, disposeRenderManagers, syncRenderState } from "./render/renderManagers.js";
-import { updateSimulationHud, showGameOverModal, init as initHudController } from "./ui/hudController.js";
+import { updateSimulationHud, init as initHudController } from "./ui/hudController.js";
 import { initToolSync, disposeToolSync } from "./ui/toolSync.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
 import { startCampaign } from "./ui/campaign.js";
@@ -27,6 +27,8 @@ import { initLevelConditions, disposeLevelConditions, updateLevelConditions } fr
 import { GAME_MODES } from "./modes/constants.js";
 import { getModeController } from "./modes/index.js";
 import { initScenariosController } from "./ui/scenariosController.js";
+import { init as initGameOverController, teardown as teardownGameOverController } from "./ui/gameOverController.js";
+import { initModeManager, switchToMode, restartCurrentMode as mgrRestartCurrentMode, teardownModeManager } from "./core/modeManager.js";
 
 function renderScene() {
     syncRenderState();
@@ -43,7 +45,7 @@ function handleFrameSideEffects(engine, stepResult, controller, modeConfig) {
     controller?.onTick?.({ engine, stepResult, modeConfig });
 
     if (stepResult?.status === "gameover" && stepResult.failure) {
-        showGameOverModal(stepResult.failure);
+        engine.emit("pop-mode:gameOver", { failure: stepResult.failure, modeConfig });
         controller?.onGameOver?.({ engine, failure: stepResult.failure, modeConfig });
     }
 }
@@ -125,6 +127,7 @@ function createRuntime() {
             // Initialize modules with engine reference (removes global reach-through)
             initInteractionsModule(engine);
             initHudController(engine);
+            initGameOverController(engine);
             initInputController(engine);
             initSandboxControls(engine); // Initialize sandbox controls (shows panel only in sandbox mode)
             initRenderManagers(engine);
@@ -153,6 +156,7 @@ function createRuntime() {
             const { loop, input, controller, engine, modeConfig } = this.current;
             loop.stop();
             controller?.teardown?.({ engine, modeConfig, runtime: this });
+            teardownGameOverController();
             input.detach();
             disposeToolSync();
             disposeRenderManagers();
@@ -177,19 +181,19 @@ export function bootstrap() {
     initScenariosController();
     const runtime = createRuntime();
 
+    // Initialize mode manager with runtime reference
+    initModeManager(runtime);
+
     window.__POP_RUNTIME__ = runtime;
 
     function popStartSandbox() {
-        const modeConfig = {
-            mode: GAME_MODES.SANDBOX,
+        switchToMode(GAME_MODES.SANDBOX, {
             internetPosition: DEFAULT_INTERNET_POSITION
-        };
-        runtime.startMode(modeConfig);
+        });
     }
 
     function popStartCampaignLevel(levelId) {
-        const modeConfig = { mode: GAME_MODES.CAMPAIGN, levelId };
-        runtime.startMode(modeConfig);
+        switchToMode(GAME_MODES.CAMPAIGN, { levelId });
     }
 
     function popStartScenario(scenarioId) {
@@ -198,16 +202,14 @@ export function bootstrap() {
             console.error('[Scenarios] Unknown scenario id', scenarioId);
             return;
         }
-        const modeConfig = {
-            mode: GAME_MODES.SCENARIOS,
+        switchToMode(GAME_MODES.SCENARIOS, {
             scenarioId: scenario.id,
             scenarioConfig: scenario,
             startBudget: typeof scenario.startingBudget === 'number' ? scenario.startingBudget : undefined,
             packetIncreaseInterval: typeof scenario.packetIncreaseInterval === 'number' ? scenario.packetIncreaseInterval : undefined,
             trafficProfile: scenario.trafficProfile || null,
             internetPosition: scenario.internetPosition || undefined
-        };
-        runtime.startMode(modeConfig);
+        });
     }
 
     window.POP = {
@@ -218,7 +220,7 @@ export function bootstrap() {
         startCampaignLevel: popStartCampaignLevel,
         startScenario: popStartScenario,
         restartCurrentMode() {
-            runtime.restartCurrentMode();
+            mgrRestartCurrentMode();
         }
     };
 
