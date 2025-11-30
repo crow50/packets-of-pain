@@ -14,28 +14,19 @@ const BODY_MODE_CLASSES = {
 
 let currentView = 'main-menu';
 let faqSource = 'menu';
+let currentModeId = null;
+let objectivesPanelVisible = false;
 
-// --- Unified Campaign Panel Functions ---
-
-export function setCampaignPanelTitle(title) {
-    const el = document.getElementById('campaign-panel-title');
-    if (el) el.innerText = title || '';
+function updateElementText(id, text = '') {
+    const el = document.getElementById(id);
+    if (el) {
+        el.innerText = text || '';
+    }
 }
 
-export function setCampaignPanelSeries(series) {
-    const el = document.getElementById('campaign-panel-series');
-    if (el) el.innerText = series || '';
-}
-
-export function setCampaignPanelIntro(text) {
-    const el = document.getElementById('campaign-panel-intro');
-    if (el) el.innerText = text || '';
-}
-
-export function renderCampaignObjectives(entries) {
-    const list = document.getElementById('campaign-panel-objectives');
-    if (!list) return;
-    list.innerHTML = '';
+function renderObjectivesList(listElement, entries = []) {
+    if (!listElement) return;
+    listElement.innerHTML = '';
     entries.forEach(entry => {
         const li = document.createElement('li');
         li.className = 'flex items-center';
@@ -46,8 +37,26 @@ export function renderCampaignObjectives(entries) {
         const text = document.createElement('span');
         text.innerText = entry.text;
         li.appendChild(text);
-        list.appendChild(li);
+        listElement.appendChild(li);
     });
+}
+
+// --- Unified Campaign Panel Functions ---
+
+export function setCampaignPanelTitle(title) {
+    updateElementText('campaign-panel-title', title);
+}
+
+export function setCampaignPanelSeries(series) {
+    updateElementText('campaign-panel-series', series);
+}
+
+export function setCampaignPanelIntro(text) {
+    updateElementText('campaign-panel-intro', text);
+}
+
+export function renderCampaignObjectives(entries) {
+    renderObjectivesList(document.getElementById('campaign-panel-objectives'), entries);
 }
 
 export function showCampaignPanel(show = true) {
@@ -55,8 +64,72 @@ export function showCampaignPanel(show = true) {
     if (panel) panel.classList.toggle('hidden', !show);
 }
 
-export function showLevelInstructionsPanel(visible) {
-    showCampaignPanel(visible);
+export function showScenarioPanel(show = true) {
+    const panel = document.getElementById('scenarios-panel');
+    if (panel) panel.classList.toggle('hidden', !show);
+}
+
+// --- Scenario Panel Functions ---
+
+export function setScenarioPanelTitle(text) {
+    updateElementText('scenarios-panel-title', text);
+}
+
+export function setScenarioPanelSubtitle(text) {
+    updateElementText('scenarios-panel-subtitle', text);
+}
+
+export function setScenarioPanelSummary(text) {
+    updateElementText('scenarios-panel-summary', text);
+}
+
+export function setScenarioPanelDifficulty(text) {
+    const normalized = text ? String(text).toUpperCase() : '';
+    updateElementText('scenarios-panel-difficulty', normalized);
+}
+
+export function setScenarioPanelStatus(text) {
+    updateElementText('scenarios-panel-status', text);
+}
+
+export function setScenarioPanelTags(tags = []) {
+    const container = document.getElementById('scenarios-panel-tags');
+    if (!container) return;
+    container.innerHTML = '';
+    tags.filter(Boolean).forEach(tag => {
+        const pill = document.createElement('span');
+        pill.className = 'px-2 py-0.5 text-[10px] rounded-full border border-purple-500/30 text-purple-200/80 uppercase tracking-[0.3em] font-mono';
+        pill.innerText = tag;
+        container.appendChild(pill);
+    });
+}
+
+export function renderScenarioObjectives(entries) {
+    renderObjectivesList(document.getElementById('scenarios-panel-objectives'), entries);
+}
+
+function handleTimeScaleChange(event) {
+    if (currentModeId !== GAME_MODES.SCENARIOS) return;
+    const scale = event?.detail?.scale ?? 0;
+    setScenarioPanelStatus(scale === 0 ? 'Paused' : 'Live');
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('pop-timeScaleChanged', handleTimeScaleChange);
+}
+
+function syncObjectivePanels() {
+    const showCampaign = objectivesPanelVisible && currentModeId === GAME_MODES.CAMPAIGN;
+    const showScenarios = objectivesPanelVisible && currentModeId === GAME_MODES.SCENARIOS;
+    showCampaignPanel(showCampaign);
+    showScenarioPanel(showScenarios);
+}
+
+export function showLevelInstructionsPanel(visible, modeId = null) {
+    if (modeId) {
+        currentModeId = modeId;
+    }
+    showObjectivesPanel(visible);
 }
 
 // Legacy aliases for compatibility
@@ -76,7 +149,8 @@ export function setCampaignIntroObjectives() {
 }
 
 export function showObjectivesPanel(show = true) {
-    showCampaignPanel(show);
+    objectivesPanelVisible = !!show;
+    syncObjectivePanels();
 }
 
 function updateGameModeLabel(modeId = GAME_MODES.SANDBOX) {
@@ -102,6 +176,7 @@ function applyBodyMode(modeId = null) {
 
 export function setModeUIActive(modeId, options = {}) {
     const normalizedMode = modeId ?? null;
+    currentModeId = normalizedMode;
     applyBodyMode(normalizedMode);
     updateGameModeLabel(normalizedMode ?? GAME_MODES.SANDBOX);
 
@@ -120,19 +195,9 @@ function setOverlayState(el, isActive) {
 }
 
 export function setHUDMode(mode) {
-    const campaignPanel = document.getElementById('campaign-panel');
     const sandboxPanel = document.getElementById('sandbox-panel');
-    const scenariosPanel = document.getElementById('scenarios-panel');
-
     if (sandboxPanel) sandboxPanel.classList.toggle('hidden', mode !== 'sandbox');
-
-    if (scenariosPanel) {
-        scenariosPanel.classList.toggle('hidden', mode !== 'scenarios');
-        if (campaignPanel) campaignPanel.classList.toggle('hidden', mode !== 'campaign');
-    } else if (campaignPanel) {
-        const showCampaignPanel = mode === 'campaign' || mode === 'scenarios';
-        campaignPanel.classList.toggle('hidden', !showCampaignPanel);
-    }
+    syncObjectivePanels();
 }
 
 export function initWarningsPill() {

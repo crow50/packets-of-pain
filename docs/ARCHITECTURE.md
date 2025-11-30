@@ -280,11 +280,13 @@ The HUD now uses a **zone-based layout** so panels never overlap:
 1. **Top-left (`#hud-top-left`)** – the stats card plus the warnings stack (`#warnings-pill` + `#topology-warnings-section`) share this column so issues surface directly beside the metrics they impact.
 2. **Top-center (`#hud-top-center`)** – time controls and the HUD menu button sit together, centered over the canvas.
 3. **Top-right (`#hud-top-right`)** – the score card occupies the entire column with consistent spacing.
-4. **Right column (`#hud-right-column`)** – stacked glass panels with scrollable content. `#campaign-panel` and `#sandbox-panel` are mutually exclusive; `#details-panel` (hottest node) always sits beneath them.
-4. **Bottom center (`#bottom-toolbar`)** – build tools + shop, centered and always above the canvas.
-5. **Floating overlays** – tooltips (`#tooltip`), modals, and onboarding live above everything else.
+4. **Right column (`#hud-right-column`)** – stacked glass panels with scrollable content. `#tutorial-box` sits at the top, `#campaign-panel` and the new `#scenarios-panel` share the objectives slot (never visible at the same time), and `#sandbox-panel` only appears in sandbox runs. `#details-panel` (hottest node) always anchors the bottom of the stack.
+5. **Bottom center (`#bottom-toolbar`)** – build tools + shop, centered and always above the canvas.
+6. **Floating overlays** – tooltips (`#tooltip`), modals, and onboarding live above everything else.
 
-`setHUDMode(mode)` in `hud.js` switches which mode-specific panel is active (`'campaign'`, `'sandbox'`, `'scenarios'`, or `null` for menus). When a dedicated scenarios panel is missing it gracefully reuses the campaign briefing panel so the DOM hierarchy stays stable. The warnings flow is pill-driven: `initWarningsPill()` wires the pill tap/click to expand `#topology-warnings-section` directly beneath the stats column while `hudController.updateTopologyWarnings` pushes the latest issues and badge counts.
+`setModeUIActive(modeId, options)` records the currently running mode, applies matching `body` classes, and decides whether the objectives slot should be visible at all. `setHUDMode(mode)` syncs the visible panels (`'campaign'`, `'sandbox'`, `'scenarios'`, or `null` for menus) while honoring that visibility flag so e.g. sandbox can hide the objectives slot entirely. The warnings flow is pill-driven: `initWarningsPill()` wires the pill tap/click to expand `#topology-warnings-section` directly beneath the stats column while `hudController.updateTopologyWarnings` pushes the latest issues and badge counts.
+
+**Scenario Briefing Panel.** Scenarios now render into their own DOM panel (`#scenarios-panel`) so the campaign briefing never needs to carry scenario-specific UI. `hud.js` exposes `setScenarioPanelTitle/Subitle/Summary/Difficulty/Tags/Status` plus `renderScenarioObjectives`, and `scenariosController.loadScenarioSession` calls those helpers after loading a config. The panel listens for `pop-timeScaleChanged` so its status badge flips between `Paused` and `Live` automatically when the player changes time scale. Campaign still uses the original panel helpers, so the two modes stay isolated while sharing the same right-column real estate.
 
 Responsive rules keep the entire top row wrapping under `1280px` and collapse the right column under `768px`, so the HUD still fits on smaller displays without overlapping the canvas or toolbar.
 
@@ -350,7 +352,7 @@ Game modes are driven by `simulation.gameMode` and mode-specific config passed t
 
   * One-off scripted challenges that reuse the simulation but not the campaign progression tree.
   * Loads scenario configs from `src/config/scenarios/`, including tutorials and win/fail conditions.
-  * Needs its own HUD state (currently piggybacks on the campaign panel until the scenarios panel ships).
+  * Uses the dedicated Scenario Briefing panel helpers in `hud.js` so tags, objectives, and difficulty badges can diverge from the campaign UI without impacting sandbox or level play.
 
 Mode transitions are handled by the runtime/bootstrap layer; the engine is created with a mode-specific config and never needs to know about DOM views.
 

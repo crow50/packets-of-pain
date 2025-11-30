@@ -6,7 +6,18 @@ import { mapWhitelistToServices, setShopForServiceList, setSandboxShop } from ".
 import { configureTutorial, stopTutorial } from "./tutorialController.js";
 import { configureLevelConditions, resetLevelConditions } from "./levelConditions.js";
 import { spawnNodeFromConfig } from "./campaign.js";
-import { renderCampaignObjectives, setCampaignPanelIntro, setCampaignPanelSeries, setCampaignPanelTitle, setModeUIActive, showLevelInstructionsPanel, showView } from "./hud.js";
+import {
+    renderScenarioObjectives,
+    setModeUIActive,
+    setScenarioPanelDifficulty,
+    setScenarioPanelStatus,
+    setScenarioPanelSummary,
+    setScenarioPanelTags,
+    setScenarioPanelTitle,
+    setScenarioPanelSubtitle,
+    showLevelInstructionsPanel,
+    showView
+} from "./hud.js";
 import { setTopologyGuidance } from "../modes/modeState.js";
 import { GAME_MODES } from "../modes/constants.js";
 
@@ -14,6 +25,11 @@ const OBJECTIVE_COLORS = ["bg-purple-500", "bg-blue-500", "bg-emerald-500", "bg-
 let cachedScenarios = [];
 let previousTimeScale = null;
 let lastOpenSource = null;
+
+function formatWorldLabel(value) {
+    if (!value) return "Operations Lab";
+    return String(value).replace(/[-_]/g, " ");
+}
 
 function getCurrentTimeScale() {
     return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.timeScale ?? 0;
@@ -196,7 +212,7 @@ export function loadScenarioSession(scenarioId, fallbackConfig = null) {
 
     const engine = window.__POP_RUNTIME__?.current?.engine;
     setModeUIActive(GAME_MODES.SCENARIOS);
-    showLevelInstructionsPanel(true);
+    showLevelInstructionsPanel(true, GAME_MODES.SCENARIOS);
     showView("scenarios");
     window.setTool?.("select");
     window.setTimeScale?.(0);
@@ -223,11 +239,13 @@ export function loadScenarioSession(scenarioId, fallbackConfig = null) {
         scenario.preplacedNodes.forEach(spawnNodeFromConfig);
     }
 
-    setCampaignPanelTitle(scenario.title || "Scenario");
-    const seriesText = scenario.subtitle || scenario.difficulty || "operations lab";
-    setCampaignPanelSeries(seriesText);
-    setCampaignPanelIntro(scenario.description || scenario.summary || "");
-    renderCampaignObjectives(mapInstructionsToObjectives(scenario.instructions));
+    setScenarioPanelTitle(scenario.title || "Scenario");
+    setScenarioPanelSubtitle(scenario.subtitle || formatWorldLabel(scenario.worldId));
+    setScenarioPanelSummary(scenario.summary || scenario.description || "");
+    setScenarioPanelDifficulty(scenario.difficulty || "");
+    setScenarioPanelTags(Array.isArray(scenario.tags) ? scenario.tags : []);
+    setScenarioPanelStatus("Paused");
+    renderScenarioObjectives(mapInstructionsToObjectives(scenario.instructions));
 
     setTopologyGuidance(Array.isArray(scenario.topologyGuidance) ? scenario.topologyGuidance : []);
 
