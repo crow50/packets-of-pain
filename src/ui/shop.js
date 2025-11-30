@@ -1,6 +1,5 @@
 import { getLevelById } from "../config/campaign/index.js";
-import { GameContext } from "../sim/economy.js";
-import { applyToolbarWhitelist } from "./toolbarController.js";
+import { applyToolbarWhitelist, getCurrentToolbarWhitelist } from "./toolbarController.js";
 
 const { getServiceType, SHOP_ORDER } = window.ServiceCatalog;
 const SHOP_DEFAULT_ORDER = SHOP_ORDER;
@@ -46,7 +45,7 @@ export function renderShopItems(serviceTypes = []) {
 export function setShopForServiceList(serviceList) {
     const uniqueList = Array.from(new Set(serviceList));
     renderShopItems(uniqueList);
-    applyToolbarWhitelist(GameContext.toolbarWhitelist || []);
+    applyToolbarWhitelist(getCurrentToolbarWhitelist());
 }
 
 export function mapWhitelistToServices(list = []) {
@@ -59,7 +58,7 @@ export function mapWhitelistToServices(list = []) {
 }
 
 export function setSandboxShop() {
-    GameContext.toolbarWhitelist = [];
+    applyToolbarWhitelist([]);
     setShopForServiceList(SHOP_DEFAULT_ORDER);
 }
 

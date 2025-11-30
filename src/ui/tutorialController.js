@@ -1,5 +1,4 @@
-import { GameContext } from "../sim/economy.js";
-import { applyToolbarWhitelist } from "./toolbarController.js";
+import { applyToolbarWhitelist, getCurrentToolbarWhitelist } from "./toolbarController.js";
 
 let tutorialState = null;
 let pendingTrigger = null;
@@ -260,9 +259,7 @@ export function startTutorial(levelConfig, engine) {
         steps: Array.isArray(levelConfig.tutorial.steps) ? levelConfig.tutorial.steps : [],
         index: 0,
         engine,
-        baseToolbarWhitelist: Array.isArray(GameContext.toolbarWhitelist)
-            ? [...GameContext.toolbarWhitelist]
-            : [],
+        baseToolbarWhitelist: getCurrentToolbarWhitelist(),
         defaultTimeControlTarget: resolveDefaultTimeControlTarget(levelConfig.tutorial)
     };
 

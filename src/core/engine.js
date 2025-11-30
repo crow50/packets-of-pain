@@ -1,5 +1,7 @@
 import { gameTick } from "../sim/traffic.js";
 import { setTrafficProfile } from "../sim/economy.js";
+import { GAME_MODES } from "../modes/constants.js";
+import { getModeBehaviors } from "../modes/modeBehaviors.js";
 import { createService, createConnection, deleteObject, deleteLink as removeLink } from "../sim/tools.js";
 
 const FAILURE_COPY = {
@@ -14,7 +16,12 @@ const FAILURE_COPY = {
 };
 
 function createInitialState(config = {}) {
-    const isSandbox = config.mode === 'sandbox';
+    const isSandbox = config.mode === GAME_MODES.SANDBOX;
+    const baseRPS = typeof config.baseRPS === 'number' ? config.baseRPS : 0.5;
+    const startBudget = typeof config.startBudget === 'number' ? config.startBudget : 0;
+    const packetIncreaseInterval = typeof config.packetIncreaseInterval === 'number'
+        ? config.packetIncreaseInterval
+        : 0;
     const internetPosition = {
         x: config.internetPosition?.x ?? -10,
         y: config.internetPosition?.y ?? 0,
@@ -24,7 +31,7 @@ function createInitialState(config = {}) {
     const simulation = {
         time: 0,
         reputation: config.startReputation ?? 100,
-        money: config.startBudget ?? 0,
+        money: startBudget,
         score: {
             total: 0,
             web: 0,
@@ -41,7 +48,10 @@ function createInitialState(config = {}) {
             connections: []
         },
         spawnTimer: 0,
-        currentRPS: config.baseRPS ?? 0.5,
+        currentRPS: baseRPS,
+        baseRPS,
+        defaultStartBudget: startBudget,
+        packetIncreaseInterval,
         requestsProcessed: 0,
         trafficProfile: config.trafficProfile ?? null,
         metrics: {
@@ -60,7 +70,7 @@ function createInitialState(config = {}) {
         hovered: null,
         timeScale: config.initialTimeScale ?? 1,
         isRunning: true,
-        gameMode: config.mode ?? 'survival',
+        gameMode: config.mode ?? GAME_MODES.SANDBOX,
         sound: null
     };
 
@@ -116,8 +126,11 @@ export function createEngine(config = {}) {
 
         gameTick(state, deltaSeconds);
 
-        // Skip game over evaluation in sandbox mode
-        if (state.ui.gameMode !== 'sandbox') {
+        const behaviors = getModeBehaviors();
+        const allowGameOver = behaviors?.shouldAllowGameOver
+            ? behaviors.shouldAllowGameOver({ state }) !== false
+            : true;
+        if (allowGameOver) {
             const failure = evaluateFailure(state.simulation);
             if (failure) {
                 running = false;

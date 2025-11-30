@@ -1,3 +1,4 @@
+import { GAME_MODES } from "../modes/constants.js";
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -16,15 +17,6 @@ const DEFAULT_TRAFFIC_PROFILE = {
     rpsRampPerSecond: 0
 };
 
-const GameContext = {
-    mode: "sandbox",
-    currentLevelId: null,
-    trafficProfile: null,
-    toolbarWhitelist: [],
-    topologyGuidance: []
-};
-window.GameContext = GameContext;
-
 function ensureToolbarList(list) {
     if (!Array.isArray(list)) return [];
     return list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
@@ -34,7 +26,8 @@ export function resetEconomyForMode(arg1, arg2, arg3) {
     // Overload: resetEconomyForMode(mode, options) OR resetEconomyForMode(state, mode, options)
     const hasState = arg1 && (arg1.simulation || arg1.ui);
     const state = resolveState(arg1);
-    const mode = hasState ? (arg2 || 'survival') : (arg1 || 'survival');
+        const defaultMode = GAME_MODES?.SANDBOX || 'sandbox';
+        const mode = hasState ? (arg2 || defaultMode) : (arg1 || defaultMode);
     const options = hasState ? (arg3 || {}) : (arg2 || {});
 
     if (!state) return;
@@ -51,9 +44,10 @@ export function resetEconomyForMode(arg1, arg2, arg3) {
     ui.isRunning = true;
     ui.hovered = null;
     sim.spawnTimer = 0;
-    sim.currentRPS = CONFIG.survival.baseRPS;
+    const baseRPS = typeof sim.baseRPS === 'number' ? sim.baseRPS : CONFIG.survival.baseRPS;
+    sim.currentRPS = baseRPS;
 
-    const startBudget = options.startBudget ?? CONFIG.survival.startBudget;
+    const startBudget = options.startBudget ?? sim.defaultStartBudget ?? CONFIG.survival.startBudget;
     resetScore(state);
     resetSatisfaction(state);
     setBudget(state, startBudget);
@@ -115,11 +109,11 @@ export function setTrafficProfile(arg1, arg2) {
     const profile = hasState ? arg2 : arg1;
 
     if (!profile) {
-        GameContext.trafficProfile = null;
         if (state) {
             const sim = state.simulation || state;
             sim.trafficProfile = null;
-            sim.currentRPS = CONFIG.survival.baseRPS;
+            const baseRPS = typeof sim.baseRPS === 'number' ? sim.baseRPS : CONFIG.survival.baseRPS;
+            sim.currentRPS = baseRPS;
             sim.rpsRampPerSecond = 0;
             sim.spawnTimer = 0;
         }
@@ -140,13 +134,10 @@ export function setTrafficProfile(arg1, arg2) {
         rpsRampPerSecond: typeof profile.rpsRampPerSecond === 'number' ? profile.rpsRampPerSecond : DEFAULT_TRAFFIC_PROFILE.rpsRampPerSecond
     };
 
-    GameContext.trafficProfile = normalized;
     sim.trafficProfile = normalized;
     sim.currentRPS = normalized.spawnRps;
     sim.rpsRampPerSecond = normalized.rpsRampPerSecond;
     sim.spawnTimer = 0;
 }
-
-export { GameContext };
 
 window.setTimeScale = setTimeScale;

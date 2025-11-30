@@ -284,7 +284,7 @@ The HUD now uses a **zone-based layout** so panels never overlap:
 4. **Bottom center (`#bottom-toolbar`)** – build tools + shop, centered and always above the canvas.
 5. **Floating overlays** – tooltips (`#tooltip`), modals, and onboarding live above everything else.
 
-`setHUDMode(mode)` in `hud.js` switches which mode-specific panel is active (`'campaign'`, `'sandbox'`, or `null` for menus). The warnings flow is pill-driven: `initWarningsPill()` wires the pill tap/click to expand `#topology-warnings-section` directly beneath the stats column while `hudController.updateTopologyWarnings` pushes the latest issues and badge counts.
+`setHUDMode(mode)` in `hud.js` switches which mode-specific panel is active (`'campaign'`, `'sandbox'`, `'scenarios'`, or `null` for menus). When a dedicated scenarios panel is missing it gracefully reuses the campaign briefing panel so the DOM hierarchy stays stable. The warnings flow is pill-driven: `initWarningsPill()` wires the pill tap/click to expand `#topology-warnings-section` directly beneath the stats column while `hudController.updateTopologyWarnings` pushes the latest issues and badge counts.
 
 Responsive rules keep the entire top row wrapping under `1280px` and collapse the right column under `768px`, so the HUD still fits on smaller displays without overlapping the canvas or toolbar.
 
@@ -332,6 +332,7 @@ The config layer should be purely data: no DOM calls, no engine calls.
 
 Game modes are driven by `simulation.gameMode` and mode-specific config passed to the engine.
 
+
 * **Sandbox**
 
   * Adjustable budget / RPS / traffic mix / upkeep / bursts.
@@ -339,11 +340,17 @@ Game modes are driven by `simulation.gameMode` and mode-specific config passed t
   * Sandbox panel visible.
   * RPS ramp-up and strict failure conditions are usually disabled.
 
-* **Survival / Campaign**
+* **Campaign**
 
   * Level-driven traffic profiles and objectives.
   * Game over and level completion.
   * Campaign hub and objectives panel visible.
+
+* **Scenarios**
+
+  * One-off scripted challenges that reuse the simulation but not the campaign progression tree.
+  * Loads scenario configs from `src/config/scenarios/`, including tutorials and win/fail conditions.
+  * Needs its own HUD state (currently piggybacks on the campaign panel until the scenarios panel ships).
 
 Mode transitions are handled by the runtime/bootstrap layer; the engine is created with a mode-specific config and never needs to know about DOM views.
 

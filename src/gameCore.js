@@ -1,25 +1,21 @@
 import { resetCamera, serviceGroup, connectionGroup, requestGroup } from "./render/scene.js";
-import { GameContext, resetEconomyForMode, setTrafficProfile } from "./sim/economy.js";
+import { resetEconomyForMode } from "./sim/economy.js";
 import { initTrafficForMode } from "./sim/traffic.js";
+import { GAME_MODES } from "./modes/constants.js";
+import { getActiveMode, getCampaignLevel } from "./modes/modeState.js";
 
 const SoundService = typeof window !== "undefined" ? window.SoundService : undefined;
 import {
     showView,
     showMainMenu,
     showFAQ,
-    closeFAQ,
-    showObjectivesPanel,
+    closeFAQ
 } from "./ui/hud.js";
 import {
-    setSandboxShop
-} from "./ui/shop.js";
-import {
-    GAME_MODES,
     resetLevel,
     exitLevelToCampaignHub,
     hideCampaignLevels,
     enterCampaignWorld,
-    showLevelInstructionsPanel
 } from "./ui/campaign.js";
 import {
     setTool,
@@ -56,25 +52,6 @@ function getEngine() {
 }
 
 
-function updateGameModeLabel(isCampaign) {
-    const label = document.getElementById('game-mode-label');
-    if (!label) return;
-    label.innerText = isCampaign ? 'CAMPAIGN' : 'SURVIVAL';
-    label.classList.toggle('text-blue-400', isCampaign);
-    label.classList.toggle('text-red-500', !isCampaign);
-}
-
-function setCampaignUIActive(active) {
-    document.body.classList.toggle('campaign-mode', active);
-    // Show objectives panel only in campaign mode
-    showObjectivesPanel(active);
-    updateGameModeLabel(active);
-    if (!active) {
-        showLevelInstructionsPanel(false);
-    }
-}
-window.setCampaignUIActive = setCampaignUIActive;
-
 export function initGame() {
     // Sound will be initialized when engine starts
     // Initial sound service created here for menu
@@ -86,7 +63,7 @@ export function initGame() {
     }, 100);
 }
 
-export function resetGame(mode = 'survival') {
+export function resetGame(mode = GAME_MODES.SANDBOX) {
     stopTutorial();
     const engine = getEngine();
     const ui = engine?.getUIState();
@@ -129,31 +106,19 @@ export function restartGame() {
 window.restartGame = restartGame;
 
 
-export function startSandbox() {
-    stopTutorial();
-    GameContext.mode = GAME_MODES.SANDBOX;
-    setCampaignUIActive(false);
-    setSandboxShop();
-    GameContext.currentLevelId = null;
-    setTrafficProfile(null);
-    showLevelInstructionsPanel(false);
-    showView('sandbox');
-    window.setTool('select');  
-}
-
 function isCampaignMode() {
-    return GameContext.mode === GAME_MODES.CAMPAIGN;
+    return getActiveMode() === GAME_MODES.CAMPAIGN;
 }
 window.isCampaignMode = isCampaignMode;
 
 function getCurrentLevelId() {
-    return GameContext.currentLevelId;
+    return getCampaignLevel();
 }
 window.getCurrentLevelId = getCurrentLevelId;
 
 function resetSimulationState() {
-    initTrafficForMode('survival');
-    resetEconomyForMode('survival', { startBudget: 0, initialTimeScale: 1 });
+    initTrafficForMode(GAME_MODES.SANDBOX);
+    resetEconomyForMode(GAME_MODES.SANDBOX, { startBudget: 0, initialTimeScale: 1 });
     clearAllNodesAndLinks();
 }
 window.resetSimulationState = resetSimulationState;
