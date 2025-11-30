@@ -319,6 +319,16 @@ function validateTopology() {
     } else if (!fraudBlockerReachable) {
         warnings.push('FRAUD blocker not reachable from internet');
     }
+
+    const userExposed = sim.services.some(service => {
+        if (!service || !Array.isArray(service.connections)) return false;
+        const def = _getServiceType(service.type);
+        const isUser = def?.key?.toLowerCase?.() === 'user' || String(service.type).toLowerCase() === 'user';
+        return isUser && service.connections.includes('internet');
+    });
+    if (userExposed) {
+        warnings.push('User node connected directly to the Internet – exposed to MALICIOUS traffic');
+    }
     
     // Store warnings in sim state for HUD to display
     sim.topologyWarnings = {
