@@ -53,7 +53,7 @@ const SERVICE_TYPES = {
         tiers: [
             { level: 1, capacity: 10 }
         ],
-        accepts: ['INBOUND', 'RESPONSE', 'FRAUD', 'MALICIOUS'],
+        accepts: ['RESPONSE', 'INBOUND', 'FRAUD', 'MALICIOUS'],
         terminalFor: ['RESPONSE', 'INBOUND', 'FRAUD', 'MALICIOUS'],
         blocks: [],
         category: 'external',

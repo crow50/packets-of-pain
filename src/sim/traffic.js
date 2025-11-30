@@ -177,7 +177,13 @@ export function finishRequest(arg1, arg2) {
 
     sim.requestsProcessed++;
     updateScore(state, req, 'COMPLETED');
-    emitEvent('requestFinished', { requestId: req.id });
+    emitEvent('requestFinished', {
+        requestId: req.id,
+        type: req.type,
+        sourceType: req.sourceType,
+        sourceId: req.sourceId,
+        targetUserId: req.targetUserId
+    });
     spawnInboundResponse(state, req);
     removeRequest(state, req);
 }

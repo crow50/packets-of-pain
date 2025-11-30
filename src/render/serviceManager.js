@@ -176,7 +176,11 @@ function setLoadRingColor(entry, utilization) {
 
 function handleServiceAdded(payload) {
     if (!payload) return;
-    if (serviceMeshes.has(payload.serviceId)) return;
+    const existing = serviceMeshes.get(payload.serviceId);
+    if (existing) {
+        disposeServiceMesh(existing);
+        serviceMeshes.delete(payload.serviceId);
+    }
     const meshEntry = buildServiceMesh(payload);
     serviceMeshes.set(payload.serviceId, meshEntry);
 }

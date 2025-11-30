@@ -50,9 +50,12 @@ export function getIntersect(clientX, clientY) {
     // Check services first
     const svcHits = serviceGroup ? raycaster.intersectObjects(serviceGroup.children, true) : [];
     if (svcHits.length) {
-        const obj = svcHits[0].object;
-        // Always use obj.userData.id for service selection
-        const id = obj.userData?.id || obj.name;
+        let obj = svcHits[0].object;
+        // Traverse up to find the mesh that owns userData.id (handles rings/child meshes)
+        while (obj && !obj.userData?.id && obj.parent && obj.parent !== serviceGroup) {
+            obj = obj.parent;
+        }
+        const id = obj?.userData?.id || obj?.name;
         if (id) return { type: 'service', id, object: obj };
     }
 
