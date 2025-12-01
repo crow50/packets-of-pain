@@ -73,7 +73,12 @@ function createInitialState(config = {}) {
         timeScale: config.initialTimeScale ?? 1,
         isRunning: true,
         gameMode: config.mode ?? GAME_MODES.SANDBOX,
-        sound: null
+        sound: null,
+        // Mode context (consolidated from modeState.js)
+        campaignLevel: config.levelId ?? null,
+        scenarioId: config.scenarioId ?? null,
+        toolbarWhitelist: [],
+        topologyGuidance: []
     };
 
     return { simulation, ui };
@@ -275,6 +280,38 @@ export function createEngine(config = {}) {
             // Reset metrics
             sim.metrics.droppedByReason = {};
             sim.score = { total: 0, web: 0, api: 0, fraudBlocked: 0 };
+        },
+
+        // Mode context getters/setters (consolidated from modeState.js)
+        getActiveMode() {
+            return state.ui.gameMode;
+        },
+        setActiveMode(modeId) {
+            state.ui.gameMode = modeId;
+        },
+        getCampaignLevel() {
+            return state.ui.campaignLevel;
+        },
+        setCampaignLevel(levelId) {
+            state.ui.campaignLevel = levelId ?? null;
+        },
+        getScenarioId() {
+            return state.ui.scenarioId;
+        },
+        setScenarioId(scenarioId) {
+            state.ui.scenarioId = scenarioId ?? null;
+        },
+        getToolbarWhitelist() {
+            return [...state.ui.toolbarWhitelist];
+        },
+        setToolbarWhitelist(list = []) {
+            state.ui.toolbarWhitelist = Array.isArray(list) ? [...list] : [];
+        },
+        getTopologyGuidance() {
+            return [...state.ui.topologyGuidance];
+        },
+        setTopologyGuidance(entries = []) {
+            state.ui.topologyGuidance = Array.isArray(entries) ? [...entries] : [];
         }
     };
 }

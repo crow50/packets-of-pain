@@ -18,7 +18,6 @@ import {
     showLevelInstructionsPanel,
     showView
 } from "./hud.js";
-import { setTopologyGuidance } from "../modes/modeState.js";
 import { GAME_MODES } from "../modes/constants.js";
 
 const OBJECTIVE_COLORS = ["bg-purple-500", "bg-blue-500", "bg-emerald-500", "bg-amber-500"];
@@ -247,7 +246,7 @@ export function loadScenarioSession(scenarioId, fallbackConfig = null) {
     setScenarioPanelStatus("Paused");
     renderScenarioObjectives(mapInstructionsToObjectives(scenario.instructions));
 
-    setTopologyGuidance(Array.isArray(scenario.topologyGuidance) ? scenario.topologyGuidance : []);
+    engine?.setTopologyGuidance(Array.isArray(scenario.topologyGuidance) ? scenario.topologyGuidance : []);
 
     configureLevelConditions(scenario);
     configureTutorial(scenario, engine);

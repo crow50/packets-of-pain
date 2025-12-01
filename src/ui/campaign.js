@@ -20,7 +20,11 @@ import Service from "../entities/Service.js";
 import { copyPosition, toPlainPosition, toPosition } from "../sim/vectorUtils.js";
 import { linkInternetMesh } from "../render/scene.js";
 import { GAME_MODES } from "../modes/constants.js";
-import { getActiveMode, getCampaignLevel, setActiveMode, setCampaignLevel, setTopologyGuidance } from "../modes/modeState.js";
+
+// Helper to get engine reference
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
+}
 
 const BABY_DOMAIN_ID = "babys-first-network";
 const LEVEL_UNLOCK_CHAIN = {
@@ -102,7 +106,7 @@ function setLevelInstructions(instructions = []) {
 }
 
 function setCurrentLevelContext(levelId) {
-    setCampaignLevel(levelId);
+    getEngine()?.setCampaignLevel(levelId);
 }
 
 function resolveTopologyGuidance(level) {
@@ -118,11 +122,11 @@ function resolveTopologyGuidance(level) {
 }
 
 function setTopologyGuidanceFromLevel(level) {
-    setTopologyGuidance(resolveTopologyGuidance(level));
+    getEngine()?.setTopologyGuidance(resolveTopologyGuidance(level));
 }
 
 function clearTopologyGuidance() {
-    setTopologyGuidance([]);
+    getEngine()?.setTopologyGuidance([]);
 }
 
 function setCampaignLevelObjectives(levelId) {
@@ -240,7 +244,7 @@ export function loadLevelConfig(levelId) {
 }
 
 export function startCampaign() {
-    setActiveMode(GAME_MODES.CAMPAIGN);
+    // Note: setActiveMode is handled by modeManager when switching modes
     clearTopologyGuidance();
     stopTutorial();
     resetLevelConditions();
@@ -256,8 +260,8 @@ export function startCampaignLevel(levelId) {
         console.error('Unknown levelId', levelId);
         return;
     }
-    setActiveMode(GAME_MODES.CAMPAIGN);
-    setCampaignLevel(levelId);
+    // Note: setActiveMode is handled by modeManager when switching modes
+    getEngine()?.setCampaignLevel(levelId);
     setTopologyGuidanceFromLevel(level);
     setModeUIActive(GAME_MODES.CAMPAIGN);
     showLevelInstructionsPanel(true);
@@ -268,16 +272,18 @@ export function startCampaignLevel(levelId) {
 }
 
 export function resetLevel() {
-    if (getActiveMode() !== GAME_MODES.CAMPAIGN) return;
-    const levelId = getCampaignLevel();
+    const engine = getEngine();
+    if (engine?.getActiveMode() !== GAME_MODES.CAMPAIGN) return;
+    const levelId = engine?.getCampaignLevel();
     if (!levelId) return;
     loadLevelConfig(levelId);
 }
 
 export function exitLevelToCampaignHub() {
-    if (getActiveMode() !== GAME_MODES.CAMPAIGN) return;
-    setActiveMode(GAME_MODES.CAMPAIGN);
-    setCampaignLevel(null);
+    const engine = getEngine();
+    if (engine?.getActiveMode() !== GAME_MODES.CAMPAIGN) return;
+    // Note: setActiveMode is handled by modeManager when switching modes
+    engine?.setCampaignLevel(null);
     clearTopologyGuidance();
     stopTutorial();
     resetLevelConditions();
@@ -288,5 +294,5 @@ export function exitLevelToCampaignHub() {
     setCampaignIntroObjectives();
     setCampaignShop();
     showView('campaign-hub');
-    window.__POP_RUNTIME__?.current?.engine?.setRunning(false);
+    engine?.setRunning(false);
 }
