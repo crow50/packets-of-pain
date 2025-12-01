@@ -4,11 +4,10 @@ import { startCampaign, startCampaignLevel } from "../ui/campaign.js";
 import { setModeBehaviors, resetModeBehaviors } from "./modeBehaviors.js";
 import { campaignTrafficSourceBehavior } from "./trafficBehaviors.js";
 import { showCampaignPanel } from "../ui/hud.js";
-import { setActiveMode, setCampaignLevel, setTopologyGuidance } from "../modes/modeState.js";
 
 export const CampaignModeController = {
     id: GAME_MODES.CAMPAIGN,
-    init({ modeConfig } = {}) {
+    init({ engine, modeConfig } = {}) {
         resetGame(GAME_MODES.CAMPAIGN);
         setModeBehaviors({
             pickTrafficSource: campaignTrafficSourceBehavior,
@@ -20,11 +19,12 @@ export const CampaignModeController = {
             startCampaign();
         }
     },
-    teardown() {
+    teardown({ engine } = {}) {
         resetModeBehaviors();
         showCampaignPanel(false);
-        setCampaignLevel(null);
-        setTopologyGuidance([]);
+        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        eng?.setCampaignLevel?.(null);
+        eng?.setTopologyGuidance?.([]);
     },
     onTick() {},
     onGameOver() {}

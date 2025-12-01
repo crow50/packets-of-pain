@@ -1,7 +1,6 @@
 import { GAME_MODES } from "./constants.js";
 import { resetGame } from "../gameCore.js";
 import { setModeBehaviors, resetModeBehaviors } from "./modeBehaviors.js";
-import { setActiveMode, setCampaignLevel, setTopologyGuidance } from "./modeState.js";
 import { setTrafficProfile } from "../sim/economy.js";
 import { setTool } from "../sim/tools.js";
 import { stopTutorial } from "../ui/tutorialController.js";
@@ -10,11 +9,13 @@ import { hideSandboxPanel } from "../ui/sandboxController.js";
 
 export const SandboxModeController = {
     id: GAME_MODES.SANDBOX,
-    init() {
+    init({ engine } = {}) {
         stopTutorial();
-        setActiveMode(GAME_MODES.SANDBOX);
-        setCampaignLevel(null);
-        setTopologyGuidance([]);
+        // Use engine methods if available, fall back to runtime
+        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        eng?.setActiveMode?.(GAME_MODES.SANDBOX);
+        eng?.setCampaignLevel?.(null);
+        eng?.setTopologyGuidance?.([]);
         setTrafficProfile(null);
         enterSandboxHUD();
         setTool('select');
@@ -23,10 +24,11 @@ export const SandboxModeController = {
             shouldAllowGameOver: () => false
         });
     },
-    teardown() {
+    teardown({ engine } = {}) {
         resetModeBehaviors();
         hideSandboxPanel();
-        setTopologyGuidance([]);
+        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        eng?.setTopologyGuidance?.([]);
     },
     onTick() {},
     onGameOver() {}
