@@ -296,3 +296,22 @@ export function exitLevelToCampaignHub() {
     showView('campaign-hub');
     engine?.setRunning(false);
 }
+
+const CAMPAIGN_RESTART_BUTTON_ID = 'campaign-restart-btn';
+const CAMPAIGN_EXIT_BUTTON_ID = 'campaign-exit-btn';
+
+function bindCampaignPanelButtons() {
+    const restartBtn = document.getElementById(CAMPAIGN_RESTART_BUTTON_ID);
+    restartBtn?.addEventListener('click', () => {
+        resetLevel();
+    });
+
+    const exitBtn = document.getElementById(CAMPAIGN_EXIT_BUTTON_ID);
+    exitBtn?.addEventListener('click', () => {
+        exitLevelToCampaignHub();
+    });
+}
+
+export function initCampaignControls() {
+    bindCampaignPanelButtons();
+}

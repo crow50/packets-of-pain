@@ -20,6 +20,9 @@ import {
 } from "./hud.js";
 import { GAME_MODES } from "../modes/constants.js";
 
+const SCENARIOS_RESTART_BUTTON_ID = 'scenarios-restart-btn';
+const SCENARIOS_EXIT_BUTTON_ID = 'scenarios-exit-btn';
+
 const OBJECTIVE_COLORS = ["bg-purple-500", "bg-blue-500", "bg-emerald-500", "bg-amber-500"];
 let cachedScenarios = [];
 let previousTimeScale = null;
@@ -144,6 +147,18 @@ function bindModalEvents() {
     });
 }
 
+function bindScenarioPanelButtons() {
+    const restartBtn = document.getElementById(SCENARIOS_RESTART_BUTTON_ID);
+    restartBtn?.addEventListener('click', () => {
+        window.restartGame?.();
+    });
+
+    const exitBtn = document.getElementById(SCENARIOS_EXIT_BUTTON_ID);
+    exitBtn?.addEventListener('click', () => {
+        window.returnToMainMenu?.();
+    });
+}
+
 export function initScenariosController() {
     cachedScenarios = getAllScenarios();
     renderScenarioList();
@@ -162,6 +177,8 @@ export function initScenariosController() {
             closeScenariosBrowser();
         }
     });
+
+    bindScenarioPanelButtons();
 }
 
 export function openScenariosBrowser(source = "menu") {
