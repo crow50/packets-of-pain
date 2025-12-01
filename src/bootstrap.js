@@ -18,7 +18,7 @@ import { createInputController, init as initInputController } from "./ui/inputCo
 import { startCampaign } from "./ui/campaign.js";
 import { getLevelById } from "./config/campaign/index.js";
 import { getScenarioById } from "./config/scenarios/index.js";
-import { initHudMenu } from "./ui/menuController.js";
+import { initHudMenu, initMainMenuButtons } from "./ui/menuController.js";
 import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 import { initWarningsPill } from "./ui/hud.js";
@@ -176,6 +176,7 @@ function createRuntime() {
 export function bootstrap() {
     initGame();
     initHudMenu(); // Initialize hamburger menu
+    initMainMenuButtons();
     initWarningsPill();
     initTimeControls();
     initScenariosController();
