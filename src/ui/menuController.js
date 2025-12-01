@@ -157,3 +157,30 @@ export function isMenuOpen() {
 export function isScorePanelHidden() {
     return _scorePanelHidden;
 }
+
+export function initMainMenuButtons() {
+    const campaignBtn = document.getElementById('main-menu-campaign');
+    const sandboxBtn = document.getElementById('main-menu-sandbox');
+
+    campaignBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.POP?.startCampaign?.();
+    });
+    sandboxBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.POP?.startSandbox?.();
+    });
+
+    const faqOpenBtn = document.getElementById('main-menu-show-faq');
+    faqOpenBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.showFAQ?.('menu');
+    });
+    const faqCloseButtons = document.querySelectorAll('[data-faq-close]');
+    faqCloseButtons.forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            window.closeFAQ?.();
+        });
+    });
+}
