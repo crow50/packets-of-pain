@@ -10,6 +10,22 @@ function getEngine() {
 
 let currentWhitelist = [];
 
+const TOOL_BUTTON_SELECTOR = '[data-tool-id]';
+
+function handleToolbarButtonClick(event) {
+    const button = event.currentTarget;
+    if (!button || button.disabled) return;
+    const toolId = button.dataset.toolId;
+    if (!toolId) return;
+    window.setTool?.(toolId);
+}
+
+function bindToolbarButtons() {
+    document.querySelectorAll(TOOL_BUTTON_SELECTOR).forEach(button => {
+        button.addEventListener('click', handleToolbarButtonClick);
+    });
+}
+
 export function applyToolbarWhitelist(list = []) {
     currentWhitelist = Array.isArray(list) ? [...list] : [];
     getEngine()?.setToolbarWhitelist(currentWhitelist);
@@ -48,4 +64,8 @@ window.applyToolbarWhitelist = applyToolbarWhitelist;
 
 export function getCurrentToolbarWhitelist() {
     return [...currentWhitelist];
+}
+
+export function initToolbarController() {
+    bindToolbarButtons();
 }

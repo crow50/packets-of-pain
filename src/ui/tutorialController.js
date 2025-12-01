@@ -300,6 +300,18 @@ export function skipTutorial() {
 
 window.skipTutorial = skipTutorial;
 
+function bindSkipButton() {
+    const skipButton = document.getElementById('tutorial-skip-btn');
+    if (!skipButton) return;
+    skipButton.addEventListener('click', () => {
+        skipTutorial();
+    });
+}
+
+export function initTutorialController() {
+    bindSkipButton();
+}
+
 function scheduleTrigger(triggerConfig = {}, levelConfig, engine) {
     clearTriggerListener();
     const type = triggerConfig.type || triggerConfig.startOn || "level-start";
