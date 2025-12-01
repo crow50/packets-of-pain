@@ -170,12 +170,12 @@ function updateBottleneckDisplay() {
 }
 
 export function showGameOverModal(copy, actions) {
-    const modal = document.getElementById("modal");
+    const modal = document.getElementById("game-over-modal");
     if (!modal) return;
 
-    const titleEl = document.getElementById("modal-title");
-    const descEl = document.getElementById("modal-desc");
-    const actionsEl = document.getElementById('modal-actions');
+    const titleEl = document.getElementById("game-over-title");
+    const descEl = document.getElementById("game-over-desc");
+    const actionsEl = document.getElementById('game-over-actions');
 
     if (titleEl && copy?.title) {
         titleEl.innerText = copy.title;
@@ -207,11 +207,11 @@ export function showGameOverModal(copy, actions) {
 }
 
 export function hideGameOverModal() {
-    const modal = document.getElementById('modal');
+    const modal = document.getElementById('game-over-modal');
     if (modal) {
         modal.classList.add('hidden');
     }
-    const actionsEl = document.getElementById('modal-actions');
+    const actionsEl = document.getElementById('game-over-actions');
     if (actionsEl) {
         actionsEl.innerHTML = '';
     }
