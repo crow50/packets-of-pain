@@ -211,6 +211,30 @@ export function enterCampaignWorld(worldId) {
     console.info(`[Campaign] viewing levels for ${worldId}`);
     setCampaignLevelsVisible(true);
 }
+const CAMPAIGN_HUB_BACK_BUTTON_ID = 'campaign-hub-back-btn';
+const CAMPAIGN_HUB_VIEW_LEVELS_BUTTON_ID = 'campaign-hub-view-levels';
+const CAMPAIGN_LEVELS_BACK_BUTTON_ID = 'campaign-levels-back-btn';
+
+function bindCampaignHubButtons() {
+    const backBtn = document.getElementById(CAMPAIGN_HUB_BACK_BUTTON_ID);
+    backBtn?.addEventListener('click', () => {
+        window.returnToMainMenu?.();
+    });
+
+    const viewLevelsBtn = document.getElementById(CAMPAIGN_HUB_VIEW_LEVELS_BUTTON_ID);
+    viewLevelsBtn?.addEventListener('click', () => {
+        enterCampaignWorld('babys-first-network');
+    });
+
+    const backToWorldsBtn = document.getElementById(CAMPAIGN_LEVELS_BACK_BUTTON_ID);
+    backToWorldsBtn?.addEventListener('click', () => {
+        hideCampaignLevels();
+    });
+}
+
+export function initCampaignHubControls() {
+    bindCampaignHubButtons();
+}
 
 export function loadLevelConfig(levelId) {
     const level = getLevelById(levelId);

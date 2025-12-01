@@ -15,7 +15,7 @@ import { initRenderManagers, disposeRenderManagers, syncRenderState } from "./re
 import { updateSimulationHud, init as initHudController } from "./ui/hudController.js";
 import { initToolSync, disposeToolSync } from "./ui/toolSync.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
-import { initCampaignControls, startCampaign } from "./ui/campaign.js";
+import { initCampaignControls, initCampaignHubControls, startCampaign } from "./ui/campaign.js";
 import { getLevelById } from "./config/campaign/index.js";
 import { getScenarioById } from "./config/scenarios/index.js";
 import { initHudMenu, initMainMenuButtons } from "./ui/menuController.js";
@@ -181,6 +181,7 @@ export function bootstrap() {
     initWarningsPill();
     initTutorialController();
     initCampaignControls();
+    initCampaignHubControls();
     initToolbarController();
     initTimeControls();
     initScenariosController();
