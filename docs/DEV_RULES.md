@@ -27,7 +27,7 @@ If a change violates them, it’s probably going to turn into pain (of the wrong
 
 ## 4. Game Modes
 
-- `simulation.gameMode` controls mode-specific behavior.
+- `simulation.activeMode` controls mode-specific behavior.
 - Sandbox has no game over and exposes controls for budget, RPS, traffic mix, upkeep, bursts, and clearing.
 - Sandbox controls talk only to engine methods; they never mutate arrays directly.
 - Campaign levels are defined in config, not hardcoded conditionals.

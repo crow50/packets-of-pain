@@ -62,7 +62,11 @@ function createInitialState(config = {}) {
         trafficDistribution: config.trafficDistribution ?? null,
         burstCount: config.burstCount ?? 10,
         // Ramp control: sandbox requires unpause (timeScale >= 1) to ramp RPS
-        rampRequiresUnpause: config.rampRequiresUnpause ?? isSandbox
+        rampRequiresUnpause: config.rampRequiresUnpause ?? isSandbox,
+        // Mode context (consolidated from modeState.js)
+        activeMode: config.mode ?? GAME_MODES.SANDBOX,
+        campaignLevel: config.levelId ?? null,
+        scenarioId: config.scenarioId ?? null
     };
 
     const ui = {
@@ -72,11 +76,7 @@ function createInitialState(config = {}) {
         hovered: null,
         timeScale: config.initialTimeScale ?? 1,
         isRunning: true,
-        gameMode: config.mode ?? GAME_MODES.SANDBOX,
         sound: null,
-        // Mode context (consolidated from modeState.js)
-        campaignLevel: config.levelId ?? null,
-        scenarioId: config.scenarioId ?? null,
         toolbarWhitelist: [],
         topologyGuidance: []
     };
@@ -284,22 +284,22 @@ export function createEngine(config = {}) {
 
         // Mode context getters/setters (consolidated from modeState.js)
         getActiveMode() {
-            return state.ui.gameMode;
+            return state.simulation.activeMode;
         },
         setActiveMode(modeId) {
-            state.ui.gameMode = modeId;
+            state.simulation.activeMode = modeId;
         },
         getCampaignLevel() {
-            return state.ui.campaignLevel;
+            return state.simulation.campaignLevel;
         },
         setCampaignLevel(levelId) {
-            state.ui.campaignLevel = levelId ?? null;
+            state.simulation.campaignLevel = levelId ?? null;
         },
         getScenarioId() {
-            return state.ui.scenarioId;
+            return state.simulation.scenarioId;
         },
         setScenarioId(scenarioId) {
-            state.ui.scenarioId = scenarioId ?? null;
+            state.simulation.scenarioId = scenarioId ?? null;
         },
         getToolbarWhitelist() {
             return [...state.ui.toolbarWhitelist];
