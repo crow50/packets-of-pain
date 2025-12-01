@@ -330,6 +330,8 @@ Responsible for defining data, not behavior:
 
 The config layer should be purely data: no DOM calls, no engine calls.
 
+Controllers, HUD modules, and interaction helpers are wired during bootstrap with a runtime engine reference; they should call `engine.getState()`, `engine.getSimulation()`, or `engine.getUIState()` instead of reaching for global helpers or private modules so the controller logic always reflects centralized engine state (campaign/sandbox/scenario context, objectives, tool state, etc.).
+
 ---
 
 ## 7. Game Modes
