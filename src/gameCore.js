@@ -2,7 +2,6 @@ import { resetCamera, serviceGroup, connectionGroup, requestGroup } from "./rend
 import { resetEconomyForMode } from "./sim/economy.js";
 import { initTrafficForMode } from "./sim/traffic.js";
 import { GAME_MODES } from "./modes/constants.js";
-import { getActiveMode, getCampaignLevel } from "./modes/modeState.js";
 
 const SoundService = typeof window !== "undefined" ? window.SoundService : undefined;
 import {
@@ -107,12 +106,12 @@ window.restartGame = restartGame;
 
 
 function isCampaignMode() {
-    return getActiveMode() === GAME_MODES.CAMPAIGN;
+    return getEngine()?.getActiveMode() === GAME_MODES.CAMPAIGN;
 }
 window.isCampaignMode = isCampaignMode;
 
 function getCurrentLevelId() {
-    return getCampaignLevel();
+    return getEngine()?.getCampaignLevel();
 }
 window.getCurrentLevelId = getCurrentLevelId;
 

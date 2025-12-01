@@ -1,5 +1,3 @@
-import { getTopologyGuidance } from "../modes/modeState.js";
-
 // Module-level engine reference, set via init()
 let _engine = null;
 
@@ -111,7 +109,7 @@ function updateTopologyWarnings(sim) {
         return;
     }
 
-    const customGuidance = getTopologyGuidance();
+    const customGuidance = _engine?.getTopologyGuidance() ?? [];
     const simWarnings = Array.isArray(sim?.topologyWarnings?.warnings) ? sim.topologyWarnings.warnings : [];
     const usingGuidance = simWarnings.length === 0 && customGuidance.length > 0;
     const warnings = simWarnings.length > 0 ? simWarnings : customGuidance;

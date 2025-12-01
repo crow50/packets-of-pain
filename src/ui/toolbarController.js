@@ -1,15 +1,18 @@
-import { setToolbarWhitelist } from "../modes/modeState.js";
-
 function normalizeToolbarList(list = []) {
     if (!Array.isArray(list)) return [];
     return list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
+}
+
+// Helper to get engine reference
+function getEngine() {
+    return window.__POP_RUNTIME__?.current?.engine;
 }
 
 let currentWhitelist = [];
 
 export function applyToolbarWhitelist(list = []) {
     currentWhitelist = Array.isArray(list) ? [...list] : [];
-    setToolbarWhitelist(currentWhitelist);
+    getEngine()?.setToolbarWhitelist(currentWhitelist);
     const normalized = normalizeToolbarList(currentWhitelist);
     const allowedToolIds = new Set();
 
