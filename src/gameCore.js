@@ -99,7 +99,7 @@ export function resetGame(mode = GAME_MODES.SANDBOX) {
 }
 
 export function restartGame() {
-    document.getElementById('modal').classList.add('hidden');
+    document.getElementById('game-over-modal').classList.add('hidden');
     window.POP?.restartCurrentMode?.();
 }
 window.restartGame = restartGame;
