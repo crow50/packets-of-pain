@@ -42,6 +42,7 @@ const SERVICE_TYPES = {
         drawable: false,
         subtitle: 'Edge Cloud',
         icon: '🌐',
+        iconPath: 'internet.svg',
         tip: 'Spawn-only pseudo device. Engine-controlled and not buildable.'
     },
     USER: {
@@ -60,6 +61,7 @@ const SERVICE_TYPES = {
         drawable: false,
         subtitle: 'Resident',
         icon: '👤',
+        iconPath: 'user.svg',
         tip: 'Static campaign endpoint that can originate requests and receive any returning traffic.'
     },
     // === Generic Network Devices ===
@@ -78,6 +80,7 @@ const SERVICE_TYPES = {
         category: 'device',
         subtitle: 'Edge',
         icon: '⌂',
+        iconPath: 'modem.svg',
         tip: 'Entry point from the internet. Connect directly to your firewall or WAF.'
     },
     SWITCH: {
@@ -95,6 +98,7 @@ const SERVICE_TYPES = {
         category: 'device',
         subtitle: 'Aggregator',
         icon: '⇄',
+        iconPath: 'switch.svg',
         tip: 'Aggregates multiple connections. Good for branching traffic to different paths.'
     },
     FIREWALL: {
@@ -112,6 +116,7 @@ const SERVICE_TYPES = {
         category: 'device',
         subtitle: 'Perimeter',
         icon: '⛨',
+        iconPath: 'firewall.svg',
         tip: 'First line of defense. Place near internet entry to block malicious traffic early.'
     },
 
@@ -131,6 +136,7 @@ const SERVICE_TYPES = {
         category: 'cloud',
         subtitle: 'Security',
         icon: '🛡️',
+        iconPath: 'waf.svg',
         tip: 'Blocks fraud attempts. Place before compute nodes to protect your backend.'
     },
     LOAD_BALANCER: {
@@ -148,6 +154,7 @@ const SERVICE_TYPES = {
         category: 'cloud',
         subtitle: 'Routing',
         icon: '⚙',
+        iconPath: 'load_balancer.svg',
         tip: 'Distributes traffic to multiple compute nodes. Essential for scaling under heavy load.'
     },
     COMPUTE: {
@@ -167,6 +174,7 @@ const SERVICE_TYPES = {
         category: 'cloud',
         subtitle: 'CPU',
         icon: '☐',
+        iconPath: 'compute.svg',
         tip: 'Processes requests before storage. Connect between load balancer and database/storage.'
     },
     DATABASE: {
@@ -186,6 +194,7 @@ const SERVICE_TYPES = {
         category: 'cloud',
         subtitle: 'Persistence',
         icon: '◯',
+        iconPath: 'database.svg',
         tip: 'Terminal for API requests. Ensure compute nodes connect here for API traffic completion.'
     },
     OBJECT_STORAGE: {
@@ -203,6 +212,7 @@ const SERVICE_TYPES = {
         category: 'cloud',
         subtitle: 'Files',
         icon: '⬡',
+        iconPath: 'object_storage.svg',
         tip: 'Terminal for WEB requests. Low cost, high capacity. Place after compute for web traffic.'
     }
 };
