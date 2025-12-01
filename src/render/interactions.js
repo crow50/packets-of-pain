@@ -70,7 +70,15 @@ export function getIntersect(clientX, clientY) {
     const connHits = connectionGroup ? raycaster.intersectObjects(connectionGroup.children, true) : [];
     if (connHits.length) {
         const obj = connHits[0].object;
-        const link = obj?.userData?.link;
+        let link = obj?.userData?.link;
+        
+        // Fallback: if link object not stored, look up by linkId from engine state
+        if (!link && obj?.userData?.linkId) {
+            const engine = getEngine();
+            const connections = engine?.getSimulation()?.connections || [];
+            link = connections.find(c => c.id === obj.userData.linkId);
+        }
+        
         if (link) {
             return { type: 'link', id: `${link.from}-${link.to}`, link, object: obj };
         }

@@ -17,7 +17,8 @@ function getPositionForId(id, state) {
     return { x: 0, y: 0, z: 0 };
 }
 
-function createLineMesh(linkId, fromPos, toPos) {
+function createLineMesh(linkId, fromPos, toPos, linkData) {
+    // Create visible line
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array([
         fromPos.x, fromPos.y + 1, fromPos.z,
@@ -26,9 +27,46 @@ function createLineMesh(linkId, fromPos, toPos) {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const material = new THREE.LineBasicMaterial({ color: CONFIG.colors.line, linewidth: 2 });
     const mesh = new THREE.Line(geometry, material);
-    mesh.userData = { linkId };
+    
+    // Store full link object for deletion support
+    mesh.userData = { 
+        linkId,
+        link: linkData || { id: linkId, from: null, to: null }
+    };
     connectionGroup.add(mesh);
-    return { mesh, geometry };
+    
+    // Create invisible tube geometry for easier raycasting/clicking
+    const direction = new THREE.Vector3(
+        toPos.x - fromPos.x,
+        0,
+        toPos.z - fromPos.z
+    );
+    const length = direction.length();
+    direction.normalize();
+    
+    const tubeGeometry = new THREE.CylinderGeometry(0.5, 0.5, length, 8);
+    const tubeMaterial = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+    
+    // Position tube at midpoint between from and to
+    hitMesh.position.set(
+        (fromPos.x + toPos.x) / 2,
+        fromPos.y + 1,
+        (fromPos.z + toPos.z) / 2
+    );
+    
+    // Rotate tube to align with connection direction
+    hitMesh.rotation.z = Math.PI / 2;
+    hitMesh.rotation.y = Math.atan2(direction.x, direction.z);
+    
+    // Store same link data on hit mesh
+    hitMesh.userData = { 
+        linkId,
+        link: linkData || { id: linkId, from: null, to: null }
+    };
+    connectionGroup.add(hitMesh);
+    
+    return { mesh, geometry, hitMesh, tubeGeometry };
 }
 
 export function updateConnectionGeometry(linkId, fromPos, toPos) {
@@ -51,17 +89,25 @@ function handleConnectionCreated(payload) {
     if (!state) return;
     const fromPos = getPositionForId(payload.from, state);
     const toPos = getPositionForId(payload.to, state);
-    const entry = createLineMesh(payload.linkId, fromPos, toPos);
+    // Pass full link data for deletion support
+    const linkData = { id: payload.linkId, from: payload.from, to: payload.to };
+    const entry = createLineMesh(payload.linkId, fromPos, toPos, linkData);
     connectionMeshes.set(payload.linkId, entry);
 }
 
 function handleConnectionDeleted({ linkId }) {
     const entry = connectionMeshes.get(linkId);
     if (!entry) return;
-    const { mesh } = entry;
+    const { mesh, hitMesh, tubeGeometry } = entry;
     connectionGroup.remove(mesh);
     if (mesh.geometry) mesh.geometry.dispose();
     if (mesh.material) mesh.material.dispose();
+    // Also remove invisible hit mesh
+    if (hitMesh) {
+        connectionGroup.remove(hitMesh);
+        if (tubeGeometry) tubeGeometry.dispose();
+        if (hitMesh.material) hitMesh.material.dispose();
+    }
     connectionMeshes.delete(linkId);
 }
 
@@ -101,10 +147,16 @@ export function dispose() {
     listeners.forEach(fn => fn());
     listeners.length = 0;
     connectionMeshes.forEach(entry => {
-        const mesh = entry.mesh;
+        const { mesh, hitMesh, tubeGeometry } = entry;
         connectionGroup.remove(mesh);
         if (mesh.geometry) mesh.geometry.dispose();
         if (mesh.material) mesh.material.dispose();
+        // Also clean up invisible hit mesh
+        if (hitMesh) {
+            connectionGroup.remove(hitMesh);
+            if (tubeGeometry) tubeGeometry.dispose();
+            if (hitMesh.material) hitMesh.material.dispose();
+        }
     });
     connectionMeshes.clear();
     engineRef = null;
