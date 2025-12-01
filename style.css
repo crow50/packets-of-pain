@@ -78,6 +78,7 @@ body {
 
 #hud-root .glass-panel,
 #hud-top-row,
+#hud-left-column,
 #hud-right-column,
 #bottom-toolbar,
 #tooltip,
@@ -173,6 +174,7 @@ body {
 }
 
 #hud-top-row,
+#hud-left-column,
 #hud-right-column,
 #bottom-toolbar {
     z-index: 1;
@@ -211,10 +213,10 @@ body {
     gap: 0.5rem;
 }
 
+#hud-left-column,
 #hud-right-column {
     position: absolute;
     top: calc(var(--hud-top-row-height) + 1.25rem);
-    right: 0.75rem;
     width: var(--hud-side-panel-width);
     max-width: calc(var(--hud-side-panel-width) + 20px);
     display: flex;
@@ -224,16 +226,27 @@ body {
     overflow: hidden;
 }
 
+#hud-left-column {
+    left: 0.75rem;
+}
+
+#hud-right-column {
+    right: 0.75rem;
+}
+
+#hud-left-column .glass-panel,
 #hud-right-column .glass-panel {
     max-height: 40vh;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
+#hud-left-column .glass-panel::-webkit-scrollbar,
 #hud-right-column .glass-panel::-webkit-scrollbar {
     width: 6px;
 }
 
+#hud-left-column .glass-panel::-webkit-scrollbar-thumb,
 #hud-right-column .glass-panel::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.35);
     border-radius: 999px;
@@ -370,6 +383,7 @@ body {
     }
 
 
+    #hud-left-column,
     #hud-right-column {
         position: static;
         width: 100%;
