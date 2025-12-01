@@ -63,7 +63,7 @@
 
                 <div id="hud-top-center">
                     <div id="time-control-panel" class="glass-panel rounded-xl p-2 flex items-center gap-2">
-                        <button onclick="restartGame()" id="btn-restart"
+                        <button id="btn-restart"
                             class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-red-500 flex items-center justify-center"
                             title="Restart Game">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,19 +72,19 @@
                             </svg>
                         </button>
                         <div class="w-px h-8 bg-gray-700"></div>
-                        <button onclick="setTimeScale(0)" id="btn-pause"
+                        <button id="btn-pause"
                             class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                             </svg>
                         </button>
-                        <button onclick="setTimeScale(1)" id="btn-play"
+                        <button id="btn-play"
                             class="time-btn active w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M8 5v14l11-7z" />
                             </svg>
                         </button>
-                        <button onclick="setTimeScale(3)" id="btn-fast"
+                        <button id="btn-fast"
                             class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
@@ -167,7 +167,7 @@
                         <span id="tutorial-step-counter" class="text-[10px] font-mono text-gray-400"></span>
                     </div>
                     <p id="tutorial-text" class="text-sm text-amber-100 mt-2 leading-relaxed"></p>
-                    <button id="tutorial-skip-btn" onclick="window.skipTutorial?.()" class="mt-3 text-[10px] uppercase tracking-wider text-amber-200/80 hover:text-amber-100 bg-amber-900/30 border border-amber-500/30 px-2 py-1 rounded">Skip Tutorial</button>
+                    <button id="tutorial-skip-btn" class="mt-3 text-[10px] uppercase tracking-wider text-amber-200/80 hover:text-amber-100 bg-amber-900/30 border border-amber-500/30 px-2 py-1 rounded">Skip Tutorial</button>
                 </div>
             </div>
 
@@ -187,8 +187,8 @@
                         <ul id="campaign-panel-objectives" class="text-xs text-gray-300 space-y-1.5 font-mono"></ul>
                     </div>
                     <div class="flex gap-2 pt-2 border-t border-gray-700 mt-2">
-                        <button onclick="resetLevel()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
-                        <button onclick="exitLevelToCampaignHub()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
+                        <button id="campaign-restart-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
+                        <button id="campaign-exit-btn" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
                     </div>
                 </div>
 
@@ -211,8 +211,8 @@
                         <ul id="scenarios-panel-objectives" class="text-xs text-gray-300 space-y-1.5 font-mono"></ul>
                     </div>
                     <div class="border-t border-purple-900/40 flex gap-2 pt-3 mt-3">
-                        <button onclick="restartGame()" class="flex-1 bg-purple-700/70 hover:bg-purple-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
-                        <button onclick="returnToMainMenu()" class="flex-1 bg-gray-900/70 hover:bg-gray-800 text-gray-200 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
+                        <button id="scenarios-restart-btn" class="flex-1 bg-purple-700/70 hover:bg-purple-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
+                        <button id="scenarios-exit-btn" class="flex-1 bg-gray-900/70 hover:bg-gray-800 text-gray-200 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
                     </div>
                 </div>
 
@@ -296,8 +296,7 @@
                 <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
                     <div id="tools-panel" class="flex">
                         <button id="tool-select" data-tool-id="select" data-tool-name="Select"
-                            class="service-btn active bg-gray-800 text-gray-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent"
-                            onclick="setTool('select')">
+                            class="service-btn active bg-gray-800 text-gray-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent">
                             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
@@ -305,8 +304,7 @@
                             <span class="text-[9px] uppercase">Select</span>
                         </button>
                         <button id="tool-connect" data-tool-id="connect" data-tool-name="LinkTool"
-                            class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent"
-                            onclick="setTool('connect')">
+                            class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent">
                             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -314,8 +312,7 @@
                             <span class="text-[9px] uppercase">Link</span>
                         </button>
                         <button id="tool-delete" data-tool-id="delete" data-tool-name="Delete"
-                            class="service-btn bg-red-900/30 text-red-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent hover:bg-red-900/50"
-                            onclick="setTool('delete')">
+                            class="service-btn bg-red-900/30 text-red-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent hover:bg-red-900/50">
                             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

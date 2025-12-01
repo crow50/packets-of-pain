@@ -15,15 +15,16 @@ import { initRenderManagers, disposeRenderManagers, syncRenderState } from "./re
 import { updateSimulationHud, init as initHudController } from "./ui/hudController.js";
 import { initToolSync, disposeToolSync } from "./ui/toolSync.js";
 import { createInputController, init as initInputController } from "./ui/inputController.js";
-import { startCampaign } from "./ui/campaign.js";
+import { initCampaignControls, startCampaign } from "./ui/campaign.js";
 import { getLevelById } from "./config/campaign/index.js";
 import { getScenarioById } from "./config/scenarios/index.js";
 import { initHudMenu, initMainMenuButtons } from "./ui/menuController.js";
 import { initTimeControls } from "./ui/timeControls.js";
 import { initSandboxControls } from "./ui/sandboxController.js";
 import { initWarningsPill } from "./ui/hud.js";
-import { updateTutorial } from "./ui/tutorialController.js";
+import { initTutorialController, updateTutorial } from "./ui/tutorialController.js";
 import { initLevelConditions, disposeLevelConditions, updateLevelConditions } from "./ui/levelConditions.js";
+import { initToolbarController } from "./ui/toolbarController.js";
 import { GAME_MODES } from "./modes/constants.js";
 import { getModeController } from "./modes/index.js";
 import { initScenariosController } from "./ui/scenariosController.js";
@@ -178,6 +179,9 @@ export function bootstrap() {
     initHudMenu(); // Initialize hamburger menu
     initMainMenuButtons();
     initWarningsPill();
+    initTutorialController();
+    initCampaignControls();
+    initToolbarController();
     initTimeControls();
     initScenariosController();
     const runtime = createRuntime();
