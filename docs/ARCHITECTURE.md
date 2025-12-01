@@ -94,8 +94,10 @@ State shape:
       // other stats
     },
 
-    // Mode and sandbox knobs
-    gameMode,          // 'sandbox' | 'survival' | 'campaign'
+    // Mode context and sandbox knobs
+    activeMode,          // 'sandbox' | 'survival' | 'campaign'
+    campaignLevel,       // current level ID when inside campaign
+    scenarioId,          // current scenario ID when inside scenarios mode
     sandboxBudget,
     upkeepEnabled,
     burstCount,
@@ -332,7 +334,7 @@ The config layer should be purely data: no DOM calls, no engine calls.
 
 ## 7. Game Modes
 
-Game modes are driven by `simulation.gameMode` and mode-specific config passed to the engine.
+Game modes are driven by `simulation.activeMode` and mode-specific config passed to the engine; campaign levels and scenario IDs surface through `simulation.campaignLevel` and `simulation.scenarioId`.
 
 
 * **Sandbox**

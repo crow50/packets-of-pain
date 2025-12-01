@@ -9,7 +9,7 @@ export function initSandboxControls(engine) {
     if (!panel) return;
     
     const state = engine.getState();
-    const isSandbox = state.ui.gameMode === 'sandbox';
+    const isSandbox = state.simulation.activeMode === 'sandbox';
     
     // Show/hide panel based on mode
     panel.classList.toggle('hidden', !isSandbox);
@@ -208,7 +208,7 @@ export function hideSandboxPanel() {
 export function showSandboxPanel() {
     if (!_engine) return;
     const state = _engine.getState();
-    if (state.ui.gameMode !== 'sandbox') return;
+    if (state.simulation.activeMode !== 'sandbox') return;
 
     const panel = document.getElementById('sandbox-panel');
     panel?.classList.remove('hidden');
