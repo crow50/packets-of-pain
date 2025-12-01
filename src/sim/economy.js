@@ -34,7 +34,7 @@ export function resetEconomyForMode(arg1, arg2, arg3) {
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
-    ui.gameMode = mode;
+    sim.activeMode = mode;
     sim.requestsProcessed = 0;
     sim.services = [];
     sim.requests = [];
