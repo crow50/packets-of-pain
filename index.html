@@ -335,13 +335,13 @@
 
     <div id="campaign-hub" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto px-4">
         <div class="glass-panel w-full max-w-5xl rounded-3xl border border-blue-500/40 p-8 space-y-8 text-white">
-            <div class="flex justify-between items-start gap-4">
+                <div class="flex justify-between items-start gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.4em] text-gray-400">Campaign</p>
                     <h2 class="text-4xl font-black">Multi-Domain</h2>
                     <p class="text-gray-400 max-w-xl">A questionable journey across increasingly chaotic networks.</p>
                 </div>
-                <button onclick="showView('main-menu')" class="text-sm font-mono uppercase tracking-widest text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2">Back to Main Menu</button>
+                    <button id="campaign-hub-back-btn" class="text-sm font-mono uppercase tracking-widest text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2">Back to Main Menu</button>
             </div>
 
             <div id="campaign-worlds" class="grid gap-6 lg:grid-cols-2">
@@ -351,7 +351,7 @@
                         <h3 class="text-3xl font-bold text-white">Baby's First Network</h3>
                     </div>
                     <p class="text-sm text-gray-300">Learn in the tutorials designed for beginners.</p>
-                    <button onclick="enterCampaignWorld('babys-first-network')" class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-blue-900/40 border border-white/20 text-xs font-bold uppercase tracking-widest">View levels</button>
+                    <button id="campaign-hub-view-levels" class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-blue-900/40 border border-white/20 text-xs font-bold uppercase tracking-widest">View levels</button>
                 </div>
             </div>
 
@@ -361,7 +361,7 @@
                         <p class="text-xs uppercase tracking-[0.4em] text-gray-400">World</p>
                         <h3 class="text-2xl font-bold">Baby's First Network</h3>
                     </div>
-                    <button onclick="hideCampaignLevels()" class="text-xs uppercase tracking-[0.4em] text-gray-300 border border-gray-600 rounded-full px-4 py-2 hover:text-white">Back to Worlds</button>
+                    <button id="campaign-levels-back-btn" class="text-xs uppercase tracking-[0.4em] text-gray-300 border border-gray-600 rounded-full px-4 py-2 hover:text-white">Back to Worlds</button>
                 </div>
                 <div id="campaign-level-list" class="grid gap-4 md:grid-cols-2"></div>
             </section>
@@ -401,7 +401,7 @@
             class="relative bg-gray-900/90 p-12 rounded-2xl border border-blue-500/30 shadow-2xl max-w-md w-full text-center">
 
             <!-- Menu Mute Button -->
-            <button id="menu-mute-btn" onclick="toggleMute()"
+            <button id="menu-mute-btn"
                 class="absolute top-4 right-4 text-gray-400 hover:text-white transition p-2 rounded-full pulse-green">
                 <span id="menu-mute-icon" class="text-xl">🔇</span>
             </button>

@@ -104,6 +104,12 @@ export function initHudMenu() {
         openScenariosBrowser('hud');
     });
 
+    const menuMuteBtn = document.getElementById('menu-mute-btn');
+    menuMuteBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.toggleMute?.();
+    });
+
     // Return to main menu
     mainBtn?.addEventListener('click', () => {
         setOpen(false);
