@@ -2,6 +2,23 @@
 import { copyPosition, toPosition } from "../sim/vectorUtils.js";
 import { flashMoney } from "../sim/tools.js";
 
+const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
+const getConnectionTargets = CONNECTION_UTILS.getConnectionTargets || function(service, options = {}) {
+    const includeInactive = options.includeInactive ?? false;
+    const connections = Array.isArray(service?.connections) ? service.connections : [];
+    return connections
+        .filter(conn => includeInactive || (typeof conn === 'string' ? true : conn?.active !== false))
+        .map(conn => (typeof conn === 'string' ? conn : conn?.targetId))
+        .filter(Boolean);
+};
+const normalizeConnections = CONNECTION_UTILS.upgradeConnectionFormat || function(service) {
+    if (!service) return [];
+    if (!Array.isArray(service.connections)) {
+        service.connections = [];
+    }
+    return service.connections;
+};
+
 const { getServiceType, getCapacityForTier, getUpgradeCost, canUpgrade } = window.ServiceCatalog;
 
 function getEngine() {
@@ -187,6 +204,16 @@ class Service {
         this.queue.length = 0;
         this.processing.length = 0;
     }
+
+    getConnectedIds(includeInactive = false) {
+        return getConnectionTargets(this, { includeInactive });
+    }
 }
+
+export function upgradeConnectionFormatForService(service) {
+    return normalizeConnections(service);
+}
+
+export { upgradeConnectionFormatForService as upgradeConnectionFormat };
 
 export default Service;

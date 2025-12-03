@@ -2,6 +2,13 @@ import Request from "../entities/Request.js";
 import { toPlainPosition } from "./vectorUtils.js";
 import { getModeBehaviors } from "../modes/modeBehaviors.js";
 
+const listConnections = (typeof window !== 'undefined' ? window.ConnectionUtils?.listConnections : null) || function(node) {
+    const connections = Array.isArray(node?.connections) ? node.connections : [];
+    return connections
+        .map(conn => (typeof conn === 'string' ? { targetId: conn, bidirectional: true, active: true } : conn))
+        .filter(Boolean);
+};
+
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
 }
@@ -65,17 +72,17 @@ function routeInitialRequest(state, req, sourceNode) {
         return;
     }
 
-    const connections = origin === sim.internetNode
-        ? sim.internetNode.connections
-        : (origin.connections || []);
+    const connectionList = origin === sim.internetNode
+        ? listConnections(sim.internetNode)
+        : listConnections(origin);
 
-    if (!connections?.length) {
+    if (!connectionList.length) {
         failRequest(state, req);
         return;
     }
 
-    const entryNodes = connections
-        .map(id => (id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id)))
+    const entryNodes = connectionList
+        .map(conn => conn.targetId === 'internet' ? sim.internetNode : sim.services.find(s => s.id === conn.targetId))
         .filter(Boolean);
 
     if (!entryNodes.length) {

@@ -174,7 +174,7 @@ Key modules:
 * `routing.js` - catalog-driven routing decisions
 
   * `getNextHop(state, request, currentService)` -> `{ action: "TERMINATE"|"BLOCK"|"FORWARD"|"DEAD_END", node }`
-  * Helpers: `isBlocked`, `isTerminal`, `accepts`, `hasTerminalPath`, `validateTopology`, `getMostLoadedService`.
+  * Helpers: `isBlocked`, `isTerminal`, `accepts`, `validateTopology`, `getMostLoadedService`.
   * Only this module decides routing behavior; service types read from `serviceCatalog`.
 
 * `entities/Service.js` - per-service logic

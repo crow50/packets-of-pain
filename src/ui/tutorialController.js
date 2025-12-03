@@ -159,6 +159,9 @@ function hasConnectionBetween(sim, cond) {
     const bidirectional = Boolean(cond.bidirectional);
 
     return sim.connections.some(link => {
+        if (bidirectional && link.bidirectional === false) {
+            return false;
+        }
         const fromType = resolveNodeType(sim, link.from);
         const toType = resolveNodeType(sim, link.to);
         if (!fromType || !toType) return false;
