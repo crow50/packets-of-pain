@@ -30,6 +30,7 @@ import { getModeController } from "./modes/index.js";
 import { initScenariosController } from "./ui/scenariosController.js";
 import { init as initGameOverController, teardown as teardownGameOverController } from "./ui/gameOverController.js";
 import { initModeManager, switchToMode, restartCurrentMode as mgrRestartCurrentMode, teardownModeManager } from "./core/modeManager.js";
+import { initSpanningTreeManager } from "./sim/spanningTree.js";
 
 function renderScene() {
     syncRenderState();
@@ -139,6 +140,7 @@ function createRuntime() {
             linkInternetMesh(engine.getSimulation()?.internetNode);
             
             engine.setRunning(true);
+            const disposeSpanningTree = initSpanningTreeManager(engine);
             const input = createInputController({ container });
             const loop = createLoop({
                 engine,
@@ -148,14 +150,15 @@ function createRuntime() {
 
             loop.start();
 
-            this.current = { engine, loop, input, modeConfig: normalizedConfig, controller };
+            this.current = { engine, loop, input, modeConfig: normalizedConfig, controller, disposeSpanningTree };
             controller?.init?.({ engine, modeConfig: normalizedConfig, runtime: this });
             return this.current;
         },
         stop() {
             if (!this.current) return;
-            const { loop, input, controller, engine, modeConfig } = this.current;
+            const { loop, input, controller, engine, modeConfig, disposeSpanningTree } = this.current;
             loop.stop();
+            disposeSpanningTree?.();
             controller?.teardown?.({ engine, modeConfig, runtime: this });
             teardownGameOverController();
             input.detach();

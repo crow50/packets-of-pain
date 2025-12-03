@@ -311,6 +311,13 @@
                             </svg>
                             <span class="text-[9px] uppercase">Link</span>
                         </button>
+                        <div class="flex flex-col items-center justify-center ml-1">
+                            <span class="text-[8px] uppercase tracking-wide text-gray-400">Direction</span>
+                            <button id="link-direction-toggle" class="mt-1 text-[9px] px-2 py-1 rounded-lg border border-blue-500 text-blue-200 bg-blue-900/40"
+                                type="button" aria-pressed="true">
+                                ↔ Bidirectional
+                            </button>
+                        </div>
                         <button id="tool-delete" data-tool-id="delete" data-tool-name="Delete"
                             class="service-btn bg-red-900/30 text-red-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent hover:bg-red-900/50">
                             <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -590,6 +597,7 @@
     </div>
     <script src="src/config/gameConfig.js"></script>
     <script src="src/config/serviceCatalog.js"></script>
+    <script src="src/sim/connectionUtils.js"></script>
     <script src="src/core/routing.js"></script>
     <script src="src/services/SoundService.js"></script>
     <script type="module" src="src/main.js"></script>

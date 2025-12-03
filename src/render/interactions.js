@@ -2,6 +2,13 @@ import { camera, renderer, serviceGroup, connectionGroup } from "./scene.js";
 import { internetMesh } from "./scene.js";
 import { updateConnectionGeometry } from "./connectionManager.js";
 
+const listConnections = (typeof window !== 'undefined' ? window.ConnectionUtils?.listConnections : null) || function(node) {
+    const connections = Array.isArray(node?.connections) ? node.connections : [];
+    return connections
+        .map(conn => (typeof conn === 'string' ? { targetId: conn, bidirectional: true, active: true } : conn))
+        .filter(Boolean);
+};
+
 const { getServiceType, getCapacityForTier, canUpgrade, getUpgradeCost } = window.ServiceCatalog;
 
 // Module-level engine reference
@@ -186,7 +193,7 @@ export function updateTooltip() {
         const catalogEntry = getServiceType('INTERNET');
         const displayName = catalogEntry?.label ?? 'Internet';
         const position = sim?.internetNode?.position ?? { x: 0, y: 0, z: 0 };
-        const connectionCount = sim?.internetNode?.connections?.length ?? 0;
+        const connectionCount = sim?.internetNode ? listConnections(sim.internetNode).length : 0;
         const tip = catalogEntry?.tip || null;
         const formatCoord = (value) => typeof value === 'number' ? value.toFixed(1) : value;
 

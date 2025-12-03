@@ -5,178 +5,317 @@
  * instead of hard-coded service chains.
  */
 
-// Access catalog via window.ServiceCatalog to avoid redeclaring globals
-function _catalog() {
-    return window.ServiceCatalog;
-}
+const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
+const CONGESTION_THRESHOLD = 0.85;
+const listConnections = CONNECTION_UTILS.listConnections || function(node, options = {}) {
+    const includeInactive = options.includeInactive ?? false;
+    const connections = Array.isArray(node?.connections) ? node.connections : [];
+    return connections
+        .map(conn => {
+            if (typeof conn === 'string') {
+                return { targetId: conn, bidirectional: true, active: true };
+            }
+            return conn;
+        })
+        .filter(conn => conn && (includeInactive || conn.active !== false));
+};
 
-function _getServiceType(key) {
-    return _catalog()?.getServiceType?.(key);
-}
+const getConnectionTargets = CONNECTION_UTILS.getConnectionTargets || function(node, options = {}) {
+    return listConnections(node, options).map(conn => conn.targetId);
+};
 
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return window.__POP_RUNTIME__?.current?.engine || null;
 }
 
-function getServiceEntity(id) {
-    const sim = getEngine()?.getSimulation();
-    if (!sim) return null;
-    return id === 'internet' ? sim.internetNode : sim.services.find(s => s.id === id);
+function getSimulationFromState(state) {
+    if (state?.simulation) {
+        return state.simulation;
+    }
+    if (state?.services || state?.internetNode) {
+        return state;
+    }
+    return getEngine()?.getSimulation?.() || null;
 }
 
-/**
- * Get neighbors of a service node
- */
-function getNeighbors(service) {
-    if (!service || !service.connections) return [];
-    return service.connections
-        .map(getServiceEntity)
+function getServiceById(state, serviceId) {
+    const simulation = getSimulationFromState(state);
+    if (!simulation || !serviceId) return null;
+    if (serviceId === 'internet') {
+        return simulation.internetNode || null;
+    }
+    return simulation.services?.find(service => service.id === serviceId) || null;
+}
+
+function getServiceEntity(serviceId) {
+    return getServiceById(getEngine()?.getState?.(), serviceId);
+}
+
+function getNeighborsFromState(state, service) {
+    if (!service) return [];
+    const simulation = getSimulationFromState(state);
+    if (!simulation) return [];
+    return listConnections(service)
+        .map(conn => (conn.targetId === 'internet'
+            ? simulation.internetNode
+            : simulation.services?.find(s => s.id === conn.targetId)))
         .filter(Boolean);
 }
 
-/**
- * Check if traffic type is blocked by this service
- */
-function isBlocked(serviceDef, trafficType) {
-    return serviceDef?.blocks?.includes(trafficType) ?? false;
+function getNeighbors(service) {
+    const engineState = getEngine()?.getState?.();
+    return getNeighborsFromState(engineState, service);
 }
 
-/**
- * Check if this service is a terminal node for this traffic type
- */
-function isTerminal(serviceDef, trafficType) {
-    return serviceDef?.terminalFor?.includes(trafficType) ?? false;
+function getCatalogEntry(serviceType) {
+    return window.ServiceCatalog?.getServiceType?.(serviceType) || null;
 }
 
-/**
- * Check if this service accepts this traffic type
- */
-function accepts(serviceDef, trafficType) {
-    return serviceDef?.accepts?.includes(trafficType) ?? false;
+function accepts(definition, trafficType) {
+    if (!definition || !trafficType) return false;
+    return Array.isArray(definition.accepts) && definition.accepts.includes(trafficType);
 }
 
-/**
- * Get queue penalty based on current load
- */
-function getQueuePenalty(node) {
-    if (!node || !Array.isArray(node.queue)) return 0;
-    const capacity = node.config?.capacity || 1;
-    const load = (node.queue.length + (node.processing?.length || 0)) / capacity;
-    return load * 20; // Higher penalty for congestion
+function isBlocked(definition, trafficType) {
+    if (!definition || !trafficType) return false;
+    return Array.isArray(definition.blocks) && definition.blocks.includes(trafficType);
 }
 
-/**
- * Check if there's a path to any terminal node for this traffic type
- */
-function hasTerminalPath(node, trafficType, depth = 4, visited = new Set()) {
-    if (!node || depth < 0) return false;
-    
-    const nodeDef = _getServiceType(node.type);
-    if (isTerminal(nodeDef, trafficType)) return true;
-    
-    visited.add(node.id);
-    
-    for (const nextId of (node.connections || [])) {
-        if (nextId === 'internet') continue;
-        const nextNode = getServiceEntity(nextId);
-        if (!nextNode || visited.has(nextNode.id)) continue;
-        
-        // Only follow nodes that accept this traffic
-        const nextDef = _getServiceType(nextNode.type);
-        if (!accepts(nextDef, trafficType)) continue;
-        
-        if (hasTerminalPath(nextNode, trafficType, depth - 1, new Set(visited))) {
-            return true;
+function isTerminal(definition, trafficType) {
+    if (!definition || !trafficType) return false;
+    return Array.isArray(definition.terminalFor) && definition.terminalFor.includes(trafficType);
+}
+
+function evaluateCatalogRules(serviceDef, request) {
+    if (!serviceDef || !request) {
+        return null;
+    }
+    const trafficType = request.type;
+    if (isBlocked(serviceDef, trafficType)) {
+        return { action: 'BLOCK' };
+    }
+    if (!accepts(serviceDef, trafficType)) {
+        return { action: 'DEAD_END' };
+    }
+    if (isTerminal(serviceDef, trafficType)) {
+        return { action: 'TERMINATE' };
+    }
+    return null;
+}
+
+function isStpRoutingEnabled(state) {
+    const simulation = getSimulationFromState(state);
+    const flag = simulation?.routing?.featureFlags?.enableStpRouting;
+    if (typeof flag === 'boolean') {
+        return flag;
+    }
+    return Boolean(window.CONFIG?.routing?.enableStpRouting);
+}
+
+function getSpanningTree(state) {
+    const simulation = getSimulationFromState(state);
+    if (simulation?.routing?.spanningTree) {
+        return simulation.routing.spanningTree;
+    }
+    const engineState = getEngine()?.getState?.();
+    return engineState?.simulation?.routing?.spanningTree || null;
+}
+
+function getForwardingTableRow(tree, nodeId) {
+    if (!tree || !nodeId) {
+        return null;
+    }
+    const tables = tree.forwardingTables;
+    if (!tables) {
+        return null;
+    }
+    if (tables instanceof Map) {
+        return tables.get(nodeId) || null;
+    }
+    return tables[nodeId] || null;
+}
+
+function _getServiceType(key) {
+    return getCatalogEntry(key);
+}
+
+function getForwardingValue(row, destinationId) {
+    if (!row || !destinationId) {
+        return null;
+    }
+    if (row instanceof Map) {
+        return row.get(destinationId) ?? null;
+    }
+    return row[destinationId] ?? null;
+}
+
+function getForwardingNextHop(tree, currentId, destinationId) {
+    const row = getForwardingTableRow(tree, currentId);
+    if (!row) return null;
+    return getForwardingValue(row, destinationId);
+}
+
+function getServiceLoad(service) {
+    if (!service) return Infinity;
+    const queueLength = Array.isArray(service.queue) ? service.queue.length : 0;
+    const processing = Array.isArray(service.processing) ? service.processing.length : 0;
+    const capacity = service.config?.capacity || 1;
+    return (queueLength + processing) / capacity;
+}
+
+function isServiceCongested(service) {
+    if (!service) return false;
+    return getServiceLoad(service) >= CONGESTION_THRESHOLD;
+}
+
+function findAlternateNextHop(state, tree, request, currentService, destination, congestedService) {
+    const neighborConnections = listConnections(currentService);
+    if (!neighborConnections.length) {
+        return null;
+    }
+    for (const connection of neighborConnections) {
+        const neighborId = connection.targetId;
+        if (neighborId === congestedService?.id || neighborId === 'internet') {
+            continue;
+        }
+        if (neighborId === request?.lastNodeId) {
+            continue;
+        }
+        const neighbor = getServiceById(state, neighborId);
+        if (!neighbor) continue;
+        const def = getCatalogEntry(neighbor.type);
+        if (!accepts(def, request.type)) continue;
+        const neighborNextHop = getForwardingNextHop(tree, neighbor.id, destination.id);
+        if (!neighborNextHop || neighborNextHop === currentService.id) continue;
+        if (isServiceCongested(neighbor)) continue;
+        return neighbor;
+    }
+    return null;
+}
+
+function findTerminalNode(state, trafficType) {
+    const simulation = state?.simulation;
+    if (!simulation?.services?.length) {
+        return null;
+    }
+
+    return simulation.services.find(service => {
+        const definition = getCatalogEntry(service.type);
+        return isTerminal(definition, trafficType);
+    }) || null;
+}
+
+function getNextHopViaSpanningTree(state, request, currentService) {
+    if (!state || !request || !currentService) {
+        return null;
+    }
+
+    const tree = getSpanningTree(state);
+    if (!tree?.forwardingTables) {
+        return null;
+    }
+
+    const destination = findTerminalNode(state, request.type);
+    if (!destination) {
+        return null;
+    }
+
+    const nextHopId = getForwardingNextHop(tree, currentService.id, destination.id);
+    if (!nextHopId) {
+        return null;
+    }
+
+    const nextService = getServiceById(state, nextHopId);
+    if (!nextService) {
+        return null;
+    }
+
+    const nextDef = getCatalogEntry(nextService.type);
+    if (!accepts(nextDef, request.type)) {
+        return null;
+    }
+
+    if (isServiceCongested(nextService)) {
+        const alternate = findAlternateNextHop(state, tree, request, currentService, destination, nextService);
+        if (alternate) {
+            return { action: 'FORWARD', nodeId: alternate.id, node: alternate };
         }
     }
-    
-    return false;
+
+    return { action: 'FORWARD', nodeId: nextService.id, node: nextService };
 }
 
 /**
  * Compute routing score for a candidate neighbor
  */
-function computeRoutingScore(neighbor, request, currentService) {
-    const neighborDef = _getServiceType(neighbor.type);
-    if (!neighborDef) return -1000;
-    
-    let score = 0;
-    
-    // Strong preference for nodes that accept this traffic type
-    if (accepts(neighborDef, request.type)) {
-        score += 50;
-    } else {
-        return -1000; // Don't route to nodes that don't accept this traffic
+function getNextHopViaLegacyRouting(state, request, currentService) {
+    const neighbors = getNeighborsFromState(state, currentService)
+        .filter(n => n.id !== request?.lastNodeId && n.id !== 'internet');
+
+    if (!neighbors.length) {
+        return { action: 'DEAD_END' };
     }
-    
-    // Bonus for terminal nodes when traffic is ready
-    if (isTerminal(neighborDef, request.type)) {
-        // Extra bonus if we've been through compute (for WEB/API)
-        if (request.hasCompute) {
-            score += 150;
-        } else {
-            // Still good, but prefer going through compute first
-            score += 30;
+
+    const candidates = neighbors.filter(node => {
+        const def = getCatalogEntry(node.type);
+        return accepts(def, request?.type);
+    });
+
+    if (!candidates.length) {
+        return { action: 'DEAD_END' };
+    }
+
+    let best = null;
+    let lowestLoad = Infinity;
+    for (const candidate of candidates) {
+        const load = getServiceLoad(candidate);
+        if (load < lowestLoad) {
+            lowestLoad = load;
+            best = candidate;
         }
     }
-    
-    // Bonus for compute nodes if we haven't processed yet
-    if (neighbor.type === 'compute' && !request.hasCompute) {
-        score += 80;
+
+    if (!best) {
+        return { action: 'DEAD_END' };
     }
-    
-    // Bonus for load balancers (routing layer)
-    if (neighbor.type === 'loadBalancer') {
-        score += 40;
-    }
-    
-    // Check if this neighbor leads to a terminal
-    const visited = new Set();
-    if (currentService?.id) visited.add(currentService.id);
-    if (request.lastNodeId) visited.add(request.lastNodeId);
-    
-    if (hasTerminalPath(neighbor, request.type, 3, visited)) {
-        score += 60;
-    } else {
-        score -= 40; // Penalize dead ends
-    }
-    
-    // Penalize congestion
-    score -= getQueuePenalty(neighbor);
-    
-    // Small penalty for highly connected nodes (spread load)
-    score -= (neighbor.connections?.length || 0) * 0.5;
-    
-    return score;
+
+    return { action: 'FORWARD', nodeId: best.id, node: best };
 }
 
-/**
- * Choose best neighbor from candidates using weighted random selection
- */
-function chooseNeighbor(candidates, request, currentService) {
-    if (!candidates.length) return null;
-    if (candidates.length === 1) return candidates[0];
-    
-    const scored = candidates.map(node => ({
-        node,
-        score: computeRoutingScore(node, request, currentService)
-    }));
-    
-    // Filter out negative scores (invalid routes)
-    const valid = scored.filter(s => s.score > -100);
-    if (!valid.length) return null;
-    
-    // Find best score
-    const maxScore = Math.max(...valid.map(s => s.score));
-    
-    // Select from top candidates (within 10 points of best)
-    const EPS = 10;
-    const topCandidates = valid
-        .filter(s => s.score >= maxScore - EPS)
-        .map(s => s.node);
-    
-    // Random selection among top candidates
-    return topCandidates[Math.floor(Math.random() * topCandidates.length)] || null;
+function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit = 6) {
+    if (!startNode) return false;
+    const visited = new Set([startNode.id]);
+    const queue = [{ node: startNode, depth: 0 }];
+
+    while (queue.length) {
+        const { node, depth } = queue.shift();
+        const nodeDef = _getServiceType(node.type);
+        if (predicate(nodeDef, node)) {
+            return true;
+        }
+        if (depth >= depthLimit) continue;
+        const neighbors = listConnections(node);
+        for (const connection of neighbors) {
+            const nextId = connection.targetId;
+            if (nextId === 'internet' || visited.has(nextId)) continue;
+            const nextNode = getServiceEntity(nextId);
+            if (!nextNode) continue;
+            const nextDef = _getServiceType(nextNode.type);
+            if (!accepts(nextDef, trafficType)) continue;
+            visited.add(nextId);
+            queue.push({ node: nextNode, depth: depth + 1 });
+        }
+    }
+
+    return false;
+}
+
+function hasTerminalPathLegacy(node, trafficType, depthLimit = 6) {
+    return hasPathMatchingCriteria(node, trafficType, def => isTerminal(def, trafficType), depthLimit);
+}
+
+function hasPathToBlockerLegacy(node, trafficType, depthLimit = 6) {
+    return hasPathMatchingCriteria(node, trafficType, def => isBlocked(def, trafficType), depthLimit);
 }
 
 /**
@@ -188,46 +327,24 @@ function chooseNeighbor(candidates, request, currentService) {
  * @returns {Object} { action: "TERMINATE"|"BLOCK"|"FORWARD"|"DEAD_END", nodeId?: string }
  */
 function getNextHop(state, request, currentService) {
-    const serviceDef = _getServiceType(currentService.type);
-    if (!serviceDef) {
+    if (!request || !currentService) {
         return { action: 'DEAD_END' };
     }
-    
-    // 1. Check if this traffic is blocked here
-    if (isBlocked(serviceDef, request.type)) {
-        return { action: 'BLOCK' };
+
+    const serviceDef = getCatalogEntry(currentService.type);
+    const catalogDecision = evaluateCatalogRules(serviceDef, request);
+    if (catalogDecision) {
+        return catalogDecision;
     }
-    
-    // 2. Check if this is a terminal node for this traffic type
-    if (isTerminal(serviceDef, request.type)) {
-        return { action: 'TERMINATE' };
+
+    if (isStpRoutingEnabled(state)) {
+        const stpDecision = getNextHopViaSpanningTree(state, request, currentService);
+        if (stpDecision) {
+            return stpDecision;
+        }
     }
-    
-    // 3. Get neighbors, excluding where we came from
-    const neighbors = getNeighbors(currentService)
-        .filter(n => n.id !== request.lastNodeId && n.id !== 'internet');
-    
-    if (!neighbors.length) {
-        return { action: 'DEAD_END' };
-    }
-    
-    // 4. Filter to nodes that accept this traffic type
-    const candidates = neighbors.filter(node => {
-        const def = _getServiceType(node.type);
-        return accepts(def, request.type);
-    });
-    
-    if (!candidates.length) {
-        return { action: 'DEAD_END' };
-    }
-    
-    // 5. Choose best neighbor
-    const next = chooseNeighbor(candidates, request, currentService);
-    if (!next) {
-        return { action: 'DEAD_END' };
-    }
-    
-    return { action: 'FORWARD', nodeId: next.id, node: next };
+
+    return getNextHopViaLegacyRouting(state, request, currentService);
 }
 
 /**
@@ -275,21 +392,23 @@ function validateTopology() {
     const internetNode = sim.internetNode;
     
     // Check WEB traffic path (needs to reach objectStorage)
-    const hasWebPath = internetNode.connections.some(connId => {
+    const internetTargets = getConnectionTargets(internetNode);
+
+    const hasWebPath = internetTargets.some(connId => {
         const node = getServiceEntity(connId);
         if (!node) return false;
         const nodeDef = _getServiceType(node.type);
         if (!accepts(nodeDef, 'WEB')) return false;
-        return hasTerminalPath(node, 'WEB', 6, new Set());
+        return hasTerminalPathLegacy(node, 'WEB', 6);
     });
     
     // Check API traffic path (needs to reach database)
-    const hasApiPath = internetNode.connections.some(connId => {
+    const hasApiPath = internetTargets.some(connId => {
         const node = getServiceEntity(connId);
         if (!node) return false;
         const nodeDef = _getServiceType(node.type);
         if (!accepts(nodeDef, 'API')) return false;
-        return hasTerminalPath(node, 'API', 6, new Set());
+        return hasTerminalPathLegacy(node, 'API', 6);
     });
     
     // Check FRAUD traffic path (needs at least one blocking-capable node)
@@ -299,13 +418,12 @@ function validateTopology() {
     });
     
     // Check if fraud blockers are reachable from internet
-    const fraudBlockerReachable = hasFraudBlocker && internetNode.connections.some(connId => {
+    const fraudBlockerReachable = hasFraudBlocker && internetTargets.some(connId => {
         const node = getServiceEntity(connId);
         if (!node) return false;
         const nodeDef = _getServiceType(node.type);
-        // Either this node blocks fraud, or it can reach one that does
         if (nodeDef?.blocks?.includes('FRAUD')) return true;
-        return hasPathToBlocker(node, 'FRAUD', 6, new Set());
+        return hasPathToBlockerLegacy(node, 'FRAUD', 6);
     });
     
     if (!hasWebPath) {
@@ -321,10 +439,11 @@ function validateTopology() {
     }
 
     const userExposed = sim.services.some(service => {
-        if (!service || !Array.isArray(service.connections)) return false;
+        if (!service) return false;
         const def = _getServiceType(service.type);
         const isUser = def?.key?.toLowerCase?.() === 'user' || String(service.type).toLowerCase() === 'user';
-        return isUser && service.connections.includes('internet');
+        if (!isUser) return false;
+        return getConnectionTargets(service).includes('internet');
     });
     if (userExposed) {
         warnings.push('User node connected directly to the Internet – exposed to MALICIOUS traffic');
@@ -344,34 +463,6 @@ function validateTopology() {
         fraud: fraudBlockerReachable,
         warnings
     };
-}
-
-/**
- * Check if there's a path to a node that blocks the given traffic type
- */
-function hasPathToBlocker(node, trafficType, depth = 4, visited = new Set()) {
-    if (!node || depth < 0) return false;
-    
-    const nodeDef = _getServiceType(node.type);
-    if (isBlocked(nodeDef, trafficType)) return true;
-    
-    visited.add(node.id);
-    
-    for (const nextId of (node.connections || [])) {
-        if (nextId === 'internet') continue;
-        const nextNode = getServiceEntity(nextId);
-        if (!nextNode || visited.has(nextNode.id)) continue;
-        
-        // Only follow nodes that accept this traffic
-        const nextDef = _getServiceType(nextNode.type);
-        if (!accepts(nextDef, trafficType)) continue;
-        
-        if (hasPathToBlocker(nextNode, trafficType, depth - 1, new Set(visited))) {
-            return true;
-        }
-    }
-    
-    return false;
 }
 
 /**
@@ -409,10 +500,8 @@ if (typeof window !== 'undefined') {
         isBlocked,
         isTerminal,
         accepts,
-        hasTerminalPath,
         getNeighbors,
         validateTopology,
-        getMostLoadedService,
-        hasPathToBlocker
+        getMostLoadedService
     };
 }

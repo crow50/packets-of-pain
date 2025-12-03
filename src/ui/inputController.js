@@ -204,7 +204,8 @@ export function createInputController({ container }) {
                         updateUIState({ linkSourceId: intersect.id });
                     } else {
                         // Second click: create connection and clear
-                        createConnection(linkSourceId, intersect.id);
+                        const bidirectional = engine?.getUIState()?.linkBidirectional !== false;
+                        createConnection(linkSourceId, intersect.id, { bidirectional });
                         updateUIState({ linkSourceId: null });
                     }
                 } else {
