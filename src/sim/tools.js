@@ -1,6 +1,41 @@
 import Service from "../entities/Service.js";
 import { distance, toPlainPosition } from "./vectorUtils.js";
 
+const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
+const DEFAULT_LINK_COST = CONNECTION_UTILS.DEFAULT_LINK_COST ?? 10;
+
+const upgradeConnectionFormat = CONNECTION_UTILS.upgradeConnectionFormat || function(node) {
+    if (!node) return [];
+    if (!Array.isArray(node.connections)) {
+        node.connections = [];
+    }
+    return node.connections;
+};
+
+const createConnectionObject = CONNECTION_UTILS.createConnectionObject || function(targetId, overrides = {}) {
+    if (!targetId) return null;
+    return {
+        targetId,
+        bidirectional: overrides.bidirectional !== false,
+        linkCost: typeof overrides.linkCost === 'number' ? overrides.linkCost : DEFAULT_LINK_COST,
+        portRole: overrides.portRole || 'designated',
+        active: overrides.active !== false,
+        linkId: overrides.linkId
+    };
+};
+
+const hasConnection = CONNECTION_UTILS.hasConnection || function(node, targetId) {
+    if (!node || !targetId) return false;
+    const connections = Array.isArray(node.connections) ? node.connections : [];
+    return connections.some(conn => (typeof conn === 'string' ? conn === targetId : conn?.targetId === targetId));
+};
+
+const removeConnections = CONNECTION_UTILS.removeConnections || function(node, predicate) {
+    if (!node || typeof predicate !== 'function') return;
+    const normalized = Array.isArray(node.connections) ? node.connections : [];
+    node.connections = normalized.filter(conn => !predicate(typeof conn === 'string' ? { targetId: conn } : conn));
+};
+
 const { getServiceType } = window.ServiceCatalog;
 
 function getEngine() {
@@ -94,12 +129,13 @@ export function createService(arg1, arg2, arg3) {
     window.Routing?.validateTopology?.();
 }
 
-export function createConnection(arg1, arg2, arg3) {
-    // Overload: createConnection(fromId, toId) OR createConnection(state, fromId, toId)
+export function createConnection(arg1, arg2, arg3, arg4) {
+    // Overload: createConnection(fromId, toId, options) OR createConnection(state, fromId, toId, options)
     const hasState = arg1 && (arg1.simulation || arg1.ui);
     const state = resolveState(arg1);
     const fromId = hasState ? arg2 : arg1;
     const toId = hasState ? arg3 : arg2;
+    const options = hasState ? arg4 : arg3;
 
     if (fromId === toId) return;
     if (!state) return;
@@ -108,14 +144,40 @@ export function createConnection(arg1, arg2, arg3) {
 
     const from = getEntityFromState(state, fromId);
     const to = getEntityFromState(state, toId);
-    if (!from || !to || from.connections.includes(toId)) return;
+    if (!from || !to || hasConnection(from, toId)) return;
 
-    from.connections.push(toId);
-    to.connections.push(fromId);
+    const bidirectional = options?.bidirectional !== false;
+    const linkCost = typeof options?.linkCost === 'number' ? options.linkCost : DEFAULT_LINK_COST;
+    const linkId = options?.linkId || ('link_' + Math.random().toString(36).substr(2, 9));
 
-    const linkId = 'link_' + Math.random().toString(36).substr(2, 9);
-    sim.connections.push({ id: linkId, from: fromId, to: toId });
-    emit('connectionCreated', { linkId, from: fromId, to: toId });
+    const forwardConnection = createConnectionObject(toId, {
+        bidirectional,
+        linkCost,
+        linkId,
+        portRole: 'designated',
+        active: true
+    });
+    if (forwardConnection) {
+        upgradeConnectionFormat(from);
+        from.connections.push(forwardConnection);
+    }
+
+    if (bidirectional) {
+        const reverseConnection = createConnectionObject(fromId, {
+            bidirectional,
+            linkCost,
+            linkId,
+            portRole: 'designated',
+            active: true
+        });
+        if (reverseConnection) {
+            upgradeConnectionFormat(to);
+            to.connections.push(reverseConnection);
+        }
+    }
+
+    sim.connections.push({ id: linkId, from: fromId, to: toId, bidirectional, linkCost });
+    emit('connectionCreated', { linkId, from: fromId, to: toId, bidirectional });
     
     // Validate topology after adding connection
     window.Routing?.validateTopology?.();
@@ -133,12 +195,12 @@ export function deleteLink(arg1, arg2) {
 
     const fromNode = getEntityFromState(state, link.from);
     if (fromNode) {
-        fromNode.connections = fromNode.connections.filter(id => id !== link.to);
+        removeConnections(fromNode, conn => conn.linkId === link.id || conn.targetId === link.to);
     }
 
     const toNode = getEntityFromState(state, link.to);
     if (toNode) {
-        toNode.connections = toNode.connections.filter(id => id !== link.from);
+        removeConnections(toNode, conn => conn.linkId === link.id || conn.targetId === link.from);
     }
 
     sim.connections = sim.connections.filter(c => c.id !== link.id);

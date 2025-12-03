@@ -20,6 +20,9 @@ const CONFIG = {
     packetIncreaseInterval: 0.1,
     gridSize: 30,
     tileSize: 4,
+    routing: {
+        enableStpRouting: false
+    },
     colors: {
         bg: 0x050505,
         grid: 0x1a1a1a,

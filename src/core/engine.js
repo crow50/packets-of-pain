@@ -22,6 +22,10 @@ function createInitialState(config = {}) {
     const packetIncreaseInterval = typeof config.packetIncreaseInterval === 'number'
         ? config.packetIncreaseInterval
         : 0;
+    const globalRoutingConfig = typeof window !== 'undefined' ? window.CONFIG?.routing : null;
+    const enableStpRouting = typeof config.enableStpRouting === 'boolean'
+        ? config.enableStpRouting
+        : Boolean(globalRoutingConfig?.enableStpRouting);
     const internetPosition = {
         x: config.internetPosition?.x ?? -10,
         y: config.internetPosition?.y ?? 0,
@@ -66,7 +70,14 @@ function createInitialState(config = {}) {
         // Mode context (consolidated from modeState.js)
         activeMode: config.mode ?? GAME_MODES.SANDBOX,
         campaignLevel: config.levelId ?? null,
-        scenarioId: config.scenarioId ?? null
+        scenarioId: config.scenarioId ?? null,
+        routing: {
+            featureFlags: {
+                enableStpRouting
+            },
+            spanningTree: null,
+            topologyRevision: 0
+        }
     };
 
     const ui = {
@@ -78,6 +89,7 @@ function createInitialState(config = {}) {
         isRunning: true,
         sound: null,
         toolbarWhitelist: [],
+        linkBidirectional: true,
         topologyGuidance: []
     };
 
@@ -193,6 +205,9 @@ export function createEngine(config = {}) {
         setLinkSource(id) {
             state.ui.linkSourceId = id;
         },
+        setLinkBidirectional(value) {
+            state.ui.linkBidirectional = value !== false;
+        },
         setHovered(hoverInfo) {
             state.ui.hovered = hoverInfo;
         },
@@ -210,8 +225,8 @@ export function createEngine(config = {}) {
             if (!type) return;
             createService(state, type, asVector(position));
         },
-        connectNodes(fromId, toId) {
-            createConnection(state, fromId, toId);
+        connectNodes(fromId, toId, options) {
+            createConnection(state, fromId, toId, options);
         },
         deleteNode(id) {
             deleteObject(state, id);
