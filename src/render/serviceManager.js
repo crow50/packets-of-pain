@@ -1,6 +1,17 @@
 import { serviceGroup } from "./scene.js";
 
+// Keys must match SERVICE_KIND values lowercased (e.g., LOAD_BALANCER → load_balancer)
 const SERVICE_MESH_DEFINITIONS = {
+    internet: {
+        geometry: () => new THREE.SphereGeometry(2, 16, 16),
+        color: 0x22c55e,
+        yOffset: 2
+    },
+    user: {
+        geometry: () => new THREE.ConeGeometry(1, 2, 8),
+        color: 0x3b82f6,
+        yOffset: 1
+    },
     waf: {
         geometry: () => new THREE.BoxGeometry(3, 2, 0.5),
         color: CONFIG.colors.waf,
@@ -21,7 +32,7 @@ const SERVICE_MESH_DEFINITIONS = {
         color: 0x38bdf8,
         yOffset: 0.5
     },
-    loadBalancer: {
+    load_balancer: {
         geometry: () => new THREE.BoxGeometry(3, 1.5, 3),
         color: CONFIG.colors.loadBalancer,
         yOffset: 0.75
@@ -36,7 +47,7 @@ const SERVICE_MESH_DEFINITIONS = {
         color: CONFIG.colors.database,
         yOffset: 1
     },
-    objectStorage: {
+    object_storage: {
         geometry: () => new THREE.CylinderGeometry(1.8, 1.5, 1.5, 8),
         color: CONFIG.colors.objectStorage,
         yOffset: 0.75
@@ -117,16 +128,16 @@ function updateTierRings(entry, tier) {
     }
 }
 
-function buildServiceMesh({ serviceId, type, position }) {
-    const normalizedType = type?.toLowerCase?.() ?? 'unknown';
-    const definition = SERVICE_MESH_DEFINITIONS[normalizedType] || DEFAULT_DEFINITION;
+function buildServiceMesh({ serviceId, kind, position }) {
+    const normalizedKind = kind?.toLowerCase?.() ?? 'unknown';
+    const definition = SERVICE_MESH_DEFINITIONS[normalizedKind] || DEFAULT_DEFINITION;
     const geom = definition.geometry();
     const mat = createMaterial(definition.color);
     const mesh = new THREE.Mesh(geom, mat);
     mesh.position.set(position.x, definition.yOffset, position.z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.userData = { id: serviceId, type: normalizedType, serviceId };
+    mesh.userData = { id: serviceId, kind: normalizedKind, serviceId };
 
     const loadRing = createLoadRing(mesh);
     serviceGroup.add(mesh);

@@ -1,6 +1,35 @@
+/**
+ * traffic.js - Core packet lifecycle management
+ * 
+ * This module handles the COMPLETE packet lifecycle from spawn to termination.
+ * Uses TRAFFIC_CLASS and PACKET_PHASE from packetConfig.js for packet creation.
+ * 
+ * RESPONSIBILITIES:
+ * - Packet spawning (spawnRequest, spawnBurstOfType)
+ * - Traffic class selection based on distribution (getTrafficType)
+ * - Response packet generation (spawnInboundResponse)
+ * - Initial routing to first hop (routeInitialRequest)
+ * - Score and reputation updates (updateScore, finishRequest, failRequest)
+ * - Packet removal and cleanup (removeRequest)
+ * - Game tick processing (gameTick)
+ * 
+ * NOT RESPONSIBLE FOR (see trafficBehaviors.js instead):
+ * - Mode-specific source selection logic
+ * - User node selection algorithms
+ * - Traffic profile interpretation for source selection
+ * 
+ * @module traffic
+ * 
+ * @test Packets should spawn with correct trafficClass from distribution
+ * @test Response packets should have phase=RESPONSE and correct trafficClass
+ * @test Failed packets should update reputation appropriately
+ * @test Completed packets should trigger response generation for WEB/API from users
+ */
+
 import Request from "../entities/Request.js";
 import { toPlainPosition } from "./vectorUtils.js";
 import { getModeBehaviors } from "../modes/modeBehaviors.js";
+import { TRAFFIC_CLASS, PACKET_PHASE } from "../config/packetConfig.js";
 
 const listConnections = (typeof window !== 'undefined' ? window.ConnectionUtils?.listConnections : null) || function(node) {
     const connections = Array.isArray(node?.connections) ? node.connections : [];
@@ -15,18 +44,26 @@ function getEngine() {
 
 function getServiceDefinition(node) {
     if (!node) return null;
-    return window.ServiceCatalog?.getServiceType?.(node.type);
+    return window.ServiceCatalog?.getServiceDef?.(node.kind);
 }
 
-function nodeAcceptsTraffic(node, trafficType) {
+/**
+ * Check if a node accepts a specific traffic class
+ * @param {Object} node - Service node
+ * @param {string} trafficClass - TRAFFIC_CLASS value
+ * @returns {boolean}
+ */
+function nodeAcceptsTraffic(node, trafficClass) {
     const def = getServiceDefinition(node);
-    if (!def || !Array.isArray(def.accepts)) return false;
-    return def.accepts.includes(trafficType);
+    if (!def) return false;
+    const acceptsList = def.acceptsClasses;
+    if (!Array.isArray(acceptsList)) return false;
+    return acceptsList.includes(trafficClass);
 }
 
-function pickPreferredEntryNode(nodes, trafficType) {
+function pickPreferredEntryNode(nodes, trafficClass) {
     if (!Array.isArray(nodes) || nodes.length === 0) return null;
-    const accepting = nodes.filter(node => nodeAcceptsTraffic(node, trafficType));
+    const accepting = nodes.filter(node => nodeAcceptsTraffic(node, trafficClass));
     const pool = accepting.length ? accepting : nodes;
     return pool[Math.floor(Math.random() * pool.length)] || null;
 }
@@ -42,6 +79,21 @@ function emitEvent(event, payload) {
     engine?.emit?.(event, payload);
 }
 
+/**
+ * Select the source node for a new packet
+ * 
+ * Delegates to mode-specific behavior hooks (trafficBehaviors.js) for source selection.
+ * This is the integration point between core lifecycle (traffic.js) and mode-specific
+ * source selection (trafficBehaviors.js).
+ * 
+ * @param {Object} sim - Simulation state
+ * @param {Object} trafficProfile - Traffic profile with rate settings
+ * @returns {Object} { source: node, fromUser: boolean }
+ * 
+ * @test Should return internet node when trafficProfile.inboundOnly is true
+ * @test Should delegate to mode behaviors when pickTrafficSource is defined
+ * @test Should fall back to internet node when no custom behavior returns a source
+ */
 function pickRequestSource(sim, trafficProfile) {
     const defaultSource = sim.internetNode;
     const defaultResult = { source: defaultSource, fromUser: false };
@@ -64,6 +116,13 @@ function pickRequestSource(sim, trafficProfile) {
     return defaultResult;
 }
 
+/**
+ * Route a newly spawned request to its first hop
+ * 
+ * @param {Object} state - Game state
+ * @param {Object} req - Request entity with trafficClass
+ * @param {Object} sourceNode - Node spawning the request (usually internet)
+ */
 function routeInitialRequest(state, req, sourceNode) {
     const sim = state.simulation || state;
     const origin = sourceNode || sim.internetNode;
@@ -90,18 +149,21 @@ function routeInitialRequest(state, req, sourceNode) {
         return;
     }
 
+    const getNodeKind = (node) => node?.kind;
+    const trafficClass = req.trafficClass;
+
     let target = null;
     if (origin === sim.internetNode) {
-        const wafEntry = entryNodes.find(s => s && s.type === 'waf');
+        const wafEntry = entryNodes.find(s => s && getNodeKind(s) === 'WAF');
         target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
     } else {
         target = entryNodes[Math.floor(Math.random() * entryNodes.length)];
     }
 
     if (origin === sim.internetNode) {
-        const nonUserNodes = entryNodes.filter(node => node?.type !== 'user');
+        const nonUserNodes = entryNodes.filter(node => getNodeKind(node) !== 'user');
         const pool = nonUserNodes.length ? nonUserNodes : entryNodes;
-        target = pickPreferredEntryNode(pool, req.type);
+        target = pickPreferredEntryNode(pool, trafficClass);
     } else {
         target = entryNodes[Math.floor(Math.random() * entryNodes.length)] || null;
     }
@@ -115,24 +177,50 @@ function routeInitialRequest(state, req, sourceNode) {
     req.flyTo(target);
 }
 
+/**
+ * Spawn a response packet going back to the user
+ * 
+ * Uses PACKET_PHASE.RESPONSE instead of legacy INBOUND traffic type.
+ * The response keeps the original trafficClass but changes phase.
+ * 
+ * @param {Object} state - Game state
+ * @param {Object} completedRequest - The request that was successfully completed
+ * 
+ * @test Should only spawn responses for WEB and API traffic from users
+ * @test Response should have phase=RESPONSE and same trafficClass as original
+ * @test Response should have responseOrigin set with sourceId and targetUserId
+ */
 function spawnInboundResponse(state, completedRequest) {
     if (!completedRequest) return;
     const sim = state.simulation || state;
-    const allowed = completedRequest.type === TRAFFIC_TYPES.WEB || completedRequest.type === TRAFFIC_TYPES.API;
-    if (!allowed || completedRequest.sourceType !== 'user') return;
+    
+    const trafficClass = completedRequest.trafficClass;
+    const allowed = trafficClass === TRAFFIC_CLASS.WEB || trafficClass === TRAFFIC_CLASS.API;
+    if (!allowed || completedRequest.responseOrigin?.sourceType !== 'user') return;
 
-    const userService = sim.services?.find(s => s.id === completedRequest.sourceId && s.type === 'user');
+    const userService = sim.services?.find(s => s.id === completedRequest.responseOrigin?.sourceId && s.kind === 'USER');
     if (!userService) return;
 
-    const inboundReq = new Request(TRAFFIC_TYPES.INBOUND, sim.internetNode?.position);
-    inboundReq.sourceId = sim.internetNode?.id || 'internet';
-    inboundReq.sourceType = 'internet';
-    inboundReq.targetUserId = userService.id;
-    inboundReq.isResponse = true;
+    // Create response packet using new model
+    const responseReq = new Request(trafficClass, sim.internetNode?.position, {
+        phase: PACKET_PHASE.RESPONSE,
+        responseOrigin: {
+            sourceId: sim.internetNode?.id || 'internet',
+            targetUserId: userService.id
+        }
+    });
+    
+    // Legacy compatibility fields (set via the Request constructor options)
+    responseReq.sourceType = 'internet';
 
-    sim.requests.push(inboundReq);
-    emitEvent('requestSpawned', { requestId: inboundReq.id, type: inboundReq.type, from: toPlainPosition(inboundReq.position) });
-    routeInitialRequest(state, inboundReq, sim.internetNode);
+    sim.requests.push(responseReq);
+    emitEvent('requestSpawned', { 
+        requestId: responseReq.id, 
+        trafficClass: responseReq.trafficClass, 
+        phase: responseReq.phase,
+        from: toPlainPosition(responseReq.position) 
+    });
+    routeInitialRequest(state, responseReq, sim.internetNode);
 }
 
 
@@ -147,12 +235,14 @@ export function updateScore(arg1, arg2, arg3) {
 
     const points = CONFIG.survival.SCORE_POINTS;
     if (req && outcome) {
+        const trafficClass = req.trafficClass;
+        
         switch (outcome) {
             case 'COMPLETED':
-                if (req.type === TRAFFIC_TYPES.WEB) {
+                if (trafficClass === TRAFFIC_CLASS.WEB) {
                     sim.score.web += points.WEB_SCORE;
                     sim.money += points.WEB_REWARD;
-                } else if (req.type === TRAFFIC_TYPES.API) {
+                } else if (trafficClass === TRAFFIC_CLASS.API) {
                     sim.score.api += points.API_SCORE;
                     sim.money += points.API_REWARD;
                 }
@@ -200,10 +290,9 @@ export function finishRequest(arg1, arg2) {
     updateScore(state, req, 'COMPLETED');
     emitEvent('requestFinished', {
         requestId: req.id,
-        type: req.type,
-        sourceType: req.sourceType,
-        sourceId: req.sourceId,
-        targetUserId: req.targetUserId
+        trafficClass: req.trafficClass,
+        phase: req.phase,
+        responseOrigin: req.responseOrigin
     });
     spawnInboundResponse(state, req);
     removeRequest(state, req);
@@ -219,7 +308,8 @@ export function failRequest(arg1, arg2, arg3) {
     const ui = state.ui || state;
     const sim = state.simulation || state;
 
-    const failType = req.type === TRAFFIC_TYPES.FRAUD ? 'FRAUD_PASSED' : 'FAILED';
+    const trafficClass = req.trafficClass;
+    const failType = trafficClass === TRAFFIC_CLASS.FRAUD ? 'FRAUD_PASSED' : 'FAILED';
     
     // Apply heavier penalty for misconfig failures
     if (reason === 'misconfig') {
@@ -248,20 +338,49 @@ window.removeRequest = removeRequest;
 window.finishRequest = finishRequest;
 window.failRequest = failRequest;
 
+/**
+ * Select a traffic class based on distribution weights
+ * 
+ * @param {Object} sim - Simulation state
+ * @returns {string} TRAFFIC_CLASS value (WEB, API, or FRAUD)
+ * 
+ * @test Distribution {WEB:0.5, API:0.4, FRAUD:0.1} should produce ~50% WEB over many samples
+ * @test Distribution {WEB:0.5, API:0.4, FRAUD:0.1} should produce ~40% API over many samples
+ * @test Distribution {WEB:0.5, API:0.4, FRAUD:0.1} should produce ~10% FRAUD over many samples
+ * @test Should use sim.trafficDistribution when set (sandbox mode)
+ * @test Should fall back to CONFIG.survival.trafficDistribution when sim.trafficDistribution is null
+ * @test Should return TRAFFIC_CLASS enum values, not string literals
+ */
 function getTrafficType(sim) {
     const r = Math.random();
     // Use sim.trafficDistribution if set (sandbox), otherwise fall back to survival config
     const dist = sim?.trafficDistribution || CONFIG.survival.trafficDistribution;
-    if (r < dist[TRAFFIC_TYPES.WEB]) return TRAFFIC_TYPES.WEB;
-    if (r < dist[TRAFFIC_TYPES.WEB] + dist[TRAFFIC_TYPES.API]) return TRAFFIC_TYPES.API;
-    return TRAFFIC_TYPES.FRAUD;
+    // Distribution uses string keys matching TRAFFIC_CLASS values
+    if (r < (dist['WEB'] || dist[TRAFFIC_CLASS.WEB] || 0)) return TRAFFIC_CLASS.WEB;
+    if (r < (dist['WEB'] || dist[TRAFFIC_CLASS.WEB] || 0) + (dist['API'] || dist[TRAFFIC_CLASS.API] || 0)) return TRAFFIC_CLASS.API;
+    return TRAFFIC_CLASS.FRAUD;
 }
 
+/**
+ * Spawn a new request packet
+ * 
+ * @param {Object} state - Game state
+ * 
+ * @test Should spawn packets with trafficClass from getTrafficType distribution
+ * @test Should spawn MALICIOUS when trafficProfile.maliciousRate > 0
+ * @test Inbound-only profiles should create packets with phase=RESPONSE
+ * @test Inbound-only profiles should default to WEB trafficClass
+ * @test Packets should have sourceId and sourceType set from source node
+ * @test Packets should be added to sim.requests array
+ * @test Should emit 'requestSpawned' event with trafficClass and phase
+ * @test Should call routeInitialRequest to send packet to first hop
+ */
 function spawnRequest(state) {
     const sim = state.simulation || state;
     const ui = state.ui || state;
 
-    let type = getTrafficType(sim);
+    let trafficClass = getTrafficType(sim);
+    let phase = PACKET_PHASE.REQUEST;
     const trafficProfile = sim.trafficProfile;
     const inboundOnly = Boolean(trafficProfile?.inboundOnly);
     
@@ -271,35 +390,43 @@ function spawnRequest(state) {
         const { userToInternetPps = 0, maliciousRate = 0 } = trafficProfile;
         const total = userToInternetPps + maliciousRate;
         if (total > 0) {
-            const fraudChance = maliciousRate / total;
-            type = Math.random() < fraudChance ? TRAFFIC_TYPES.FRAUD : TRAFFIC_TYPES.WEB;
+            // Use MALICIOUS for malicious traffic (instead of legacy FRAUD in this context)
+            const maliciousChance = maliciousRate / total;
+            trafficClass = Math.random() < maliciousChance ? TRAFFIC_CLASS.MALICIOUS : TRAFFIC_CLASS.WEB;
         }
     }
+    
+    // Inbound-only spawns response packets going to users
     if (inboundOnly) {
-        type = TRAFFIC_TYPES.INBOUND;
+        phase = PACKET_PHASE.RESPONSE;
+        trafficClass = TRAFFIC_CLASS.WEB; // Default to WEB for inbound responses
     }
+    
     const { source: sourceNode = sim.internetNode } = pickRequestSource(sim, trafficProfile);
     const sourcePosition = sourceNode?.position || sim.internetNode?.position;
 
-    const req = new Request(type, sourcePosition);
+    const req = new Request(trafficClass, sourcePosition, { phase });
     req.sourceId = sourceNode?.id || 'internet';
-    req.sourceType = sourceNode?.type || 'internet';
+    req.sourceType = sourceNode?.kind || 'internet';
     sim.requests.push(req);
-    emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
+    emitEvent('requestSpawned', { 
+        requestId: req.id, 
+        trafficClass: req.trafficClass, 
+        phase: req.phase,
+        from: toPlainPosition(req.position) 
+    });
     routeInitialRequest(state, req, sourceNode);
 }
 
-// Spawn a burst of requests of a specific type (for sandbox testing)
-export function spawnBurstOfType(state, type, count) {
+// Spawn a burst of requests of a specific trafficClass (for sandbox testing)
+export function spawnBurstOfType(state, trafficClass, count) {
     const sim = state.simulation || state;
     const internetOrigin = sim.internetNode?.position;
     
     for (let i = 0; i < count; i++) {
-        const req = new Request(type, internetOrigin);
-        req.sourceId = sim.internetNode?.id || 'internet';
-        req.sourceType = 'internet';
+        const req = new Request(trafficClass, internetOrigin);
         sim.requests.push(req);
-        emitEvent('requestSpawned', { requestId: req.id, type: req.type, from: toPlainPosition(req.position) });
+        emitEvent('requestSpawned', { requestId: req.id, trafficClass: req.trafficClass, from: toPlainPosition(req.position) });
         routeInitialRequest(state, req, sim.internetNode);
     }
 }

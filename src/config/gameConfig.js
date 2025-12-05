@@ -3,26 +3,15 @@
  * 
  * Contains visual settings (colors), grid settings, and gameplay parameters.
  * Loaded as a regular script before other game files.
+ * 
+ * NOTE: Traffic class enums have moved to packetConfig.js
+ * This file now references TRAFFIC_CLASS from that module.
  */
-
-const TRAFFIC_TYPES = {
-    WEB: 'WEB',
-    API: 'API',
-    FRAUD: 'FRAUD',
-    MALICIOUS: 'MALICIOUS',
-    OUTBOUND: 'OUTBOUND',
-    INBOUND: 'INBOUND',
-    REQUEST: 'REQUEST',
-    RESPONSE: 'RESPONSE'
-};
 
 const CONFIG = {
     packetIncreaseInterval: 0.1,
     gridSize: 30,
     tileSize: 4,
-    routing: {
-        enableStpRouting: false
-    },
     colors: {
         bg: 0x050505,
         grid: 0x1a1a1a,
@@ -32,19 +21,16 @@ const CONFIG = {
         waf: 0xa855f7,
         objectStorage: 0x10b981,
         line: 0x475569,
-        lineActive: 0x38bdf8,
-        requestWeb: 0x4ade80,    // Green
-        requestApi: 0xffa500,    // Orange
-        requestFraud: 0xff00ff,  // Pink
-        requestFail: 0xef4444
+        lineActive: 0x38bdf8
+        // Packet colors moved to packetConfig.js (PACKET_COLORS, PACKET_FAIL_COLOR)
     },
     survival: {
         startBudget: 2000,
         baseRPS: 0.5,
         trafficDistribution: {
-            [TRAFFIC_TYPES.WEB]: 0.50,
-            [TRAFFIC_TYPES.API]: 0.45,
-            [TRAFFIC_TYPES.FRAUD]: 0.05
+            WEB: 0.50,
+            API: 0.45,
+            FRAUD: 0.05
         },
         SCORE_POINTS: {
             WEB_SCORE: 5,
@@ -61,35 +47,35 @@ const CONFIG = {
         defaultRPS: 1.0,
         burstCount: 10,
         trafficDistribution: {
-            [TRAFFIC_TYPES.WEB]: 0.50,
-            [TRAFFIC_TYPES.API]: 0.40,
-            [TRAFFIC_TYPES.FRAUD]: 0.10
+            WEB: 0.50,
+            API: 0.40,
+            FRAUD: 0.10
         },
         presets: {
             balanced: {
                 name: 'Balanced',
                 rps: 1.0,
-                distribution: { [TRAFFIC_TYPES.WEB]: 0.50, [TRAFFIC_TYPES.API]: 0.40, [TRAFFIC_TYPES.FRAUD]: 0.10 }
+                distribution: { WEB: 0.50, API: 0.40, FRAUD: 0.10 }
             },
             highLoad: {
                 name: 'High Load',
                 rps: 3.0,
-                distribution: { [TRAFFIC_TYPES.WEB]: 0.50, [TRAFFIC_TYPES.API]: 0.45, [TRAFFIC_TYPES.FRAUD]: 0.05 }
+                distribution: { WEB: 0.50, API: 0.45, FRAUD: 0.05 }
             },
             fraudAttack: {
                 name: 'Fraud Attack',
                 rps: 2.0,
-                distribution: { [TRAFFIC_TYPES.WEB]: 0.20, [TRAFFIC_TYPES.API]: 0.20, [TRAFFIC_TYPES.FRAUD]: 0.60 }
+                distribution: { WEB: 0.20, API: 0.20, FRAUD: 0.60 }
             },
             apiHeavy: {
                 name: 'API Heavy',
                 rps: 1.5,
-                distribution: { [TRAFFIC_TYPES.WEB]: 0.20, [TRAFFIC_TYPES.API]: 0.70, [TRAFFIC_TYPES.FRAUD]: 0.10 }
+                distribution: { WEB: 0.20, API: 0.70, FRAUD: 0.10 }
             },
             webHeavy: {
                 name: 'Web Heavy',
                 rps: 1.5,
-                distribution: { [TRAFFIC_TYPES.WEB]: 0.70, [TRAFFIC_TYPES.API]: 0.20, [TRAFFIC_TYPES.FRAUD]: 0.10 }
+                distribution: { WEB: 0.70, API: 0.20, FRAUD: 0.10 }
             }
         }
     }
@@ -97,12 +83,10 @@ const CONFIG = {
 
 // Expose globally
 if (typeof window !== 'undefined') {
-    window.TRAFFIC_TYPES = TRAFFIC_TYPES;
     window.CONFIG = CONFIG;
     
-    // Also expose via GameConfig namespace for cleaner access
+    // GameConfig namespace for cleaner access
     window.GameConfig = {
-        TRAFFIC_TYPES,
         CONFIG
     };
 }

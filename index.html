@@ -460,24 +460,28 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Traffic Types -->
+                <!-- Traffic Classes -->
                 <div>
-                    <h3 class="text-lg font-bold text-blue-400 mb-4">TRAFFIC TYPES</h3>
+                    <h3 class="text-lg font-bold text-blue-400 mb-4">TRAFFIC CLASSES</h3>
                     <div class="space-y-3">
                         <div class="bg-gray-800/50 p-3 rounded border border-green-900/50">
-                            <strong class="text-green-400">WEB Traffic</strong>
+                            <strong class="text-green-400">WEB</strong>
                             <p class="text-sm text-gray-400">Route to <span class="text-emerald-400">Object Storage</span>
                                 via Load Balancer.</p>
                         </div>
                         <div class="bg-gray-800/50 p-3 rounded border border-orange-900/50">
-                            <strong class="text-orange-400">API Traffic</strong>
+                            <strong class="text-orange-400">API</strong>
                             <p class="text-sm text-gray-400">Route to <span class="text-red-400">Database</span> via
                                 Compute.</p>
                         </div>
                         <div class="bg-gray-800/50 p-3 rounded border border-purple-900/50">
-                            <strong class="text-purple-400">FRAUD Traffic</strong>
-                            <p class="text-sm text-gray-400">Block with <span class="text-purple-400">WAF
+                            <strong class="text-purple-400">FRAUD</strong>
+                            <p class="text-sm text-gray-400">Block with <span class="text-purple-400">WAF or
                                     Firewall</span>.</p>
+                        </div>
+                        <div class="bg-gray-800/50 p-3 rounded border border-red-900/50">
+                            <strong class="text-red-400">MALICIOUS</strong>
+                            <p class="text-sm text-gray-400">Hostile packets that target users directly. Block early.</p>
                         </div>
                     </div>
                 </div>

@@ -128,14 +128,14 @@ function resolveNodeType(sim, nodeId) {
     if (nodeId === "internet") return "INTERNET";
     const svc = sim.services?.find(s => s.id === nodeId);
     if (!svc) return null;
-    return normalizeServiceType(svc.type);
+    return normalizeServiceType(svc.kind);
 }
 
 function countConnectionsForServiceType(sim, serviceType) {
     const desired = normalizeServiceType(serviceType);
     if (!desired || !Array.isArray(sim?.services)) return 0;
     const ids = sim.services
-        .filter(s => normalizeServiceType(s.type) === desired)
+        .filter(s => normalizeServiceType(s.kind) === desired)
         .map(s => s.id);
     if (!ids.length || !Array.isArray(sim.connections)) return 0;
     let maxConnections = 0;
@@ -199,7 +199,7 @@ function checkCondition(cond, engine) {
         case "hasServiceOfType": {
             const desired = normalizeServiceType(cond.serviceType);
             if (!desired || !Array.isArray(sim?.services)) return false;
-            const count = sim.services.filter(s => normalizeServiceType(s.type) === desired).length;
+            const count = sim.services.filter(s => normalizeServiceType(s.kind) === desired).length;
             const min = typeof cond.countAtLeast === "number" ? cond.countAtLeast : 1;
             return count >= min;
         }

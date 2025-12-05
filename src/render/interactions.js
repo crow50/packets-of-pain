@@ -129,30 +129,38 @@ export function updateTooltip() {
     if (type === 'service') {
         const svc = sim?.services?.find(s => s.id === id);
         if (svc) {
-            const catalogEntry = getServiceType(svc.type);
-            const displayName = catalogEntry?.label ?? svc.config?.name ?? svc.type;
+            const catalogEntry = getServiceType(svc.kind);
+            const displayName = catalogEntry?.label ?? svc.config?.name ?? svc.kind;
             const upkeep = catalogEntry?.upkeepPerTick ?? svc.config?.upkeep ?? 0;
             const processingTime = catalogEntry?.processingTime ?? svc.config?.processingTime ?? 100;
-            const capacity = getCapacityForTier(svc.type, svc.tier || 1);
+            const capacity = getCapacityForTier(svc.kind, svc.tier || 1);
             const maxTiers = catalogEntry?.tiers?.length || 1;
             const currentTier = svc.tier || 1;
             const isMaxTier = currentTier >= maxTiers;
-            const isUpgradeable = canUpgrade(svc.type);
-            const upgradeCost = isUpgradeable && !isMaxTier ? getUpgradeCost(svc.type, currentTier) : null;
+            const isUpgradeable = canUpgrade(svc.kind);
+            const upgradeCost = isUpgradeable && !isMaxTier ? getUpgradeCost(svc.kind, currentTier) : null;
 
             const utilization = svc.load?.utilization ?? 0;
             const loadPct = Math.round(utilization * 100);
             const loadColor = loadPct > 80 ? 'text-red-400' : (loadPct > 50 ? 'text-yellow-400' : 'text-green-400');
             const dropped = svc.load?.dropped ?? 0;
 
-            const accepts = catalogEntry?.accepts?.join(', ') || 'All';
-            const blocks = catalogEntry?.blocks?.length ? catalogEntry.blocks.join(', ') : 'None';
-            const terminalFor = catalogEntry?.terminalFor?.length ? catalogEntry.terminalFor.join(', ') : 'None';
+            const acceptsList = catalogEntry?.acceptsClasses || [];
+            const blocksList = catalogEntry?.blocksClasses || [];
+            const terminalList = catalogEntry?.terminalClasses || [];
+            const accepts = acceptsList.length ? acceptsList.join(', ') : 'All';
+            const blocks = blocksList.length ? blocksList.join(', ') : 'None';
+            const terminalFor = terminalList.length ? terminalList.join(', ') : 'None';
             const tip = catalogEntry?.tip || null;
+            
+            // OSI layer display
+            const osiLayer = catalogEntry?.osiLayer;
+            const osiDisplay = osiLayer ? window.ServiceCatalog?.getOsiLayerDisplay?.(osiLayer) || `Layer ${osiLayer}` : null;
 
             content += `
                 <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">
                     <span class="text-gray-400">Type:</span> <span class="text-white capitalize">${displayName}</span>
+                    ${osiDisplay ? `<span class="text-gray-400">OSI:</span> <span class="text-purple-300">${osiDisplay}</span>` : ''}
                     <span class="text-gray-400">Tier:</span> <span class="text-white">${currentTier}/${maxTiers}</span>
                     ${isUpgradeable && isMaxTier ? '<span class="text-gray-400">Upgrade:</span> <span class="text-gray-400 italic">No upgrade available, at max tier</span>' : ''}
                     ${isUpgradeable && !isMaxTier ? `<span class="text-gray-400">Upgrade:</span> <span class="text-green-400">$${upgradeCost}</span>` : ''}

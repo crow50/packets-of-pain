@@ -1,26 +1,34 @@
 import { requestGroup } from "./scene.js";
+import { TRAFFIC_CLASS, PACKET_COLORS, PACKET_FAIL_COLOR, getPacketColor } from "../config/packetConfig.js";
 
 const listeners = [];
 const requestMeshes = new Map();
 let engineRef = null;
 
-const REQUEST_COLORS = {
-    WEB: CONFIG.colors.requestWeb,
-    API: CONFIG.colors.requestApi,
-    FRAUD: CONFIG.colors.requestFraud
-};
-
-function getColorForType(type) {
-    return REQUEST_COLORS[type] ?? CONFIG.colors.requestFail;
+/**
+ * Get color for a traffic class
+ * @param {string} trafficClass - A TRAFFIC_CLASS value
+ * @returns {number} Hex color value
+ */
+function getColorForTrafficClass(trafficClass) {
+    return getPacketColor(trafficClass);
 }
 
-function createRequestMesh({ requestId, type, from }) {
+/**
+ * Create a mesh for a packet request
+ * @param {Object} params
+ * @param {string} params.requestId - Unique request ID
+ * @param {string} params.trafficClass - TRAFFIC_CLASS value
+ * @param {Object} [params.from] - Starting position {x, y, z}
+ */
+function createRequestMesh({ requestId, trafficClass, from }) {
+    const effectiveClass = trafficClass;
     const geometry = new THREE.SphereGeometry(0.4, 8, 8);
-    const material = new THREE.MeshBasicMaterial({ color: getColorForType(type) });
+    const material = new THREE.MeshBasicMaterial({ color: getColorForTrafficClass(effectiveClass) });
     const mesh = new THREE.Mesh(geometry, material);
     const position = from || { x: 0, y: 2, z: 0 };
     mesh.position.set(position.x, position.y, position.z);
-    mesh.userData = { requestId, type };
+    mesh.userData = { requestId, trafficClass: effectiveClass };
     requestGroup.add(mesh);
     return { mesh, geometry, material };
 }

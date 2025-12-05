@@ -67,49 +67,76 @@ function getNeighbors(service) {
     return getNeighborsFromState(engineState, service);
 }
 
-function getCatalogEntry(serviceType) {
-    return window.ServiceCatalog?.getServiceType?.(serviceType) || null;
+function getCatalogEntry(serviceKind) {
+    // Use new API (getServiceDef) with fallback to legacy (getServiceType)
+    return window.ServiceCatalog?.getServiceDef?.(serviceKind) 
+        || window.ServiceCatalog?.getServiceType?.(serviceKind) 
+        || null;
 }
 
-function accepts(definition, trafficType) {
-    if (!definition || !trafficType) return false;
-    return Array.isArray(definition.accepts) && definition.accepts.includes(trafficType);
+/**
+ * Check if service accepts a traffic class
+ * @param {Object} definition - Catalog entry
+ * @param {string} trafficClass - TRAFFIC_CLASS value
+ * @returns {boolean}
+ */
+function accepts(definition, trafficClass) {
+    if (!definition || !trafficClass) return false;
+    const acceptsList = definition.acceptsClasses;
+    return Array.isArray(acceptsList) && acceptsList.includes(trafficClass);
 }
 
-function isBlocked(definition, trafficType) {
-    if (!definition || !trafficType) return false;
-    return Array.isArray(definition.blocks) && definition.blocks.includes(trafficType);
+/**
+ * Check if service blocks a traffic class
+ * @param {Object} definition - Catalog entry
+ * @param {string} trafficClass - TRAFFIC_CLASS value
+ * @returns {boolean}
+ */
+function isBlocked(definition, trafficClass) {
+    if (!definition || !trafficClass) return false;
+    const blocksList = definition.blocksClasses;
+    return Array.isArray(blocksList) && blocksList.includes(trafficClass);
 }
 
-function isTerminal(definition, trafficType) {
-    if (!definition || !trafficType) return false;
-    return Array.isArray(definition.terminalFor) && definition.terminalFor.includes(trafficType);
+/**
+ * Check if service terminates a traffic class
+ * @param {Object} definition - Catalog entry
+ * @param {string} trafficClass - TRAFFIC_CLASS value
+ * @returns {boolean}
+ */
+function isTerminal(definition, trafficClass) {
+    if (!definition || !trafficClass) return false;
+    const terminalList = definition.terminalClasses;
+    return Array.isArray(terminalList) && terminalList.includes(trafficClass);
 }
 
+/**
+ * Evaluate catalog rules to determine routing action
+ * 
+ * @param {Object} serviceDef - Catalog entry from SERVICE_CATALOG
+ * @param {Object} request - Request entity
+ * @returns {Object|null} Routing action { action: 'BLOCK'|'DEAD_END'|'TERMINATE' } or null
+ * 
+ * @test Should return BLOCK for traffic in blocksClasses
+ * @test Should return DEAD_END for traffic not in acceptsClasses
+ * @test Should return TERMINATE for traffic in terminalClasses
+ * @test Should return null when no rules match (continue routing)
+ */
 function evaluateCatalogRules(serviceDef, request) {
     if (!serviceDef || !request) {
         return null;
     }
-    const trafficType = request.type;
-    if (isBlocked(serviceDef, trafficType)) {
+    const trafficClass = request.trafficClass;
+    if (isBlocked(serviceDef, trafficClass)) {
         return { action: 'BLOCK' };
     }
-    if (!accepts(serviceDef, trafficType)) {
+    if (!accepts(serviceDef, trafficClass)) {
         return { action: 'DEAD_END' };
     }
-    if (isTerminal(serviceDef, trafficType)) {
+    if (isTerminal(serviceDef, trafficClass)) {
         return { action: 'TERMINATE' };
     }
     return null;
-}
-
-function isStpRoutingEnabled(state) {
-    const simulation = getSimulationFromState(state);
-    const flag = simulation?.routing?.featureFlags?.enableStpRouting;
-    if (typeof flag === 'boolean') {
-        return flag;
-    }
-    return Boolean(window.CONFIG?.routing?.enableStpRouting);
 }
 
 function getSpanningTree(state) {
@@ -173,6 +200,8 @@ function findAlternateNextHop(state, tree, request, currentService, destination,
     if (!neighborConnections.length) {
         return null;
     }
+    const trafficClass = request?.trafficClass;
+    
     for (const connection of neighborConnections) {
         const neighborId = connection.targetId;
         if (neighborId === congestedService?.id || neighborId === 'internet') {
@@ -183,8 +212,8 @@ function findAlternateNextHop(state, tree, request, currentService, destination,
         }
         const neighbor = getServiceById(state, neighborId);
         if (!neighbor) continue;
-        const def = getCatalogEntry(neighbor.type);
-        if (!accepts(def, request.type)) continue;
+        const def = getCatalogEntry(neighbor.kind);
+        if (!accepts(def, trafficClass)) continue;
         const neighborNextHop = getForwardingNextHop(tree, neighbor.id, destination.id);
         if (!neighborNextHop || neighborNextHop === currentService.id) continue;
         if (isServiceCongested(neighbor)) continue;
@@ -193,18 +222,30 @@ function findAlternateNextHop(state, tree, request, currentService, destination,
     return null;
 }
 
-function findTerminalNode(state, trafficType) {
+function findTerminalNode(state, trafficClass) {
     const simulation = state?.simulation;
     if (!simulation?.services?.length) {
         return null;
     }
 
     return simulation.services.find(service => {
-        const definition = getCatalogEntry(service.type);
-        return isTerminal(definition, trafficType);
+        const definition = getCatalogEntry(service.kind);
+        return isTerminal(definition, trafficClass);
     }) || null;
 }
 
+/**
+ * Route request via Spanning Tree Protocol forwarding tables
+ * 
+ * @param {Object} state - Game state
+ * @param {Object} request - Request with trafficClass field
+ * @param {Object} currentService - Service currently processing request
+ * @returns {Object|null} Routing decision or null if no valid route
+ * 
+ * @test Should find terminal node matching request's trafficClass
+ * @test Should follow STP forwarding tables to next hop
+ * @test Should find alternate path when next hop is congested
+ */
 function getNextHopViaSpanningTree(state, request, currentService) {
     if (!state || !request || !currentService) {
         return null;
@@ -215,7 +256,9 @@ function getNextHopViaSpanningTree(state, request, currentService) {
         return null;
     }
 
-    const destination = findTerminalNode(state, request.type);
+    const trafficClass = request.trafficClass;
+    
+    const destination = findTerminalNode(state, trafficClass);
     if (!destination) {
         return null;
     }
@@ -230,8 +273,8 @@ function getNextHopViaSpanningTree(state, request, currentService) {
         return null;
     }
 
-    const nextDef = getCatalogEntry(nextService.type);
-    if (!accepts(nextDef, request.type)) {
+    const nextDef = getCatalogEntry(nextService.kind);
+    if (!accepts(nextDef, trafficClass)) {
         return null;
     }
 
@@ -245,43 +288,6 @@ function getNextHopViaSpanningTree(state, request, currentService) {
     return { action: 'FORWARD', nodeId: nextService.id, node: nextService };
 }
 
-/**
- * Compute routing score for a candidate neighbor
- */
-function getNextHopViaLegacyRouting(state, request, currentService) {
-    const neighbors = getNeighborsFromState(state, currentService)
-        .filter(n => n.id !== request?.lastNodeId && n.id !== 'internet');
-
-    if (!neighbors.length) {
-        return { action: 'DEAD_END' };
-    }
-
-    const candidates = neighbors.filter(node => {
-        const def = getCatalogEntry(node.type);
-        return accepts(def, request?.type);
-    });
-
-    if (!candidates.length) {
-        return { action: 'DEAD_END' };
-    }
-
-    let best = null;
-    let lowestLoad = Infinity;
-    for (const candidate of candidates) {
-        const load = getServiceLoad(candidate);
-        if (load < lowestLoad) {
-            lowestLoad = load;
-            best = candidate;
-        }
-    }
-
-    if (!best) {
-        return { action: 'DEAD_END' };
-    }
-
-    return { action: 'FORWARD', nodeId: best.id, node: best };
-}
-
 function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit = 6) {
     if (!startNode) return false;
     const visited = new Set([startNode.id]);
@@ -289,7 +295,7 @@ function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit =
 
     while (queue.length) {
         const { node, depth } = queue.shift();
-        const nodeDef = _getServiceType(node.type);
+        const nodeDef = _getServiceType(node.kind);
         if (predicate(nodeDef, node)) {
             return true;
         }
@@ -300,7 +306,7 @@ function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit =
             if (nextId === 'internet' || visited.has(nextId)) continue;
             const nextNode = getServiceEntity(nextId);
             if (!nextNode) continue;
-            const nextDef = _getServiceType(nextNode.type);
+            const nextDef = _getServiceType(nextNode.kind);
             if (!accepts(nextDef, trafficType)) continue;
             visited.add(nextId);
             queue.push({ node: nextNode, depth: depth + 1 });
@@ -310,41 +316,49 @@ function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit =
     return false;
 }
 
-function hasTerminalPathLegacy(node, trafficType, depthLimit = 6) {
+function hasTerminalPath(node, trafficType, depthLimit = 6) {
     return hasPathMatchingCriteria(node, trafficType, def => isTerminal(def, trafficType), depthLimit);
 }
 
-function hasPathToBlockerLegacy(node, trafficType, depthLimit = 6) {
+function hasPathToBlocker(node, trafficType, depthLimit = 6) {
     return hasPathMatchingCriteria(node, trafficType, def => isBlocked(def, trafficType), depthLimit);
 }
 
 /**
- * Main routing function - determines next hop for a request
+ * Main routing function - determines next hop for a request via Spanning Tree Protocol
+ * 
+ * Uses STP forwarding tables exclusively. Legacy load-based routing has been removed.
  * 
  * @param {Object} state - Game state
- * @param {Object} request - The request being routed
+ * @param {Object} request - The request being routed (uses trafficClass)
  * @param {Object} currentService - The service currently processing the request
- * @returns {Object} { action: "TERMINATE"|"BLOCK"|"FORWARD"|"DEAD_END", nodeId?: string }
+ * @returns {Object} { action: "TERMINATE"|"BLOCK"|"FORWARD"|"DEAD_END", nodeId?: string, node?: Object }
+ * 
+ * @test Should return TERMINATE for packets at terminal nodes
+ * @test Should return BLOCK for packets matching blocksClasses
+ * @test Should return FORWARD with next hop for valid routing
+ * @test Should return DEAD_END when no valid path exists
+ * @test Should use alternate paths when next hop is congested
  */
 function getNextHop(state, request, currentService) {
     if (!request || !currentService) {
         return { action: 'DEAD_END' };
     }
 
-    const serviceDef = getCatalogEntry(currentService.type);
+    const serviceDef = getCatalogEntry(currentService.kind);
     const catalogDecision = evaluateCatalogRules(serviceDef, request);
     if (catalogDecision) {
         return catalogDecision;
     }
 
-    if (isStpRoutingEnabled(state)) {
-        const stpDecision = getNextHopViaSpanningTree(state, request, currentService);
-        if (stpDecision) {
-            return stpDecision;
-        }
+    // Always use STP routing (legacy load-based routing removed)
+    const stpDecision = getNextHopViaSpanningTree(state, request, currentService);
+    if (stpDecision) {
+        return stpDecision;
     }
 
-    return getNextHopViaLegacyRouting(state, request, currentService);
+    // No valid route found
+    return { action: 'DEAD_END' };
 }
 
 /**
@@ -362,16 +376,19 @@ function getRoutingInfo(serviceType, trafficType) {
 }
 
 /**
- * Get all traffic types a service handles
+ * Get all traffic classes a service handles
+ * 
+ * @param {string} serviceKind - SERVICE_KIND value
+ * @returns {Object|null} { acceptsClasses, blocksClasses, terminalClasses }
  */
-function getServiceTrafficSummary(serviceType) {
-    const def = _getServiceType(serviceType);
+function getServiceTrafficSummary(serviceKind) {
+    const def = _getServiceType(serviceKind);
     if (!def) return null;
     
     return {
-        accepts: def.accepts || [],
-        blocks: def.blocks || [],
-        terminalFor: def.terminalFor || []
+        acceptsClasses: def.acceptsClasses || [],
+        blocksClasses: def.blocksClasses || [],
+        terminalClasses: def.terminalClasses || []
     };
 }
 
@@ -380,6 +397,14 @@ function getServiceTrafficSummary(serviceType) {
  * Call this after placing/removing services or links
  * 
  * @returns {Object} { web: boolean, api: boolean, fraud: boolean, warnings: string[] }
+ * 
+ * @test Should detect loops - packets cycling without reaching terminal (via STP cycle detection)
+ * @test Should detect unreachable terminals - terminal nodes with no path from internet
+ * @test Should detect blocking chains - all paths blocked before reaching terminal
+ * @test Should warn when no WEB terminal (objectStorage) exists or is unreachable
+ * @test Should warn when no API terminal (database) exists or is unreachable
+ * @test Should warn when no FRAUD blocker (WAF/firewall) exists or is unreachable
+ * @test Should warn when user node is directly exposed to internet (MALICIOUS vulnerability)
  */
 function validateTopology() {
     const engine = getEngine();
@@ -397,33 +422,33 @@ function validateTopology() {
     const hasWebPath = internetTargets.some(connId => {
         const node = getServiceEntity(connId);
         if (!node) return false;
-        const nodeDef = _getServiceType(node.type);
+        const nodeDef = _getServiceType(node.kind);
         if (!accepts(nodeDef, 'WEB')) return false;
-        return hasTerminalPathLegacy(node, 'WEB', 6);
+        return hasTerminalPath(node, 'WEB', 6);
     });
     
     // Check API traffic path (needs to reach database)
     const hasApiPath = internetTargets.some(connId => {
         const node = getServiceEntity(connId);
         if (!node) return false;
-        const nodeDef = _getServiceType(node.type);
+        const nodeDef = _getServiceType(node.kind);
         if (!accepts(nodeDef, 'API')) return false;
-        return hasTerminalPathLegacy(node, 'API', 6);
+        return hasTerminalPath(node, 'API', 6);
     });
     
     // Check FRAUD traffic path (needs at least one blocking-capable node)
     const hasFraudBlocker = sim.services.some(svc => {
-        const def = _getServiceType(svc.type);
-        return def?.blocks?.includes('FRAUD');
+        const def = _getServiceType(svc.kind);
+        return isBlocked(def, 'FRAUD');
     });
     
     // Check if fraud blockers are reachable from internet
     const fraudBlockerReachable = hasFraudBlocker && internetTargets.some(connId => {
         const node = getServiceEntity(connId);
         if (!node) return false;
-        const nodeDef = _getServiceType(node.type);
-        if (nodeDef?.blocks?.includes('FRAUD')) return true;
-        return hasPathToBlockerLegacy(node, 'FRAUD', 6);
+        const nodeDef = _getServiceType(node.kind);
+        if (isBlocked(nodeDef, 'FRAUD')) return true;
+        return hasPathToBlocker(node, 'FRAUD', 6);
     });
     
     if (!hasWebPath) {
@@ -440,8 +465,7 @@ function validateTopology() {
 
     const userExposed = sim.services.some(service => {
         if (!service) return false;
-        const def = _getServiceType(service.type);
-        const isUser = def?.key?.toLowerCase?.() === 'user' || String(service.type).toLowerCase() === 'user';
+        const isUser = service.kind === 'USER';
         if (!isUser) return false;
         return getConnectionTargets(service).includes('internet');
     });
@@ -487,7 +511,7 @@ function getMostLoadedService() {
     return mostLoaded ? {
         service: mostLoaded,
         utilization: highestUtil,
-        displayName: _getServiceType(mostLoaded.type)?.label || mostLoaded.type
+        displayName: _getServiceType(mostLoaded.kind)?.label || mostLoaded.kind
     } : null;
 }
 

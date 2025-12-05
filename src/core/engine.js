@@ -22,10 +22,7 @@ function createInitialState(config = {}) {
     const packetIncreaseInterval = typeof config.packetIncreaseInterval === 'number'
         ? config.packetIncreaseInterval
         : 0;
-    const globalRoutingConfig = typeof window !== 'undefined' ? window.CONFIG?.routing : null;
-    const enableStpRouting = typeof config.enableStpRouting === 'boolean'
-        ? config.enableStpRouting
-        : Boolean(globalRoutingConfig?.enableStpRouting);
+    // STP routing is now always enabled (legacy routing removed)
     const internetPosition = {
         x: config.internetPosition?.x ?? -10,
         y: config.internetPosition?.y ?? 0,
@@ -47,7 +44,7 @@ function createInitialState(config = {}) {
         connections: [],
         internetNode: {
             id: 'internet',
-            type: 'internet',
+            kind: 'INTERNET',
             position: { ...internetPosition },
             connections: []
         },
@@ -72,9 +69,6 @@ function createInitialState(config = {}) {
         campaignLevel: config.levelId ?? null,
         scenarioId: config.scenarioId ?? null,
         routing: {
-            featureFlags: {
-                enableStpRouting
-            },
             spanningTree: null,
             topologyRevision: 0
         }
