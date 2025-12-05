@@ -9,7 +9,7 @@ const listConnections = (typeof window !== 'undefined' ? window.ConnectionUtils?
         .filter(Boolean);
 };
 
-const { getServiceType, getCapacityForTier, canUpgrade, getUpgradeCost } = window.ServiceCatalog;
+const { getServiceDef, getCapacityForTier, canUpgrade, getUpgradeCost } = window.ServiceCatalog;
 
 // Module-level engine reference
 let _engine = null;
@@ -129,7 +129,7 @@ export function updateTooltip() {
     if (type === 'service') {
         const svc = sim?.services?.find(s => s.id === id);
         if (svc) {
-            const catalogEntry = getServiceType(svc.kind);
+            const catalogEntry = getServiceDef(svc.kind);
             const displayName = catalogEntry?.label ?? svc.config?.name ?? svc.kind;
             const upkeep = catalogEntry?.upkeepPerTick ?? svc.config?.upkeep ?? 0;
             const processingTime = catalogEntry?.processingTime ?? svc.config?.processingTime ?? 100;
@@ -198,7 +198,7 @@ export function updateTooltip() {
             </div>
         `;
     } else if (type === 'internet') {
-        const catalogEntry = getServiceType('INTERNET');
+        const catalogEntry = getServiceDef('INTERNET');
         const displayName = catalogEntry?.label ?? 'Internet';
         const position = sim?.internetNode?.position ?? { x: 0, y: 0, z: 0 };
         const connectionCount = sim?.internetNode ? listConnections(sim.internetNode).length : 0;

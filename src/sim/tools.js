@@ -36,7 +36,7 @@ const removeConnections = CONNECTION_UTILS.removeConnections || function(node, p
     node.connections = normalized.filter(conn => !predicate(typeof conn === 'string' ? { targetId: conn } : conn));
 };
 
-const { getServiceType } = window.ServiceCatalog;
+const { getServiceDef } = window.ServiceCatalog;
 
 function getEngine() {
     return window.__POP_RUNTIME__?.current?.engine;
@@ -106,7 +106,7 @@ export function createService(arg1, arg2, arg3) {
     const sim = state.simulation || state;
 
     // Use service catalog as single source of truth
-    const catalogEntry = getServiceType(type);
+    const catalogEntry = getServiceDef(type);
     if (!catalogEntry || catalogEntry.drawable === false) return;
     const baseCost = catalogEntry.baseCost;
 
