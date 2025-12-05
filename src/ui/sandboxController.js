@@ -1,4 +1,5 @@
 import { spawnBurstOfType } from '../sim/traffic.js';
+import { TRAFFIC_CLASS } from '../config/packetConfig.js';
 
 let _engine = null;
 
@@ -54,13 +55,13 @@ export function initSandboxControls(engine) {
     // Burst buttons - use CONFIG burstCount
     const burstCount = sandboxConfig.burstCount;
     document.getElementById('sandbox-burst-web')?.addEventListener('click', () => {
-        spawnBurstOfType(state, TRAFFIC_TYPES.WEB, burstCount);
+        spawnBurstOfType(state, TRAFFIC_CLASS.WEB, burstCount);
     });
     document.getElementById('sandbox-burst-api')?.addEventListener('click', () => {
-        spawnBurstOfType(state, TRAFFIC_TYPES.API, burstCount);
+        spawnBurstOfType(state, TRAFFIC_CLASS.API, burstCount);
     });
     document.getElementById('sandbox-burst-fraud')?.addEventListener('click', () => {
-        spawnBurstOfType(state, TRAFFIC_TYPES.FRAUD, burstCount);
+        spawnBurstOfType(state, TRAFFIC_CLASS.FRAUD, burstCount);
     });
     
     // Preset buttons
@@ -89,9 +90,9 @@ function setupTrafficMixSliders(engine, defaultDistribution) {
     
     // Initialize from CONFIG defaults (already normalized 0-1, convert to 0-100)
     const dist = defaultDistribution;
-    if (webSlider) webSlider.value = dist[TRAFFIC_TYPES.WEB] * 100;
-    if (apiSlider) apiSlider.value = dist[TRAFFIC_TYPES.API] * 100;
-    if (fraudSlider) fraudSlider.value = dist[TRAFFIC_TYPES.FRAUD] * 100;
+    if (webSlider) webSlider.value = dist[TRAFFIC_CLASS.WEB] * 100;
+    if (apiSlider) apiSlider.value = dist[TRAFFIC_CLASS.API] * 100;
+    if (fraudSlider) fraudSlider.value = dist[TRAFFIC_CLASS.FRAUD] * 100;
     
     // Update display values
     function updateDisplay() {
@@ -107,9 +108,9 @@ function setupTrafficMixSliders(engine, defaultDistribution) {
         const total = web + api + fraud;
         if (total > 0) {
             engine.setTrafficDistribution({
-                [TRAFFIC_TYPES.WEB]: web / total,
-                [TRAFFIC_TYPES.API]: api / total,
-                [TRAFFIC_TYPES.FRAUD]: fraud / total
+                [TRAFFIC_CLASS.WEB]: web / total,
+                [TRAFFIC_CLASS.API]: api / total,
+                [TRAFFIC_CLASS.FRAUD]: fraud / total
             });
         }
     }
@@ -179,18 +180,18 @@ function applyPreset(engine, presetKey) {
     const apiSlider = document.getElementById('sandbox-mix-api');
     const fraudSlider = document.getElementById('sandbox-mix-fraud');
     
-    if (webSlider) webSlider.value = preset.distribution[TRAFFIC_TYPES.WEB] * 100;
-    if (apiSlider) apiSlider.value = preset.distribution[TRAFFIC_TYPES.API] * 100;
-    if (fraudSlider) fraudSlider.value = preset.distribution[TRAFFIC_TYPES.FRAUD] * 100;
+    if (webSlider) webSlider.value = preset.distribution[TRAFFIC_CLASS.WEB] * 100;
+    if (apiSlider) apiSlider.value = preset.distribution[TRAFFIC_CLASS.API] * 100;
+    if (fraudSlider) fraudSlider.value = preset.distribution[TRAFFIC_CLASS.FRAUD] * 100;
     
     // Update display values
     const webValue = document.getElementById('sandbox-mix-web-value');
     const apiValue = document.getElementById('sandbox-mix-api-value');
     const fraudValue = document.getElementById('sandbox-mix-fraud-value');
     
-    if (webValue) webValue.textContent = Math.round(preset.distribution[TRAFFIC_TYPES.WEB] * 100) + '%';
-    if (apiValue) apiValue.textContent = Math.round(preset.distribution[TRAFFIC_TYPES.API] * 100) + '%';
-    if (fraudValue) fraudValue.textContent = Math.round(preset.distribution[TRAFFIC_TYPES.FRAUD] * 100) + '%';
+    if (webValue) webValue.textContent = Math.round(preset.distribution[TRAFFIC_CLASS.WEB] * 100) + '%';
+    if (apiValue) apiValue.textContent = Math.round(preset.distribution[TRAFFIC_CLASS.API] * 100) + '%';
+    if (fraudValue) fraudValue.textContent = Math.round(preset.distribution[TRAFFIC_CLASS.FRAUD] * 100) + '%';
     
     // Flash the preset button
     const btn = document.querySelector(`[data-preset="${presetKey}"]`);

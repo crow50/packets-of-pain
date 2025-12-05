@@ -215,7 +215,7 @@ export function createInputController({ container }) {
             } else if (intersect.type === 'service') {
                 // Check if clicking on upgradeable service with matching tool
                 const service = services.find(s => s.id === intersect.id);
-                if (service && service.type === activeTool) {
+                if (service && service.kind === activeTool) {
                     // Attempt upgrade
                     engine?.upgradeService(intersect.id);
                 }

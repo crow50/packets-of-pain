@@ -1,7 +1,9 @@
 import { showGameOverModal, hideGameOverModal } from "./hudController.js";
 import { getLevelsForDomain } from "../config/campaign/index.js";
 
-const TRAFFIC_TYPES = (typeof window !== "undefined" && window.TRAFFIC_TYPES) ? window.TRAFFIC_TYPES : {};
+// Get TRAFFIC_CLASS and PACKET_PHASE from window (loaded via packetConfig.js)
+const TRAFFIC_CLASS = (typeof window !== "undefined" && window.TRAFFIC_CLASS) ? window.TRAFFIC_CLASS : {};
+const PACKET_PHASE = (typeof window !== "undefined" && window.PACKET_PHASE) ? window.PACKET_PHASE : {};
 
 const WIN_OBJECTIVES = {
     baby1_packets_10s: {
@@ -181,8 +183,9 @@ function getNextLevelId(level) {
 
 function handleRequestFinished(payload) {
     if (!payload || levelState.status !== 'armed') return;
-    const inboundType = TRAFFIC_TYPES?.INBOUND || 'INBOUND';
-    if (payload.type === inboundType) {
+    // Check for response phase (new model) or legacy INBOUND type
+    const isResponse = payload.phase === PACKET_PHASE?.RESPONSE || payload.type === 'INBOUND';
+    if (isResponse) {
         const simTime = engineRef?.getSimulation?.()?.time ?? levelState.progress.lastInboundTime;
         levelState.progress.lastInboundTime = simTime;
         levelState.progress.inboundDelivered += 1;
