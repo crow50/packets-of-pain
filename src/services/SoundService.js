@@ -149,3 +149,7 @@ class SoundService {
         });
     }
 }
+
+if (typeof window !== 'undefined' && !window.SoundService) {
+    window.SoundService = SoundService;
+}
