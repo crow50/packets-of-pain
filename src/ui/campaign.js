@@ -53,13 +53,13 @@ export function spawnNodeFromConfig(nodeConfig) {
     }
 
     const catalog = window.ServiceCatalog;
-    const catalogEntry = catalog?.getServiceType?.(nodeConfig.type);
+    const catalogEntry = catalog?.getServiceDef?.(nodeConfig.type);
     if (!catalogEntry) {
         console.warn('[Campaign] Unknown preplaced node type:', nodeConfig.type);
         return null;
     }
 
-    const runtimeType = catalogEntry.key || typeKey;
+    const runtimeType = catalogEntry.kind || typeKey;
     const service = new Service(runtimeType, nodeConfig.position || { x: 0, y: 0, z: 0 });
     if (nodeConfig.id) {
         service.id = nodeConfig.id;
@@ -78,11 +78,11 @@ export function spawnNodeFromConfig(nodeConfig) {
     const lockPosition = nodeConfig.lockPosition ?? nodeConfig.locked;
     service.positionLocked = lockPosition !== undefined
         ? Boolean(lockPosition)
-        : service.type === 'user';
+        : service.kind === 'USER';
     sim.services.push(service);
     engine.emit?.('serviceAdded', {
         serviceId: service.id,
-        type: service.type,
+        kind: service.kind,
         position: toPlainPosition(service.position),
         preplaced: true
     });

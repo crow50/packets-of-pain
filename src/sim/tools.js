@@ -121,7 +121,7 @@ export function createService(arg1, arg2, arg3) {
     sim.services.push(serviceEntity);
     emit('serviceAdded', {
         serviceId: serviceEntity.id,
-        type: serviceEntity.type,
+        kind: serviceEntity.kind,
         position: toPlainPosition(serviceEntity.position)
     });
     

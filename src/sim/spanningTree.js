@@ -182,13 +182,15 @@ export function buildSpanningTree(simulation) {
     };
 }
 
+/**
+ * @deprecated STP is now always enabled - this function always returns true
+ * Kept for backward compatibility
+ * 
+ * @test Should always return true (STP always enabled)
+ * @test Legacy code paths checking this flag should still work
+ */
 function shouldBuild(state) {
-    const flag = state?.simulation?.routing?.featureFlags?.enableStpRouting;
-    if (typeof flag === 'boolean') {
-        return flag;
-    }
-    const globalConfig = typeof window !== 'undefined' ? window.CONFIG : null;
-    return Boolean(globalConfig?.routing?.enableStpRouting);
+    return true;
 }
 
 function ensureRoutingState(state) {
@@ -197,9 +199,6 @@ function ensureRoutingState(state) {
     }
     if (!state.simulation.routing) {
         state.simulation.routing = {
-            featureFlags: {
-                enableStpRouting: shouldBuild(state)
-            },
             spanningTree: null,
             topologyRevision: 0
         };

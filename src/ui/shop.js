@@ -2,14 +2,14 @@ import { getLevelById } from "../config/campaign/index.js";
 import { applyToolbarWhitelist, getCurrentToolbarWhitelist } from "./toolbarController.js";
 import { loadIcon } from "../services/AssetService.js";
 
-const { getServiceType, SHOP_ORDER } = window.ServiceCatalog;
+const { getServiceDef, SHOP_ORDER } = window.ServiceCatalog;
 const SHOP_DEFAULT_ORDER = SHOP_ORDER;
-const CAMPAIGN_HUB_SHOP_ORDER = ['modem', 'firewall'];
-const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['modem'];
+const CAMPAIGN_HUB_SHOP_ORDER = ['MODEM', 'FIREWALL'];
+const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['MODEM'];
 
 export function buildShopButton(type) {
     // Use service catalog as single source of truth
-    const catalogEntry = getServiceType(type);
+    const catalogEntry = getServiceDef(type);
     if (!catalogEntry || catalogEntry.drawable === false) return null;
     
     // Get display properties from catalog
