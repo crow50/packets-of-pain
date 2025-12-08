@@ -1,3 +1,6 @@
+import { getMostLoadedService } from "../core/routing.js";
+import { restartGame } from "../gameCore.js";
+
 // Module-level engine reference, set via init()
 let _engine = null;
 
@@ -144,7 +147,7 @@ function updateBottleneckDisplay() {
     const barEl = document.getElementById('bottleneck-bar');
     if (!container || !nameEl || !barEl) return;
     
-    const mostLoaded = window.Routing?.getMostLoadedService?.();
+    const mostLoaded = getMostLoadedService(_engine?.getState?.());
     
     if (!mostLoaded || mostLoaded.utilization < 0.1) {
         container.classList.add('hidden');
@@ -188,7 +191,7 @@ export function showGameOverModal(copy, actions) {
         actionsEl.innerHTML = '';
         const defaultActions = [{
             label: 'Try Again',
-            onClick: () => window.restartGame?.()
+            onClick: () => restartGame()
         }];
         const buttonDefs = Array.isArray(actions) && actions.length ? actions : defaultActions;
         buttonDefs.forEach(action => {

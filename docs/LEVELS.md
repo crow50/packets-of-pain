@@ -4,7 +4,7 @@ Campaign levels now live entirely under `src/config/campaign/` so the UI, shop, 
 
 ## Structure
 
-- **Domain files** (`domain-*.js`) describe a networking domain or "world" (e.g., Baby's First Network). Each domain exports metadata (id, title, subtitle, description) plus a `DOMAIN_..._LEVELS` array that lists every level belonging to that domain.
+- **Domain files** (`domain-*.js`) describe a networking domain or "world" (e.g., Baby's First Network). Each domain exports a metadata object named `DOMAIN_<UPPER_SNAKE_NAME>` (matching the file slug) plus a `DOMAIN_<UPPER_SNAKE_NAME>_LEVELS` array that lists every level belonging to that domain. Keep this naming scheme in sync with the file name so the campaign registry can build `CAMPAIGN_DOMAINS`/`CAMPAIGN_LEVELS` automatically.
 - **Level entries** are plain objects with fields such as `id`, `domainId`, `title`, `subtitle`, `description`, `startingBudget`, `toolbarWhitelist`, `trafficProfile`, `internetPosition`, `preplacedNodes`, `instructions`, `winConditionId`, and `failConditionId`. These objects mirror the old `LEVELS` entries and may include domain-specific helpers or tooling hints as needed.
 	- `internetPosition` is optional; when provided it overrides the engine's default `{ x: -10, y: 0, z: 0 }` spawn point so packets (and the Internet mesh) appear where the scenario expects (e.g., far left/right, offset vertically for special events). Sandbox and survival configs can also pass this field through the runtime when they need custom ingress positions.
 	- `tutorial` (optional) activates the HUD tutorial brain for a level. See “Tutorial Blocks” below for schema details.

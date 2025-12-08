@@ -1,45 +1,17 @@
 import Service from "../entities/Service.js";
 import { distance, toPlainPosition } from "./vectorUtils.js";
+import { DEFAULT_LINK_COST, upgradeConnectionFormat, createConnectionObject, hasConnection, removeConnections } from "./connectionUtils.js";
+import { getServiceDef } from "../config/serviceCatalog.js";
+import { validateTopology } from "../core/routing.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
 
-const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
-const DEFAULT_LINK_COST = CONNECTION_UTILS.DEFAULT_LINK_COST ?? 10;
-
-const upgradeConnectionFormat = CONNECTION_UTILS.upgradeConnectionFormat || function(node) {
-    if (!node) return [];
-    if (!Array.isArray(node.connections)) {
-        node.connections = [];
-    }
-    return node.connections;
-};
-
-const createConnectionObject = CONNECTION_UTILS.createConnectionObject || function(targetId, overrides = {}) {
-    if (!targetId) return null;
-    return {
-        targetId,
-        bidirectional: overrides.bidirectional !== false,
-        linkCost: typeof overrides.linkCost === 'number' ? overrides.linkCost : DEFAULT_LINK_COST,
-        portRole: overrides.portRole || 'designated',
-        active: overrides.active !== false,
-        linkId: overrides.linkId
-    };
-};
-
-const hasConnection = CONNECTION_UTILS.hasConnection || function(node, targetId) {
-    if (!node || !targetId) return false;
-    const connections = Array.isArray(node.connections) ? node.connections : [];
-    return connections.some(conn => (typeof conn === 'string' ? conn === targetId : conn?.targetId === targetId));
-};
-
-const removeConnections = CONNECTION_UTILS.removeConnections || function(node, predicate) {
-    if (!node || typeof predicate !== 'function') return;
-    const normalized = Array.isArray(node.connections) ? node.connections : [];
-    node.connections = normalized.filter(conn => !predicate(typeof conn === 'string' ? { targetId: conn } : conn));
-};
-
-const { getServiceDef } = window.ServiceCatalog;
+let toolsEngine = null;
+export function attachToolsEngine(engine) {
+    toolsEngine = engine;
+}
 
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return toolsEngine || getRuntimeEngine();
 }
 
 function resolveState(arg) {
@@ -92,8 +64,6 @@ function flashMoney() {
 
 export { flashMoney };
 
-window.flashMoney = flashMoney;
-
 export function createService(arg1, arg2, arg3) {
     // Overload: createService(type, pos) OR createService(state, type, pos)
     const hasState = arg1 && (arg1.simulation || arg1.ui);
@@ -126,7 +96,7 @@ export function createService(arg1, arg2, arg3) {
     });
     
     // Validate topology after adding service
-    window.Routing?.validateTopology?.();
+    validateTopology(state);
 }
 
 export function createConnection(arg1, arg2, arg3, arg4) {
@@ -180,7 +150,7 @@ export function createConnection(arg1, arg2, arg3, arg4) {
     emit('connectionCreated', { linkId, from: fromId, to: toId, bidirectional });
     
     // Validate topology after adding connection
-    window.Routing?.validateTopology?.();
+    validateTopology(state);
 }
 
 export function deleteLink(arg1, arg2) {
@@ -207,7 +177,7 @@ export function deleteLink(arg1, arg2) {
     emit('connectionDeleted', { linkId: link.id });
     
     // Validate topology after removing connection
-    window.Routing?.validateTopology?.();
+    validateTopology(state);
 }
 
 export function deleteObject(arg1, arg2) {
@@ -231,5 +201,5 @@ export function deleteObject(arg1, arg2) {
     emit('serviceRemoved', { serviceId: id });
     
     // Validate topology after removing service
-    window.Routing?.validateTopology?.();
+    validateTopology(state);
 }

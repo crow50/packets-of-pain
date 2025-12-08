@@ -1,5 +1,8 @@
 import { setSandboxShop } from "./shop.js";
 import { GAME_MODES } from "../modes/constants.js";
+import { setTool } from "../sim/tools.js";
+import { getMenuSound } from "../gameCore.js";
+import { hideCampaignLevels } from "./campaign.js";
 
 const CAMPAIGN_INTRO_OBJECTIVES = [
     { text: "Choose the tutorial level to begin Baby's First Network.", colorClass: 'bg-blue-500', pulse: true },
@@ -196,7 +199,13 @@ function setOverlayState(el, isActive) {
 
 export function setHUDMode(mode) {
     const sandboxPanel = document.getElementById('sandbox-panel');
+    const campaignPanel = document.getElementById('campaign-panel');
+    const scenariosPanel = document.getElementById('scenarios-panel');
+
     if (sandboxPanel) sandboxPanel.classList.toggle('hidden', mode !== 'sandbox');
+    if (campaignPanel) campaignPanel.classList.toggle('hidden', mode !== 'campaign');
+    if (scenariosPanel) scenariosPanel.classList.toggle('hidden', mode !== 'scenarios');
+
     syncObjectivePanels();
 }
 
@@ -220,6 +229,7 @@ export function showView(viewName) {
     const sandboxEl = document.getElementById('game-ui');
     const campaignHubEl = document.getElementById('campaign-hub');
     const menuEl = document.getElementById('main-menu-modal');
+    const scenariosModal = document.getElementById('scenarios-modal');
     if (!sandboxEl || !campaignHubEl || !menuEl) return;
 
     const isGameView = ['sandbox', 'campaign', 'scenarios'].includes(viewName);
@@ -228,8 +238,14 @@ export function showView(viewName) {
     setOverlayState(campaignHubEl, viewName === 'campaign-hub');
     setOverlayState(menuEl, viewName === 'main-menu');
 
+    // Always hide the scenarios browser unless explicitly in scenarios mode
+    if (scenariosModal && viewName !== 'scenarios') {
+        scenariosModal.classList.add('hidden');
+        scenariosModal.style.pointerEvents = 'none';
+    }
+
     if (viewName !== 'campaign-hub') {
-        window.hideCampaignLevels?.();
+        hideCampaignLevels();
     }
 
     if (viewName === 'campaign') {
@@ -245,9 +261,8 @@ export function showView(viewName) {
     currentView = viewName;
 }
 
-export function showMainMenu() {
-    const engine = window.__POP_RUNTIME__?.current?.engine;
-    const sound = engine?.getUIState()?.sound || window.__menuSound;
+export function showMainMenu(engine) {
+    const sound = engine?.getUIState?.()?.sound || getMenuSound();
     if (sound) {
         if (!sound.ctx) sound.init();
         sound.playMenuBGM?.();
@@ -259,7 +274,8 @@ export function showMainMenu() {
     document.getElementById('faq-modal')?.classList.add('hidden');
     document.getElementById('modal')?.classList.add('hidden');
     showView('main-menu');
-    window.setTool('select');
+    // Reset toolbar selection when showing main menu
+    setTool('select');
 }
 
 export function showFAQ(source = 'menu') {

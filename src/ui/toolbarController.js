@@ -1,11 +1,16 @@
+import { setTool } from "../sim/tools.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
+
 function normalizeToolbarList(list = []) {
     if (!Array.isArray(list)) return [];
     return list.map(item => typeof item === 'string' ? item.toLowerCase() : item);
 }
 
+let toolbarEngine = null;
+
 // Helper to get engine reference
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return toolbarEngine || getRuntimeEngine();
 }
 
 let currentWhitelist = [];
@@ -18,7 +23,7 @@ function handleToolbarButtonClick(event) {
     if (!button || button.disabled) return;
     const toolId = button.dataset.toolId;
     if (!toolId) return;
-    window.setTool?.(toolId);
+    setTool(toolId);
 }
 
 function bindToolbarButtons() {
@@ -98,7 +103,7 @@ export function applyToolbarWhitelist(list = []) {
     });
 
     if (normalized.length === 0) return;
-    const currentTool = window.__POP_RUNTIME__?.current?.engine?.getUIState()?.activeTool?.toLowerCase?.();
+    const currentTool = getEngine()?.getUIState()?.activeTool?.toLowerCase?.();
     const currentAllowed = currentTool ? allowedToolIds.has(currentTool) : false;
     if (currentAllowed) return;
 
@@ -109,18 +114,17 @@ export function applyToolbarWhitelist(list = []) {
         const iterator = allowedToolIds.values().next();
         fallbackTool = iterator?.value || 'select';
     }
-    if (fallbackTool && typeof window.setTool === 'function') {
-        window.setTool(fallbackTool);
+    if (fallbackTool) {
+        setTool(fallbackTool);
     }
 }
-
-window.applyToolbarWhitelist = applyToolbarWhitelist;
 
 export function getCurrentToolbarWhitelist() {
     return [...currentWhitelist];
 }
 
-export function initToolbarController() {
+export function initToolbarController(engine) {
+    toolbarEngine = engine || toolbarEngine;
     bindToolbarButtons();
     initDirectionToggle();
 }

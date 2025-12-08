@@ -1,5 +1,5 @@
-import { BABYS_FIRST_NETWORK_DOMAIN } from "./domain-babys-first.js";
+import { DOMAIN_BABYS_FIRST_NETWORK } from "./domain-babys-first-network.js";
 
 export const CAMPAIGN_DOMAINS = [
-	BABYS_FIRST_NETWORK_DOMAIN
+	DOMAIN_BABYS_FIRST_NETWORK
 ];

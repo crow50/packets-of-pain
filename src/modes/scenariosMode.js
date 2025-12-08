@@ -2,7 +2,7 @@ import { GAME_MODES } from "./constants.js";
 import { resetGame } from "../gameCore.js";
 import { setModeBehaviors, resetModeBehaviors } from "./modeBehaviors.js";
 import { campaignTrafficSourceBehavior } from "./trafficBehaviors.js";
-import { loadScenarioSession, openScenariosBrowser } from "../ui/scenariosController.js";
+import { loadScenarioSession, openScenariosBrowser, initScenariosEngine } from "../ui/scenariosController.js";
 import { showScenarioPanel } from "../ui/hud.js";
 
 export const ScenariosModeController = {
@@ -10,7 +10,8 @@ export const ScenariosModeController = {
     init({ engine, modeConfig } = {}) {
         console.info('[Scenarios] Initializing scenario mode', modeConfig);
         const scenarioId = modeConfig?.scenarioId || null;
-        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        initScenariosEngine(engine);
+        const eng = engine;
         eng?.setActiveMode?.(GAME_MODES.SCENARIOS);
         eng?.setScenarioId?.(scenarioId);
         resetGame(GAME_MODES.SCENARIOS);
@@ -30,7 +31,7 @@ export const ScenariosModeController = {
     },
     teardown({ engine } = {}) {
         resetModeBehaviors();
-        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        const eng = engine;
         eng?.setScenarioId?.(null);
         showScenarioPanel(false);
     },

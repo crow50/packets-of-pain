@@ -8,7 +8,7 @@
  * This file now references TRAFFIC_CLASS from that module.
  */
 
-const CONFIG = {
+export const CONFIG = {
     packetIncreaseInterval: 0.1,
     gridSize: 30,
     tileSize: 4,
@@ -81,12 +81,4 @@ const CONFIG = {
     }
 };
 
-// Expose globally
-if (typeof window !== 'undefined') {
-    window.CONFIG = CONFIG;
-    
-    // GameConfig namespace for cleaner access
-    window.GameConfig = {
-        CONFIG
-    };
-}
+export default CONFIG;

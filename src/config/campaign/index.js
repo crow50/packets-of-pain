@@ -1,12 +1,12 @@
 // src/config/campaign/index.js
 
 import { CAMPAIGN_DOMAINS } from "./domains.js";
-import { DOMAIN_BABYS_FIRST_LEVELS } from "./domain-babys-first.js";
+import { DOMAIN_BABYS_FIRST_NETWORK_LEVELS } from "./domain-babys-first-network.js";
 
 export { CAMPAIGN_DOMAINS };
 
 export const CAMPAIGN_LEVELS = [
-  ...DOMAIN_BABYS_FIRST_LEVELS,
+  ...DOMAIN_BABYS_FIRST_NETWORK_LEVELS,
 ];
 
 const DOMAIN_CACHE = new Map(CAMPAIGN_DOMAINS.map(domain => [domain.id, domain]));

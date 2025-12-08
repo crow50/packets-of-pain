@@ -1,9 +1,8 @@
 import { showGameOverModal, hideGameOverModal } from "./hudController.js";
 import { getLevelsForDomain } from "../config/campaign/index.js";
-
-// Get TRAFFIC_CLASS and PACKET_PHASE from window (loaded via packetConfig.js)
-const TRAFFIC_CLASS = (typeof window !== "undefined" && window.TRAFFIC_CLASS) ? window.TRAFFIC_CLASS : {};
-const PACKET_PHASE = (typeof window !== "undefined" && window.PACKET_PHASE) ? window.PACKET_PHASE : {};
+import { setTimeScale } from "../sim/economy.js";
+import { TRAFFIC_CLASS, PACKET_PHASE } from "../config/packetConfig.js";
+import { resetLevel, exitLevelToCampaignHub, startCampaignLevel as startCampaignLevelNavigation } from "./campaign.js";
 
 const WIN_OBJECTIVES = {
     baby1_packets_10s: {
@@ -262,9 +261,7 @@ export function updateLevelConditions(engine) {
 
 function pauseSimulation() {
     engineRef?.setRunning(false);
-    if (typeof window.setTimeScale === 'function') {
-        window.setTimeScale(0);
-    }
+    setTimeScale(0);
 }
 
 function triggerVictory() {
@@ -292,14 +289,14 @@ function triggerFailure() {
             label: 'Try Again',
             onClick: () => {
                 hideGameOverModal();
-                window.resetLevel?.();
+                resetLevel();
             }
         },
         {
             label: 'Return Home',
             onClick: () => {
                 hideGameOverModal();
-                window.exitLevelToCampaignHub?.();
+                exitLevelToCampaignHub();
             }
         }
     ];
@@ -312,14 +309,14 @@ function buildVictoryActions() {
         label: 'Domain Menu',
         onClick: () => {
             hideGameOverModal();
-            window.exitLevelToCampaignHub?.();
+            exitLevelToCampaignHub();
         }
     });
     actions.push({
         label: 'Restart Level',
         onClick: () => {
             hideGameOverModal();
-            window.resetLevel?.();
+            resetLevel();
         }
     });
     if (levelState.nextLevelId) {
@@ -327,7 +324,7 @@ function buildVictoryActions() {
             label: 'Next Level',
             onClick: () => {
                 hideGameOverModal();
-                window.POP?.startCampaignLevel?.(levelState.nextLevelId);
+                startCampaignLevelNavigation(levelState.nextLevelId);
             }
         });
     }

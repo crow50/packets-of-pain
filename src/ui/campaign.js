@@ -20,10 +20,15 @@ import Service from "../entities/Service.js";
 import { copyPosition, toPlainPosition, toPosition } from "../sim/vectorUtils.js";
 import { linkInternetMesh } from "../render/scene.js";
 import { GAME_MODES } from "../modes/constants.js";
+import { validateTopology } from "../core/routing.js";
+import { getServiceDef, getCapacityForTier } from "../config/serviceCatalog.js";
+import { setTimeScale } from "../sim/economy.js";
+import { resetSimulationState, returnToMainMenu } from "../gameCore.js";
+import { startCampaignLevel as startCampaignLevelNavigation } from "./navigation.js";
 
-// Helper to get engine reference
-function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+let campaignEngine = null;
+export function initCampaignEngine(engine) {
+    campaignEngine = engine;
 }
 
 const BABY_DOMAIN_ID = "babys-first-network";
@@ -36,7 +41,7 @@ export { GAME_MODES };
 
 export function spawnNodeFromConfig(nodeConfig) {
     if (!nodeConfig || !nodeConfig.type) return null;
-    const engine = window.__POP_RUNTIME__?.current?.engine;
+    const engine = campaignEngine;
     const sim = engine?.getSimulation?.();
     if (!engine || !sim) {
         console.warn('[Campaign] Unable to spawn node, missing engine or simulation state.');
@@ -52,8 +57,7 @@ export function spawnNodeFromConfig(nodeConfig) {
         return sim.internetNode;
     }
 
-    const catalog = window.ServiceCatalog;
-    const catalogEntry = catalog?.getServiceDef?.(nodeConfig.type);
+    const catalogEntry = getServiceDef(nodeConfig.type);
     if (!catalogEntry) {
         console.warn('[Campaign] Unknown preplaced node type:', nodeConfig.type);
         return null;
@@ -65,8 +69,8 @@ export function spawnNodeFromConfig(nodeConfig) {
         service.id = nodeConfig.id;
     }
 
-    if (Number.isFinite(nodeConfig.tier) && nodeConfig.tier > 1 && catalog?.getCapacityForTier) {
-        const tierCapacity = catalog.getCapacityForTier(runtimeType, nodeConfig.tier);
+    if (Number.isFinite(nodeConfig.tier) && nodeConfig.tier > 1) {
+        const tierCapacity = getCapacityForTier(runtimeType, nodeConfig.tier);
         if (tierCapacity) {
             service.tier = nodeConfig.tier;
             service.config.capacity = tierCapacity;
@@ -86,7 +90,7 @@ export function spawnNodeFromConfig(nodeConfig) {
         position: toPlainPosition(service.position),
         preplaced: true
     });
-    window.Routing?.validateTopology?.();
+    validateTopology(engine.getState());
     return service;
 }
 
@@ -106,7 +110,7 @@ function setLevelInstructions(instructions = []) {
 }
 
 function setCurrentLevelContext(levelId) {
-    getEngine()?.setCampaignLevel(levelId);
+    campaignEngine?.setCampaignLevel?.(levelId);
 }
 
 function resolveTopologyGuidance(level) {
@@ -122,11 +126,11 @@ function resolveTopologyGuidance(level) {
 }
 
 function setTopologyGuidanceFromLevel(level) {
-    getEngine()?.setTopologyGuidance(resolveTopologyGuidance(level));
+    campaignEngine?.setTopologyGuidance?.(resolveTopologyGuidance(level));
 }
 
 function clearTopologyGuidance() {
-    getEngine()?.setTopologyGuidance([]);
+    campaignEngine?.setTopologyGuidance?.([]);
 }
 
 function setCampaignLevelObjectives(levelId) {
@@ -188,7 +192,7 @@ export function renderCampaignLevels() {
         `;
         btn.addEventListener('click', () => {
             if (!unlocked) return;
-            window.POP?.startCampaignLevel?.(level.id);
+            startCampaignLevelNavigation(level.id);
         });
         list.appendChild(btn);
     });
@@ -218,7 +222,7 @@ const CAMPAIGN_LEVELS_BACK_BUTTON_ID = 'campaign-levels-back-btn';
 function bindCampaignHubButtons() {
     const backBtn = document.getElementById(CAMPAIGN_HUB_BACK_BUTTON_ID);
     backBtn?.addEventListener('click', () => {
-        window.returnToMainMenu?.();
+        returnToMainMenu();
     });
 
     const viewLevelsBtn = document.getElementById(CAMPAIGN_HUB_VIEW_LEVELS_BUTTON_ID);
@@ -232,7 +236,10 @@ function bindCampaignHubButtons() {
     });
 }
 
-export function initCampaignHubControls() {
+export function initCampaignHubControls(engine) {
+    if (engine) {
+        initCampaignEngine(engine);
+    }
     bindCampaignHubButtons();
 }
 
@@ -243,9 +250,9 @@ export function loadLevelConfig(levelId) {
         return;
     }
 
-    window.resetSimulationState?.();
+    resetSimulationState();
     // Ensure campaign levels start paused so player can build
-    window.setTimeScale?.(0);
+    setTimeScale(0);
     
     if (level.preplacedNodes) level.preplacedNodes.forEach(spawnNodeFromConfig);
     applyToolbarWhitelist(level.toolbarWhitelist);
@@ -261,7 +268,7 @@ export function loadLevelConfig(levelId) {
     setTopologyGuidanceFromLevel(level);
     setShopForLevel(levelId);
     setCampaignLevelObjectives(levelId);
-    const engine = window.__POP_RUNTIME__?.current?.engine;
+    const engine = campaignEngine;
     stopTutorial();
     configureTutorial(level, engine);
     configureLevelConditions(level);
@@ -285,7 +292,7 @@ export function startCampaignLevel(levelId) {
         return;
     }
     // Note: setActiveMode is handled by modeManager when switching modes
-    getEngine()?.setCampaignLevel(levelId);
+    campaignEngine?.setCampaignLevel?.(levelId);
     setTopologyGuidanceFromLevel(level);
     setModeUIActive(GAME_MODES.CAMPAIGN);
     showLevelInstructionsPanel(true);
@@ -296,7 +303,7 @@ export function startCampaignLevel(levelId) {
 }
 
 export function resetLevel() {
-    const engine = getEngine();
+    const engine = campaignEngine;
     if (engine?.getActiveMode() !== GAME_MODES.CAMPAIGN) return;
     const levelId = engine?.getCampaignLevel();
     if (!levelId) return;
@@ -304,7 +311,7 @@ export function resetLevel() {
 }
 
 export function exitLevelToCampaignHub() {
-    const engine = getEngine();
+    const engine = campaignEngine;
     if (engine?.getActiveMode() !== GAME_MODES.CAMPAIGN) return;
     // Note: setActiveMode is handled by modeManager when switching modes
     engine?.setCampaignLevel(null);
@@ -312,7 +319,7 @@ export function exitLevelToCampaignHub() {
     stopTutorial();
     resetLevelConditions();
     setModeUIActive(GAME_MODES.CAMPAIGN);
-    window.resetSimulationState?.();
+    resetSimulationState();
     setTrafficProfile(null);
     showLevelInstructionsPanel(false);
     setCampaignIntroObjectives();
@@ -336,6 +343,7 @@ function bindCampaignPanelButtons() {
     });
 }
 
-export function initCampaignControls() {
+export function initCampaignControls(engine) {
+    initCampaignEngine(engine);
     bindCampaignPanelButtons();
 }

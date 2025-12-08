@@ -1,4 +1,4 @@
-import { initGame } from "./gameCore.js";
+import { initGame, resetSimulationState } from "./gameCore.js";
 import { createEngine } from "./core/engine.js";
 import { createLoop } from "./core/loop.js";
 import {
@@ -31,6 +31,12 @@ import { initScenariosController } from "./ui/scenariosController.js";
 import { init as initGameOverController, teardown as teardownGameOverController } from "./ui/gameOverController.js";
 import { initModeManager, switchToMode, restartCurrentMode as mgrRestartCurrentMode, teardownModeManager } from "./core/modeManager.js";
 import { initSpanningTreeManager } from "./sim/spanningTree.js";
+import { CONFIG } from "./config/gameConfig.js";
+import { attachToolsEngine } from "./sim/tools.js";
+import { attachEconomyEngine } from "./sim/economy.js";
+import { attachTrafficEngine } from "./sim/traffic.js";
+import { setRuntimeEngine, clearRuntimeEngine, setRuntime as setRuntimeHandle } from "./utils/runtime.js";
+import { getMenuSound } from "./gameCore.js";
 
 function renderScene() {
     syncRenderState();
@@ -119,11 +125,16 @@ function createRuntime() {
             resetCamera();
 
             const engineConfig = buildEngineConfig(normalizedConfig);
-            const engine = createEngine(engineConfig);
+            const engine = createEngine({ ...engineConfig, resetSimulationState });
+            attachToolsEngine(engine);
+            attachEconomyEngine(engine);
+            attachTrafficEngine(engine);
+            setRuntimeEngine(engine);
             
             // Use shared sound service from menu (preserves mute state)
-            if (window.__menuSound) {
-                engine.setSoundService(window.__menuSound);
+            const menuSound = getMenuSound();
+            if (menuSound) {
+                engine.setSoundService(menuSound);
             }
             
             // Initialize modules with engine reference (removes global reach-through)
@@ -135,6 +146,10 @@ function createRuntime() {
             initRenderManagers(engine);
             initToolSync(engine);
             initLevelConditions(engine);
+            initCampaignControls(engine);
+            initCampaignHubControls(engine);
+            initScenariosController(engine);
+            initToolbarController(engine);
             
             // Link the internet mesh to engine's internetNode after both exist
             linkInternetMesh(engine.getSimulation()?.internetNode);
@@ -165,6 +180,8 @@ function createRuntime() {
             disposeToolSync();
             disposeRenderManagers();
             disposeScene();
+            clearRuntimeEngine();
+            setRuntimeHandle(null);
             this.current = null;
             disposeLevelConditions();
         },
@@ -183,17 +200,14 @@ export function bootstrap() {
     initMainMenuButtons();
     initWarningsPill();
     initTutorialController();
-    initCampaignControls();
-    initCampaignHubControls();
-    initToolbarController();
     initTimeControls();
-    initScenariosController();
+    // Bind static campaign hub buttons early (engine injected when mode starts)
+    initCampaignHubControls();
     const runtime = createRuntime();
 
     // Initialize mode manager with runtime reference
     initModeManager(runtime);
-
-    window.__POP_RUNTIME__ = runtime;
+    setRuntimeHandle(runtime);
 
     function popStartSandbox() {
         switchToMode(GAME_MODES.SANDBOX, {
@@ -204,40 +218,6 @@ export function bootstrap() {
     function popStartCampaignLevel(levelId) {
         switchToMode(GAME_MODES.CAMPAIGN, { levelId });
     }
-
-    function popStartScenario(scenarioId) {
-        const scenario = getScenarioById(scenarioId);
-        if (!scenario) {
-            console.error('[Scenarios] Unknown scenario id', scenarioId);
-            return;
-        }
-        switchToMode(GAME_MODES.SCENARIOS, {
-            scenarioId: scenario.id,
-            scenarioConfig: scenario,
-            startBudget: typeof scenario.startingBudget === 'number' ? scenario.startingBudget : undefined,
-            packetIncreaseInterval: typeof scenario.packetIncreaseInterval === 'number' ? scenario.packetIncreaseInterval : undefined,
-            trafficProfile: scenario.trafficProfile || null,
-            internetPosition: scenario.internetPosition || undefined
-        });
-    }
-
-    window.POP = {
-        startSandbox: popStartSandbox,
-        startCampaign() {
-            startCampaign();
-        },
-        startCampaignLevel: popStartCampaignLevel,
-        startScenario: popStartScenario,
-        restartCurrentMode() {
-            mgrRestartCurrentMode();
-        }
-    };
-
-    // Backward compatibility for inline handlers
-    window.startSandbox = () => window.POP.startSandbox();
-    window.startCampaign = () => window.POP.startCampaign();
-    window.startCampaignLevel = (levelId) => window.POP.startCampaignLevel(levelId);
-    window.startScenario = (scenarioId) => window.POP.startScenario(scenarioId);
 
     return runtime;
 }

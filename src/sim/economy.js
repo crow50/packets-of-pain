@@ -1,6 +1,14 @@
 import { GAME_MODES } from "../modes/constants.js";
+import { CONFIG } from "../config/gameConfig.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
+
+let economyEngine = null;
+export function attachEconomyEngine(engine) {
+    economyEngine = engine;
+}
+
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return economyEngine || getRuntimeEngine();
 }
 
 function resolveState(arg) {
@@ -139,5 +147,3 @@ export function setTrafficProfile(arg1, arg2) {
     sim.rpsRampPerSecond = normalized.rpsRampPerSecond;
     sim.spawnTimer = 0;
 }
-
-window.setTimeScale = setTimeScale;

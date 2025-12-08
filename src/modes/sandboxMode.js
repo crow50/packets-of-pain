@@ -11,8 +11,7 @@ export const SandboxModeController = {
     id: GAME_MODES.SANDBOX,
     init({ engine } = {}) {
         stopTutorial();
-        // Use engine methods if available, fall back to runtime
-        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        const eng = engine;
         eng?.setActiveMode?.(GAME_MODES.SANDBOX);
         eng?.setCampaignLevel?.(null);
         eng?.setTopologyGuidance?.([]);
@@ -27,7 +26,7 @@ export const SandboxModeController = {
     teardown({ engine } = {}) {
         resetModeBehaviors();
         hideSandboxPanel();
-        const eng = engine || window.__POP_RUNTIME__?.current?.engine;
+        const eng = engine;
         eng?.setTopologyGuidance?.([]);
     },
     onTick() {},

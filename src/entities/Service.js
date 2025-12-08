@@ -9,26 +9,19 @@
 
 import { copyPosition, toPosition } from "../sim/vectorUtils.js";
 import { flashMoney } from "../sim/tools.js";
+import { getServiceDef, getCapacityForTier, getUpgradeCost, canUpgrade, SERVICE_KIND, SERVICE_ROLE } from "../config/serviceCatalog.js";
+import { getConnectionTargets, upgradeConnectionFormat } from "../sim/connectionUtils.js";
+import { getNextHop, isBlocked } from "../core/routing.js";
+import { updateScore, removeRequest, failRequest, finishRequest, calculateFailChanceBasedOnLoad } from "../sim/traffic.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
 
-const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
-const getConnectionTargets = CONNECTION_UTILS.getConnectionTargets || function(service, options = {}) {
-    const includeInactive = options.includeInactive ?? false;
-    const connections = Array.isArray(service?.connections) ? service.connections : [];
-    return connections
-        .filter(conn => includeInactive || (typeof conn === 'string' ? true : conn?.active !== false))
-        .map(conn => (typeof conn === 'string' ? conn : conn?.targetId))
-        .filter(Boolean);
-};
-const normalizeConnections = CONNECTION_UTILS.upgradeConnectionFormat || function(service) {
+const normalizeConnections = upgradeConnectionFormat || function(service) {
     if (!service) return [];
     if (!Array.isArray(service.connections)) {
         service.connections = [];
     }
     return service.connections;
 };
-
-// Import new catalog API
-const { getServiceDef, getCapacityForTier, getUpgradeCost, canUpgrade, SERVICE_KIND, SERVICE_ROLE } = window.ServiceCatalog;
 
 /**
  * Check if a catalog entry has a specific role
@@ -49,9 +42,7 @@ function isSecurityDevice(catalogEntry) {
     return catalogEntry?.isSecurityDevice === true;
 }
 
-function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
-}
+const getEngine = () => getRuntimeEngine();
 
 function emit(event, payload) {
     const engine = getEngine();
@@ -140,7 +131,6 @@ class Service {
      * @test Security devices (isSecurityDevice=true) should get priority blocking check
      */
     processQueue(dt) {
-        const routing = window.Routing;
         const capacityPerSec = this.config.capacity;
         const maxToProcess = Math.max(1, Math.floor(capacityPerSec * dt));
         let processed = 0;
@@ -152,9 +142,9 @@ class Service {
             const req = this.queue.shift();
             const trafficClass = req.trafficClass;
             
-            if (routing?.isBlocked(this.catalogEntry, trafficClass)) {
-                window.updateScore(req, 'FRAUD_BLOCKED');
-                window.removeRequest(req);
+            if (isBlocked(this.catalogEntry, trafficClass)) {
+                updateScore(req, 'FRAUD_BLOCKED');
+                removeRequest(req);
                 processed++;
                 continue;
             }
@@ -187,7 +177,7 @@ class Service {
                     if (sim) {
                         sim.reputation = Math.max(0, sim.reputation - 0.5);
                     }
-                    window.removeRequest(dropped);
+                    removeRequest(dropped);
                 }
             }
         }
@@ -238,7 +228,7 @@ class Service {
                 }
 
                 if (Math.random() < failChance) {
-                    window.failRequest(job.req);
+                    failRequest(job.req);
                     continue;
                 }
 
@@ -247,23 +237,23 @@ class Service {
                     job.req.hasCompute = true;
                 }
 
-                const routeResult = window.Routing?.getNextHop?.(engine?.getState(), job.req, this);
+                const routeResult = getNextHop(engine?.getState(), job.req, this);
                 if (!routeResult || routeResult.action === 'DEAD_END') {
                     if (sim?.metrics?.droppedByReason) {
                         sim.metrics.droppedByReason.misconfig = (sim.metrics.droppedByReason.misconfig || 0) + 1;
                     }
-                    window.failRequest(job.req, 'misconfig');
+                    failRequest(job.req, 'misconfig');
                     continue;
                 }
 
                 if (routeResult.action === 'BLOCK') {
-                    window.updateScore(job.req, 'FRAUD_BLOCKED');
-                    window.removeRequest(job.req);
+                    updateScore(job.req, 'FRAUD_BLOCKED');
+                    removeRequest(job.req);
                     continue;
                 }
 
                 if (routeResult.action === 'TERMINATE') {
-                    window.finishRequest(job.req);
+                    finishRequest(job.req);
                     continue;
                 }
 
@@ -271,7 +261,7 @@ class Service {
                     job.req.lastNodeId = this.id;
                     job.req.flyTo(routeResult.node);
                 } else {
-                    window.failRequest(job.req);
+                    failRequest(job.req);
                 }
             }
         }

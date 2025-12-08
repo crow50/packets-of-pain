@@ -114,7 +114,10 @@ const SERVICE_CATALOG = {
         subtitle: 'Resident',
         icon: '👤',
         iconPath: 'user.svg',
-        tip: 'Static campaign endpoint that can originate requests and receive any returning traffic.'
+        tip: [
+        "The unassuming end-user, originating requests and receiving any returning traffic.",
+        "BEWARE: Susceptible to bad packets!"
+        ] // TODO: This tooltip is too long. Needs reworking. Maybe two lines? Could get too cluttered.
     },
     
     // === Network Devices ===
@@ -453,25 +456,34 @@ function getAllServiceKeys() {
     return getAllServiceKinds();
 }
 
-// Expose globally for non-module scripts
-if (typeof window !== 'undefined') {
-    window.SERVICE_KIND = SERVICE_KIND;
-    window.SERVICE_ROLE = SERVICE_ROLE;
-    window.SERVICE_CATALOG = SERVICE_CATALOG;
-    window.OSI_LAYER_NAMES = OSI_LAYER_NAMES;
-    window.ServiceCatalog = {
-        SERVICE_KIND,
-        SERVICE_ROLE,
-        SERVICE_CATALOG,
-        SHOP_ORDER,
-        OSI_LAYER_NAMES,
-        getServiceDef,
-        getCapacityForTier,
-        getUpgradeCost,
-        canUpgrade,
-        getAllServiceKinds,
-        getServicesByDomain,
-        getServicesByRole,
-        getOsiLayerDisplay
-    };
-}
+export {
+    SERVICE_KIND,
+    SERVICE_ROLE,
+    SERVICE_CATALOG,
+    SHOP_ORDER,
+    OSI_LAYER_NAMES,
+    getServiceDef,
+    getCapacityForTier,
+    getUpgradeCost,
+    canUpgrade,
+    getAllServiceKinds,
+    getServicesByDomain,
+    getServicesByRole,
+    getOsiLayerDisplay
+};
+
+export default {
+    SERVICE_KIND,
+    SERVICE_ROLE,
+    SERVICE_CATALOG,
+    SHOP_ORDER,
+    OSI_LAYER_NAMES,
+    getServiceDef,
+    getCapacityForTier,
+    getUpgradeCost,
+    canUpgrade,
+    getAllServiceKinds,
+    getServicesByDomain,
+    getServicesByRole,
+    getOsiLayerDisplay
+};

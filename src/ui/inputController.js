@@ -28,9 +28,8 @@ export function init(engine) {
     _engine = engine;
 }
 
-// Fallback for backwards compatibility during transition
 function getEngine() {
-    return _engine || window.__POP_RUNTIME__?.current?.engine;
+    return _engine;
 }
 
 const PAN_SPEED = 0.1;
