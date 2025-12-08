@@ -201,6 +201,8 @@ export function bootstrap() {
     initWarningsPill();
     initTutorialController();
     initTimeControls();
+    // Bind scenario menu buttons early (engine injected when mode starts)
+    initScenariosController();
     // Bind static campaign hub buttons early (engine injected when mode starts)
     initCampaignHubControls();
     const runtime = createRuntime();

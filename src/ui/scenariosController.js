@@ -34,6 +34,7 @@ let cachedScenarios = [];
 let previousTimeScale = null;
 let lastOpenSource = null;
 let scenariosEngine = null;
+let initialized = false;
 
 export function initScenariosEngine(engine) {
     scenariosEngine = engine;
@@ -171,8 +172,11 @@ function bindScenarioPanelButtons() {
 }
 
 export function initScenariosController(engine) {
-    initScenariosEngine(engine);
+    if (engine) {
+        initScenariosEngine(engine);
+    }
     cachedScenarios = getAllScenarios();
+    if (initialized) return;
     renderScenarioList();
 
     const mainMenuButton = document.getElementById("main-menu-scenarios");
@@ -191,6 +195,7 @@ export function initScenariosController(engine) {
     });
 
     bindScenarioPanelButtons();
+    initialized = true;
 }
 
 export function openScenariosBrowser(source = "menu") {
