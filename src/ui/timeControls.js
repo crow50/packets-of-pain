@@ -1,3 +1,6 @@
+import { setTimeScale } from "../sim/economy.js";
+import { restartGame } from "../gameCore.js";
+
 const TIME_BUTTON_IDS = {
     0: 'btn-pause',
     1: 'btn-play',
@@ -28,7 +31,7 @@ export function initTimeControls() {
         highlightButton(event.detail.scale);
     });
 
-    const initialScale = window.__POP_RUNTIME__?.current?.engine?.getUIState()?.timeScale ?? 1;
+    const initialScale = 1;
     highlightButton(initialScale);
 
     Object.entries(TIME_BUTTON_IDS).forEach(([scaleKey, buttonId]) => {
@@ -37,13 +40,13 @@ export function initTimeControls() {
         button.addEventListener('click', () => {
             const scale = Number(scaleKey);
             if (Number.isFinite(scale)) {
-                window.setTimeScale?.(scale);
+                setTimeScale(scale);
             }
         });
     });
 
     const restartButton = document.getElementById(RESTART_BUTTON_ID);
     restartButton?.addEventListener('click', () => {
-        window.restartGame?.();
+        restartGame();
     });
 }

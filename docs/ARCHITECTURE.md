@@ -52,9 +52,9 @@ bootstrap / runtime
   └─ createLoop({ engine, scene, hud })
 ```
 
-The runtime exposes a small public API on `window.POP` (e.g., `startSandbox`, `startCampaign`, `returnToMainMenu`) so UI code can switch modes without bypassing the engine.
+Mode switches happen through `modeManager` (and thin wrappers in `src/ui/navigation.js`) so UI code can swap modes without touching globals. Runtime/engine handles are kept in `utils/runtime` so controllers can grab the current engine without `window.*`.
 
-Internally, a `runtime.current` object typically holds `{ engine, scene, input, loop, modeConfig }` and is used by things like restart/reset.
+Internally, a `runtime.current` object holds `{ engine, scene, input, loop, modeConfig }` and is used by things like restart/reset.
 
 ---
 
@@ -84,25 +84,23 @@ State shape:
     // Traffic / spawn
     currentRPS,
     spawnTimer,
-    trafficProfileId,
+    trafficProfile,      // optional active profile
     trafficDistribution, // WEB/API/FRAUD mix
+    packetIncreaseInterval,
 
     // Capacity & metrics
     metrics: {
       droppedByReason,
-      requestsProcessed,
-      // other stats
     },
 
     // Mode context and sandbox knobs
-    activeMode,          // 'sandbox' | 'survival' | 'campaign'
+    activeMode,          // 'sandbox' | 'campaign' | 'scenarios'
     campaignLevel,       // current level ID when inside campaign
     scenarioId,          // current scenario ID when inside scenarios mode
-    sandboxBudget,
     upkeepEnabled,
     burstCount,
     topologyWarnings,  // misconfig issues, if any
-    // ...
+    routing: { spanningTree, topologyRevision },
   },
 
   ui: {
@@ -112,8 +110,10 @@ State shape:
     isRunning,
     timeScale,
     sound,             // sound service
-    soundMuted,
-    // anything purely UI-facing
+    toolbarWhitelist,
+    linkSourceId,
+    linkBidirectional,
+    topologyGuidance,  // UI hints (separate from sim warnings)
   }
 }
 ```
@@ -134,12 +134,12 @@ The engine exposes:
 * **Commands (simulation changes):**
 
   * Service/topology: `placeService`, `connectNodes`, `deleteNode`, `deleteLink`, `upgradeService`, `clearAllServices`.
-  * Traffic & economy knobs: `setRps`, `setTrafficMix`, `setBurstCount`, `spawnBurst`, `setSandboxBudget`, `resetSandboxBudget`, `toggleUpkeep`, `setTrafficProfile`.
+  * Traffic & economy knobs: `setRPS`, `setTrafficDistribution`, `setBurstCount`, `setSandboxBudget`, `toggleUpkeep`, `setTrafficProfile`.
   * Game control: `setRunning`, `setTimeScale`, `reset(modeConfig)`.
 
 * **Commands (UI state):**
 
-  * `setActiveTool`, `setSelectedNode`, `setHovered`, `setSoundService`.
+  * `setActiveTool`, `setSelectedNode`, `setLinkSource`, `setToolbarWhitelist`, `setTopologyGuidance`, `setHovered`, `setSoundService`.
 
 Simulation helpers (`traffic`, `economy`, `tools`, `routing`, `Service`, `Request`) all accept `state` as their first argument and operate on `state.simulation` / `state.ui` instead of global variables.
 
@@ -162,7 +162,7 @@ Key modules:
 * `traffic.js` - request spawn & per-tick evolution
 
   * `gameTick(state, dt)`
-  * Uses `currentRPS`, `trafficProfileId`, `trafficDistribution`, and routing to spawn and move requests.
+  * Uses `currentRPS`, `trafficProfile`, `trafficDistribution`, and routing to spawn and move requests.
 
 * `economy.js` - budget/reputation/time scale & mode resets
 
@@ -319,6 +319,8 @@ Responsible for defining data, not behavior:
 * `campaign/` (e.g., `src/config/campaign/index.js`, domain-level files)
 
   * Domains own their metadata plus an array of level definitions (starting budget, traffic profile, toolbar whitelist, objectives, win/fail conditions, etc.).
+
+    * Files follow the `DOMAIN_<UPPER_SNAKE_NAME>` naming pattern (matching the file slug) and export both the metadata object and a `DOMAIN_<UPPER_SNAKE_NAME>_LEVELS` array so the campaign registry can gather them automatically.
   * Levels can optionally set `internetPosition` so the engine places the Internet node (and therefore the packet spawn location + mesh) where the scenario wants it.
   * The `campaign` index builds domain/level caches and exports helpers such as `getLevelsForDomain` and `getLevelById` so UI, shop, and runtime code can stay in sync without a global `LEVELS` map.
   * See `docs/LEVELS.md` for guidance on extending domains or adding new campaign levels.

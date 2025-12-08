@@ -2,8 +2,17 @@ import { resetCamera, serviceGroup, connectionGroup, requestGroup } from "./rend
 import { resetEconomyForMode } from "./sim/economy.js";
 import { initTrafficForMode } from "./sim/traffic.js";
 import { GAME_MODES } from "./modes/constants.js";
+import { getRuntimeEngine, getRuntime } from "./utils/runtime.js";
+import { restartCurrentMode } from "./core/modeManager.js";
 
-const SoundService = typeof window !== "undefined" ? window.SoundService : undefined;
+import SoundService from "./services/SoundService.js";
+let menuSound = null;
+export function getMenuSound() {
+    return menuSound;
+}
+export function setMenuSound(sound) {
+    menuSound = sound;
+}
 import {
     showView,
     showMainMenu,
@@ -25,37 +34,23 @@ import {
 } from "./sim/tools.js";
 import { stopTutorial } from "./ui/tutorialController.js";
 
-window.showView = showView;
-window.showMainMenu = showMainMenu;
-window.showFAQ = showFAQ;
-window.closeFAQ = closeFAQ;
-window.resetLevel = resetLevel;
-window.exitLevelToCampaignHub = exitLevelToCampaignHub;
-window.hideCampaignLevels = hideCampaignLevels;
-window.enterCampaignWorld = enterCampaignWorld;
-window.setTool = setTool;
-window.createService = createService;
-window.createConnection = createConnection;
-window.deleteLink = deleteLink;
-window.deleteObject = deleteObject;
-
 // Centralized return to main menu function
-window.returnToMainMenu = function() {
-    window.__POP_RUNTIME__?.stop?.();
+export function returnToMainMenu() {
+    getRuntime()?.stop?.();
     stopTutorial();
     showView('main-menu');
-};
+}
 
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return getRuntimeEngine();
 }
 
 
 export function initGame() {
     // Sound will be initialized when engine starts
     // Initial sound service created here for menu
-    if (typeof window.SoundService !== 'undefined' && !window.__menuSound) {
-        window.__menuSound = new SoundService();
+    if (typeof window.SoundService !== 'undefined' && !menuSound) {
+        menuSound = new SoundService();
     }
     setTimeout(() => {
         showMainMenu();
@@ -70,11 +65,11 @@ export function resetGame(mode = GAME_MODES.SANDBOX) {
     
     // Reuse the menu sound service instead of creating a new one
     // This ensures sound state persists between menu and game
-    if (!ui?.sound && window.__menuSound) {
-        engine?.setSoundService(window.__menuSound);
+    if (!ui?.sound && menuSound) {
+        engine?.setSoundService(menuSound);
     }
     
-    const sound = ui?.sound || window.__menuSound;
+    const sound = ui?.sound || menuSound;
     sound?.init?.();
     sound?.playGameBGM?.();
     resetEconomyForMode(mode);
@@ -100,27 +95,22 @@ export function resetGame(mode = GAME_MODES.SANDBOX) {
 
 export function restartGame() {
     document.getElementById('game-over-modal').classList.add('hidden');
-    window.POP?.restartCurrentMode?.();
+    restartCurrentMode();
 }
-window.restartGame = restartGame;
 
 
 function isCampaignMode() {
     return getEngine()?.getActiveMode() === GAME_MODES.CAMPAIGN;
 }
-window.isCampaignMode = isCampaignMode;
-
 function getCurrentLevelId() {
     return getEngine()?.getCampaignLevel();
 }
-window.getCurrentLevelId = getCurrentLevelId;
 
-function resetSimulationState() {
+export function resetSimulationState() {
     initTrafficForMode(GAME_MODES.SANDBOX);
     resetEconomyForMode(GAME_MODES.SANDBOX, { startBudget: 0, initialTimeScale: 1 });
     clearAllNodesAndLinks();
 }
-window.resetSimulationState = resetSimulationState;
 
 function clearAllNodesAndLinks() {
     const engine = getEngine();
@@ -165,31 +155,3 @@ function calculateFailChanceBasedOnLoad(load) {
     if (clamped <= 0.8) return 0;
     return (clamped - 0.8) / 0.2;
 }
-window.calculateFailChanceBasedOnLoad = calculateFailChanceBasedOnLoad;
-
-window.toggleMute = () => {
-    const engine = getEngine();
-    const sound = engine?.getUIState()?.sound || window.__menuSound;
-    if (!sound) return;
-    
-    const muted = sound.toggleMute();
-    
-    // Update main menu mute button
-    const menuIcon = document.getElementById('menu-mute-icon');
-    const menuMuteBtn = document.getElementById('menu-mute-btn');
-    
-    const iconText = muted ? '🔇' : '🔊';
-    if (menuIcon) menuIcon.innerText = iconText;
-
-    if (muted) {
-        if (menuMuteBtn) menuMuteBtn.classList.add('pulse-green');
-    } else {
-        if (menuMuteBtn) menuMuteBtn.classList.remove('pulse-green');
-    }
-    
-    // Update hamburger menu sound status
-    const hudSoundIcon = document.getElementById('hud-menu-sound-icon');
-    const hudSoundStatus = document.getElementById('hud-menu-sound-status');
-    if (hudSoundIcon) hudSoundIcon.innerText = iconText;
-    if (hudSoundStatus) hudSoundStatus.textContent = muted ? 'Off' : 'On';
-};

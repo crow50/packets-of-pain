@@ -19,6 +19,12 @@ import {
     showView
 } from "./hud.js";
 import { GAME_MODES } from "../modes/constants.js";
+import { setTimeScale } from "../sim/economy.js";
+import { restartGame, returnToMainMenu } from "../gameCore.js";
+import { setTool } from "../sim/tools.js";
+import { toggleMute } from "./soundControls.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
+import { startScenario } from "./navigation.js";
 
 const SCENARIOS_RESTART_BUTTON_ID = 'scenarios-restart-btn';
 const SCENARIOS_EXIT_BUTTON_ID = 'scenarios-exit-btn';
@@ -27,6 +33,11 @@ const OBJECTIVE_COLORS = ["bg-purple-500", "bg-blue-500", "bg-emerald-500", "bg-
 let cachedScenarios = [];
 let previousTimeScale = null;
 let lastOpenSource = null;
+let scenariosEngine = null;
+
+export function initScenariosEngine(engine) {
+    scenariosEngine = engine;
+}
 
 function formatWorldLabel(value) {
     if (!value) return "Operations Lab";
@@ -34,21 +45,21 @@ function formatWorldLabel(value) {
 }
 
 function getCurrentTimeScale() {
-    return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.timeScale ?? 0;
+    return scenariosEngine?.getUIState?.()?.timeScale ?? 0;
 }
 
 function pauseForBrowser(source) {
     if (source !== "hud") return;
     previousTimeScale = getCurrentTimeScale();
     if (previousTimeScale !== 0) {
-        window.setTimeScale?.(0);
+        setTimeScale(0);
     }
 }
 
 function resumeFromBrowser() {
     if (previousTimeScale === null) return;
     if (previousTimeScale !== 0) {
-        window.setTimeScale?.(previousTimeScale);
+        setTimeScale(previousTimeScale);
     }
     previousTimeScale = null;
 }
@@ -134,7 +145,7 @@ function renderScenarioList() {
 function handleScenarioSelection(scenarioId) {
     if (!scenarioId) return;
     closeScenariosBrowser();
-    window.POP?.startScenario?.(scenarioId);
+    startScenario(scenarioId);
 }
 
 function bindModalEvents() {
@@ -150,16 +161,17 @@ function bindModalEvents() {
 function bindScenarioPanelButtons() {
     const restartBtn = document.getElementById(SCENARIOS_RESTART_BUTTON_ID);
     restartBtn?.addEventListener('click', () => {
-        window.restartGame?.();
+        restartGame();
     });
 
     const exitBtn = document.getElementById(SCENARIOS_EXIT_BUTTON_ID);
     exitBtn?.addEventListener('click', () => {
-        window.returnToMainMenu?.();
+        returnToMainMenu();
     });
 }
 
-export function initScenariosController() {
+export function initScenariosController(engine) {
+    initScenariosEngine(engine);
     cachedScenarios = getAllScenarios();
     renderScenarioList();
 
@@ -190,6 +202,7 @@ export function openScenariosBrowser(source = "menu") {
     }
     renderScenarioList();
     modal.classList.remove("hidden");
+    modal.style.pointerEvents = 'auto';
     pauseForBrowser(source);
 }
 
@@ -197,6 +210,7 @@ export function closeScenariosBrowser() {
     const modal = document.getElementById("scenarios-modal");
     if (!modal) return;
     modal.classList.add("hidden");
+    modal.style.pointerEvents = 'none';
     if (lastOpenSource === "menu") {
         document.getElementById("main-menu-modal")?.classList.remove("hidden");
     }
@@ -226,12 +240,12 @@ export function loadScenarioSession(scenarioId, fallbackConfig = null) {
         return null;
     }
 
-    const engine = window.__POP_RUNTIME__?.current?.engine;
+    const engine = scenariosEngine || getRuntimeEngine();
     setModeUIActive(GAME_MODES.SCENARIOS);
     showLevelInstructionsPanel(true, GAME_MODES.SCENARIOS);
     showView("scenarios");
-    window.setTool?.("select");
-    window.setTimeScale?.(0);
+    setTool("select");
+    setTimeScale(0);
 
     resetLevelConditions();
     stopTutorial();
@@ -270,9 +284,3 @@ export function loadScenarioSession(scenarioId, fallbackConfig = null) {
 
     return scenario;
 }
-
-if (typeof window !== "undefined") {
-    window.openScenariosBrowser = openScenariosBrowser;
-    window.closeScenariosBrowser = closeScenariosBrowser;
-}
-

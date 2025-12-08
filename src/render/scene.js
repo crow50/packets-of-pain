@@ -83,10 +83,6 @@ export function initScene(containerEl) {
     scene.add(connectionGroup);
     scene.add(requestGroup);
 
-    window.serviceGroup = serviceGroup;
-    window.connectionGroup = connectionGroup;
-    window.requestGroup = requestGroup;
-
     const internetGeo = new THREE.BoxGeometry(6, 1, 10);
     const internetMat = new THREE.MeshStandardMaterial({
         color: 0x111111,
@@ -96,13 +92,9 @@ export function initScene(containerEl) {
     });
     internetMesh = new THREE.Mesh(internetGeo, internetMat);
     internetMesh.userData = { id: 'internet', type: 'internet' };
-    // Position the internet mesh - use engine state if available, fallback to default
-    const internetNode = window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.internetNode;
+    const internetNode = null;
     const defaultPosition = new THREE.Vector3(-10, 0, 0);
-    internetMesh.position.copy(internetNode?.position || defaultPosition);
-    if (internetNode) {
-        internetNode.mesh = internetMesh;
-    }
+    internetMesh.position.copy(defaultPosition);
     internetMesh.castShadow = true;
     internetMesh.receiveShadow = true;
     scene.add(internetMesh);
@@ -174,10 +166,6 @@ export function disposeScene() {
     connectionGroup = undefined;
     requestGroup = undefined;
     internetMesh = undefined;
-    const internetNode = window.__POP_RUNTIME__?.current?.engine?.getSimulation()?.internetNode;
-    if (internetNode) internetNode.mesh = undefined;
 
-    window.serviceGroup = undefined;
-    window.connectionGroup = undefined;
-    window.requestGroup = undefined;
 }
+import { CONFIG } from "../config/gameConfig.js";

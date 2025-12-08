@@ -1,32 +1,27 @@
-export const BABYS_FIRST_NETWORK_DOMAIN = {
+export const DOMAIN_BABYS_FIRST_NETWORK = {
 	id: "babys-first-network",
 	title: "Baby's First Network",
-	subtitle: "Modular tutorial domain",
+	subtitle: "Aww, ain't it cute?",
 	description:
 		"Take your first steps assembling modems, firewalls, and switches in a guided playground.",
-	icon: "🔰",
+	icon: "🔰", // TODO: Currently unused metadata
 	order: 0,
-	topologyGuidance: [
-		"Campaign missions may lock tools until tutorials complete a step.",
-		"Some preplaced nodes (like Users) stay anchored—plan around their fixed spots.",
-		"Keep links short and straight to minimize packet travel time."
-	]
+	topologyGuidance: [] // TODO: Currently unused metadata
 };
 
-export const DOMAIN_BABYS_FIRST_LEVELS = [
+export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 	{
-		id: "baby-1",
-		domainId: BABYS_FIRST_NETWORK_DOMAIN.id,
-		worldId: "multi-domain",
-		title: "Baby's First Network — Level 1",
-		subtitle: "Modem Basics",
+		id: "babys-first-network-level-1",
+	 	domainId: DOMAIN_BABYS_FIRST_NETWORK.id,
+		title: "Baby's First Network - Level 1",
+		subtitle: "Internet Basics",
 		description:
-			"Place your first modem and create a working link between a user and the internet.",
+			"What's this box do? Use the device your ISP gave you to get online for the first time.",
 		startingBudget: 100,
 		toolbarWhitelist: ["Select", "LinkTool", "Delete", "Modem"],
 		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
-			{ type: "User", id: "user-1", position: { x: 0, y: 0 } },
+			{ type: "User", id: "Your little sister demanding 'Coco-Melon'", position: { x: 8, y: 0 } },
 		],
 		trafficProfile: {
 			mode: "simple",
@@ -42,14 +37,14 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 			steps: [
 				{
 					id: "select-modem",
-					text: "Start paused and click the Modem card in the shop to equip it. It's the gateway device we'll build with.",
-					highlight: { elementId: "tool-modem" },
-					toolWhitelist: ["Modem"],
+					text: "Select the Modem, connecting this piece of equipment from your ISP is the first step to getting online.",
+					highlight: { elementId: "tool-modem" }, // TODO: Highlighting the element causes the tutorial to evaluate condition as true before user interaction
+					toolWhitelist: ["Select","Modem"], // Added "Select" to whitelist to prevent skipping step
 					condition: { type: "activeToolIs", toolId: "modem" }
 				},
 				{
 					id: "place-modem",
-					text: "Place that Modem between the User and Internet nodes. Drop it roughly in the center lane.",
+					text: "Place that Modem between the User and Internet.",
 					highlight: { elementId: "canvas-container" },
 					toolWhitelist: ["Modem"],
 					condition: { type: "hasServiceOfType", serviceType: "MODEM", countAtLeast: 1 }
@@ -58,19 +53,19 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 					id: "select-link-tool",
 					text: "Great! Switch to the Link tool so we can wire packets through the Modem.",
 					highlight: { elementId: "tool-connect" },
-					toolWhitelist: ["LinkTool"],
+					toolWhitelist: ["Select", "LinkTool"], // Added "Select" to whitelist to prevent "skipping" step
 					condition: { type: "activeToolIs", toolId: "connect" }
 				},
 				{
 					id: "connect-internet",
-					text: "Drag from the Modem to the Internet node. Solid lines mean packets can flow.",
+					text: "Click the Modem and then the Internet. Solid lines mean packets can flow.",
 					highlight: { elementId: "canvas-container" },
 					toolWhitelist: ["LinkTool"],
 					condition: { type: "hasConnectionBetween", fromType: "MODEM", toType: "INTERNET", bidirectional: true }
 				},
 				{
 					id: "connect-user",
-					text: "Now tether the Modem back to your home User so it has two links feeding it.",
+					text: "Now connect the Modem back to your End-User so so the modem now has two links.",
 					highlight: { elementId: "canvas-container" },
 					toolWhitelist: ["LinkTool"],
 					condition: { type: "serviceConnectionsAtLeast", serviceType: "MODEM", countAtLeast: 2 }
@@ -80,17 +75,17 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 					text: "Hit Play to unpause time and watch packets test your tiny network.",
 					highlight: { elementId: "btn-play" },
 					timeControlTarget: "btn-play",
-					toolWhitelist: [],
+					toolWhitelist: [""], // Restrict all tools to force focus on time controls
 					condition: { type: "timeScaleAtLeast", value: 1 }
 				}
 			]
 		},
 		instructions: [
 			"Use the time controls (pause/play/fast-forward) to slow or speed traffic while you plan.",
-			"Watch the Satisfaction meter above the budget; it currently maps to Reputation.",
-			"In the shop below, buy the Modem device so you can anchor your topology.",
-			"Place the Modem between the User and Internet nodes.",
-			"Use the Link tool to chain User → Modem → Internet and keep packets flowing for 10 seconds.",
+			"Watch the Satisfaction meter, too low and your users will leave.",
+			"The Modem is what translates the Internet from your ISP into something our computers can use.",
+			"Keeping the route short and direct helps packets arrive faster.",
+			"Connect the user to the Internet and keep packets flowing for 10 seconds.",
 		],
 		topologyGuidance: [
 			"Use the User's fixed spot as an anchor and drop the Modem mid-lane for short links.",
@@ -102,7 +97,7 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 	},
 	{
 		id: "baby-2",
-		domainId: BABYS_FIRST_NETWORK_DOMAIN.id,
+	 	domainId: DOMAIN_BABYS_FIRST_NETWORK.id,
 		worldId: "multi-domain",
 		title: "Baby's First Network — Level 2",
 		subtitle: "Firewalls vs Malicious Traffic",
@@ -135,7 +130,7 @@ export const DOMAIN_BABYS_FIRST_LEVELS = [
 	},
 	{
 		id: "baby-3",
-		domainId: BABYS_FIRST_NETWORK_DOMAIN.id,
+	 	domainId: DOMAIN_BABYS_FIRST_NETWORK.id,
 		worldId: "multi-domain",
 		title: "Baby's First Network — Level 3",
 		subtitle: "Switches & Multiple Clients",

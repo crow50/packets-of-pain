@@ -5,37 +5,15 @@
  * instead of hard-coded service chains.
  */
 
-const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
+import { listConnections, getConnectionTargets } from "../sim/connectionUtils.js";
+import { getServiceDef } from "../config/serviceCatalog.js";
+
 const CONGESTION_THRESHOLD = 0.85;
-const listConnections = CONNECTION_UTILS.listConnections || function(node, options = {}) {
-    const includeInactive = options.includeInactive ?? false;
-    const connections = Array.isArray(node?.connections) ? node.connections : [];
-    return connections
-        .map(conn => {
-            if (typeof conn === 'string') {
-                return { targetId: conn, bidirectional: true, active: true };
-            }
-            return conn;
-        })
-        .filter(conn => conn && (includeInactive || conn.active !== false));
-};
-
-const getConnectionTargets = CONNECTION_UTILS.getConnectionTargets || function(node, options = {}) {
-    return listConnections(node, options).map(conn => conn.targetId);
-};
-
-function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine || null;
-}
 
 function getSimulationFromState(state) {
-    if (state?.simulation) {
-        return state.simulation;
-    }
-    if (state?.services || state?.internetNode) {
-        return state;
-    }
-    return getEngine()?.getSimulation?.() || null;
+    if (state?.simulation) return state.simulation;
+    if (state?.services || state?.internetNode) return state;
+    return null;
 }
 
 function getServiceById(state, serviceId) {
@@ -45,10 +23,6 @@ function getServiceById(state, serviceId) {
         return simulation.internetNode || null;
     }
     return simulation.services?.find(service => service.id === serviceId) || null;
-}
-
-function getServiceEntity(serviceId) {
-    return getServiceById(getEngine()?.getState?.(), serviceId);
 }
 
 function getNeighborsFromState(state, service) {
@@ -62,16 +36,8 @@ function getNeighborsFromState(state, service) {
         .filter(Boolean);
 }
 
-function getNeighbors(service) {
-    const engineState = getEngine()?.getState?.();
-    return getNeighborsFromState(engineState, service);
-}
-
 function getCatalogEntry(serviceKind) {
-    // Use new API (getServiceDef) with fallback to legacy (getServiceType)
-    return window.ServiceCatalog?.getServiceDef?.(serviceKind) 
-        || window.ServiceCatalog?.getServiceType?.(serviceKind) 
-        || null;
+    return getServiceDef(serviceKind);
 }
 
 /**
@@ -288,6 +254,16 @@ function getNextHopViaSpanningTree(state, request, currentService) {
     return { action: 'FORWARD', nodeId: nextService.id, node: nextService };
 }
 
+function getServiceEntity(id, simulation) {
+    if (!simulation || !id) return null;
+    if (id === 'internet') return simulation.internetNode || null;
+    return (simulation.services || []).find(svc => svc.id === id) || null;
+}
+
+function simulationFromNode(node) {
+    return node?.simulation || null;
+}
+
 function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit = 6) {
     if (!startNode) return false;
     const visited = new Set([startNode.id]);
@@ -304,7 +280,7 @@ function hasPathMatchingCriteria(startNode, trafficType, predicate, depthLimit =
         for (const connection of neighbors) {
             const nextId = connection.targetId;
             if (nextId === 'internet' || visited.has(nextId)) continue;
-            const nextNode = getServiceEntity(nextId);
+            const nextNode = getServiceEntity(nextId, simulationFromNode(node));
             if (!nextNode) continue;
             const nextDef = _getServiceType(nextNode.kind);
             if (!accepts(nextDef, trafficType)) continue;
@@ -406,9 +382,8 @@ function getServiceTrafficSummary(serviceKind) {
  * @test Should warn when no FRAUD blocker (WAF/firewall) exists or is unreachable
  * @test Should warn when user node is directly exposed to internet (MALICIOUS vulnerability)
  */
-function validateTopology() {
-    const engine = getEngine();
-    const sim = engine?.getSimulation();
+function validateTopology(state) {
+    const sim = getSimulationFromState(state) || state?.simulation;
     if (!sim || !sim.internetNode) {
         return { web: false, api: false, fraud: false, warnings: ['No simulation state'] };
     }
@@ -420,7 +395,7 @@ function validateTopology() {
     const internetTargets = getConnectionTargets(internetNode);
 
     const hasWebPath = internetTargets.some(connId => {
-        const node = getServiceEntity(connId);
+        const node = getServiceEntity(connId, sim);
         if (!node) return false;
         const nodeDef = _getServiceType(node.kind);
         if (!accepts(nodeDef, 'WEB')) return false;
@@ -429,7 +404,7 @@ function validateTopology() {
     
     // Check API traffic path (needs to reach database)
     const hasApiPath = internetTargets.some(connId => {
-        const node = getServiceEntity(connId);
+        const node = getServiceEntity(connId, sim);
         if (!node) return false;
         const nodeDef = _getServiceType(node.kind);
         if (!accepts(nodeDef, 'API')) return false;
@@ -444,7 +419,7 @@ function validateTopology() {
     
     // Check if fraud blockers are reachable from internet
     const fraudBlockerReachable = hasFraudBlocker && internetTargets.some(connId => {
-        const node = getServiceEntity(connId);
+        const node = getServiceEntity(connId, sim);
         if (!node) return false;
         const nodeDef = _getServiceType(node.kind);
         if (isBlocked(nodeDef, 'FRAUD')) return true;
@@ -492,9 +467,8 @@ function validateTopology() {
 /**
  * Get the most loaded service for HUD display
  */
-function getMostLoadedService() {
-    const engine = getEngine();
-    const sim = engine?.getSimulation();
+function getMostLoadedService(state) {
+    const sim = getSimulationFromState(state);
     if (!sim?.services?.length) return null;
     
     let mostLoaded = null;
@@ -515,17 +489,13 @@ function getMostLoadedService() {
     } : null;
 }
 
-// Expose globally for non-module scripts
-if (typeof window !== 'undefined') {
-    window.Routing = {
-        getNextHop,
-        getRoutingInfo,
-        getServiceTrafficSummary,
-        isBlocked,
-        isTerminal,
-        accepts,
-        getNeighbors,
-        validateTopology,
-        getMostLoadedService
-    };
-}
+export {
+    getNextHop,
+    getRoutingInfo,
+    getServiceTrafficSummary,
+    isBlocked,
+    isTerminal,
+    accepts,
+    validateTopology,
+    getMostLoadedService
+};

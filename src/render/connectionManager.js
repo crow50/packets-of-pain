@@ -169,3 +169,4 @@ export function getMesh(linkId) {
 export function syncConnections(state) {
     sync(state);
 }
+import { CONFIG } from "../config/gameConfig.js";
