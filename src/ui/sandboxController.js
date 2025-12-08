@@ -1,5 +1,6 @@
 import { spawnBurstOfType } from '../sim/traffic.js';
 import { TRAFFIC_CLASS } from '../config/packetConfig.js';
+import { CONFIG } from "../config/gameConfig.js";
 
 let _engine = null;
 

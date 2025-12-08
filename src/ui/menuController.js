@@ -1,4 +1,11 @@
 import { openScenariosBrowser } from "./scenariosController.js";
+import { setTimeScale } from "../sim/economy.js";
+import { returnToMainMenu } from "../gameCore.js";
+import { showFAQ, closeFAQ } from "./hud.js";
+import { toggleMute } from "./soundControls.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
+import { startCampaignEntry, startSandbox, startScenario } from "./navigation.js";
+import { getMenuSound } from "../gameCore.js";
 
 /**
  * menuController.js - Hamburger menu dropdown controller
@@ -31,10 +38,7 @@ export function initHudMenu() {
     if (!btn || !dropdown) return;
 
     function getCurrentTimeScale() {
-        return window.__POP_RUNTIME__?.current?.engine?.getUIState()?.timeScale ??
-            window.__POP_RUNTIME__?.current?.state?.ui?.timeScale ??
-            window.__POP_RUNTIME__?.ui?.timeScale ??
-            0;
+        return getRuntimeEngine()?.getUIState()?.timeScale ?? 0;
     }
 
     function setOpen(open) {
@@ -49,11 +53,11 @@ export function initHudMenu() {
             const currentScale = getCurrentTimeScale();
             _previousTimeScale = currentScale;
             if (currentScale !== 0) {
-                window.setTimeScale?.(0);
+                setTimeScale(0);
             }
         } else if (_previousTimeScale !== null) {
             if (_previousTimeScale !== 0) {
-                window.setTimeScale?.(_previousTimeScale);
+                setTimeScale(_previousTimeScale);
             }
             _previousTimeScale = null;
         }
@@ -80,16 +84,12 @@ export function initHudMenu() {
     // Help button - reuse existing showFAQ
     helpBtn?.addEventListener('click', () => {
         setOpen(false);
-        if (typeof window.showFAQ === 'function') {
-            window.showFAQ();
-        }
+        showFAQ();
     });
 
     // Sound toggle - reuse existing toggleMute
     soundBtn?.addEventListener('click', () => {
-        if (typeof window.toggleMute === 'function') {
-            window.toggleMute();
-        }
+        toggleMute();
         updateSoundStatus();
     });
 
@@ -107,18 +107,13 @@ export function initHudMenu() {
     const menuMuteBtn = document.getElementById('menu-mute-btn');
     menuMuteBtn?.addEventListener('click', (event) => {
         event.preventDefault();
-        window.toggleMute?.();
+        toggleMute();
     });
 
     // Return to main menu
     mainBtn?.addEventListener('click', () => {
         setOpen(false);
-        if (typeof window.returnToMainMenu === 'function') {
-            window.returnToMainMenu();
-        } else if (typeof window.showView === 'function') {
-            window.__POP_RUNTIME__?.stop?.();
-            window.showView('main-menu');
-        }
+        returnToMainMenu();
     });
 
     // Initial status sync
@@ -126,8 +121,8 @@ export function initHudMenu() {
     updatePanelsStatus();
 
     function updateSoundStatus() {
-        const engine = window.__POP_RUNTIME__?.current?.engine;
-        const sound = engine?.getUIState()?.sound || window.__menuSound;
+        const engine = getRuntimeEngine();
+        const sound = engine?.getUIState()?.sound || getMenuSound();
         const muted = sound?.muted ?? true; // Default to muted (matches SoundService default)
         if (soundStatus) soundStatus.textContent = muted ? 'Off' : 'On';
         if (soundIcon) soundIcon.textContent = muted ? '🔇' : '🔊';
@@ -170,23 +165,23 @@ export function initMainMenuButtons() {
 
     campaignBtn?.addEventListener('click', (event) => {
         event.preventDefault();
-        window.POP?.startCampaign?.();
+        startCampaignEntry();
     });
     sandboxBtn?.addEventListener('click', (event) => {
         event.preventDefault();
-        window.POP?.startSandbox?.();
+        startSandbox();
     });
 
     const faqOpenBtn = document.getElementById('main-menu-show-faq');
     faqOpenBtn?.addEventListener('click', (event) => {
         event.preventDefault();
-        window.showFAQ?.('menu');
+        showFAQ('menu');
     });
     const faqCloseButtons = document.querySelectorAll('[data-faq-close]');
     faqCloseButtons.forEach((btn) => {
         btn.addEventListener('click', (event) => {
             event.preventDefault();
-            window.closeFAQ?.();
+            closeFAQ();
         });
     });
 }

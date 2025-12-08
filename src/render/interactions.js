@@ -1,15 +1,8 @@
 import { camera, renderer, serviceGroup, connectionGroup } from "./scene.js";
 import { internetMesh } from "./scene.js";
 import { updateConnectionGeometry } from "./connectionManager.js";
-
-const listConnections = (typeof window !== 'undefined' ? window.ConnectionUtils?.listConnections : null) || function(node) {
-    const connections = Array.isArray(node?.connections) ? node.connections : [];
-    return connections
-        .map(conn => (typeof conn === 'string' ? { targetId: conn, bidirectional: true, active: true } : conn))
-        .filter(Boolean);
-};
-
-const { getServiceDef, getCapacityForTier, canUpgrade, getUpgradeCost } = window.ServiceCatalog;
+import { listConnections } from "../sim/connectionUtils.js";
+import { getServiceDef, getCapacityForTier, canUpgrade, getUpgradeCost, getOsiLayerDisplay } from "../config/serviceCatalog.js";
 
 // Module-level engine reference
 let _engine = null;
@@ -21,7 +14,7 @@ export const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
 // Back-compat engine accessor
 function getEngine() {
-    return _engine || window.__POP_RUNTIME__?.current?.engine;
+    return _engine;
 }
 
 export function init(engine) {
@@ -155,7 +148,7 @@ export function updateTooltip() {
             
             // OSI layer display
             const osiLayer = catalogEntry?.osiLayer;
-            const osiDisplay = osiLayer ? window.ServiceCatalog?.getOsiLayerDisplay?.(osiLayer) || `Layer ${osiLayer}` : null;
+            const osiDisplay = osiLayer ? (getOsiLayerDisplay(osiLayer) || `Layer ${osiLayer}`) : null;
 
             content += `
                 <div class="grid grid-cols-2 gap-x-3 text-[10px] font-mono">

@@ -278,3 +278,4 @@ export function getMesh(serviceId) {
 export function syncServices(state) {
     sync(state);
 }
+import { CONFIG } from "../config/gameConfig.js";

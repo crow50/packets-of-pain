@@ -1,8 +1,9 @@
 import { getLevelById } from "../config/campaign/index.js";
 import { applyToolbarWhitelist, getCurrentToolbarWhitelist } from "./toolbarController.js";
 import { loadIcon } from "../services/AssetService.js";
+import { getServiceDef, SHOP_ORDER } from "../config/serviceCatalog.js";
+import { setTool } from "../sim/tools.js";
 
-const { getServiceDef, SHOP_ORDER } = window.ServiceCatalog;
 const SHOP_DEFAULT_ORDER = SHOP_ORDER;
 const CAMPAIGN_HUB_SHOP_ORDER = ['MODEM', 'FIREWALL'];
 const CAMPAIGN_LEVEL_FALLBACK_SHOP = ['MODEM'];
@@ -23,7 +24,7 @@ export function buildShopButton(type) {
     button.dataset.toolId = type;
     button.dataset.toolName = displayName;
     button.className = 'service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-20 flex flex-col items-center justify-center border border-transparent relative transition hover:border-white/40';
-    button.onclick = () => window.setTool(type);
+    button.onclick = () => setTool(type);
     
     // Create icon container with loading placeholder
     const iconContainer = document.createElement('div');

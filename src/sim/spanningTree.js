@@ -1,11 +1,4 @@
-const CONNECTION_UTILS = typeof window !== 'undefined' ? (window.ConnectionUtils || {}) : {};
-const DEFAULT_LINK_COST = CONNECTION_UTILS.DEFAULT_LINK_COST ?? 10;
-const listConnections = CONNECTION_UTILS.listConnections || function(node) {
-    const connections = Array.isArray(node?.connections) ? node.connections : [];
-    return connections
-        .map(conn => (typeof conn === 'string' ? { targetId: conn, bidirectional: true, active: true } : conn))
-        .filter(Boolean);
-};
+import { listConnections, DEFAULT_LINK_COST } from "./connectionUtils.js";
 
 const CONGESTION_WEIGHT = 2;
 const DEBOUNCE_MS = 120;

@@ -127,6 +127,9 @@ function upgradeServiceById(state, serviceId) {
 
 export function createEngine(config = {}) {
     const state = createInitialState(config);
+    const resetSimulationState = typeof config.resetSimulationState === 'function'
+        ? config.resetSimulationState
+        : null;
     let running = true;
     const _listeners = new Map();
 
@@ -235,9 +238,7 @@ export function createEngine(config = {}) {
             setTrafficProfile(state, profile);
         },
         reset(config) {
-            if (typeof window.resetSimulationState === "function") {
-                window.resetSimulationState();
-            }
+            resetSimulationState?.();
             if (config?.trafficProfile) {
                 setTrafficProfile(config.trafficProfile);
             }

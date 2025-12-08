@@ -30,21 +30,23 @@ import Request from "../entities/Request.js";
 import { toPlainPosition } from "./vectorUtils.js";
 import { getModeBehaviors } from "../modes/modeBehaviors.js";
 import { TRAFFIC_CLASS, PACKET_PHASE } from "../config/packetConfig.js";
+import { listConnections } from "./connectionUtils.js";
+import { getServiceDef } from "../config/serviceCatalog.js";
+import { CONFIG } from "../config/gameConfig.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
 
-const listConnections = (typeof window !== 'undefined' ? window.ConnectionUtils?.listConnections : null) || function(node) {
-    const connections = Array.isArray(node?.connections) ? node.connections : [];
-    return connections
-        .map(conn => (typeof conn === 'string' ? { targetId: conn, bidirectional: true, active: true } : conn))
-        .filter(Boolean);
-};
+let trafficEngine = null;
+export function attachTrafficEngine(engine) {
+    trafficEngine = engine;
+}
 
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return trafficEngine || getRuntimeEngine();
 }
 
 function getServiceDefinition(node) {
     if (!node) return null;
-    return window.ServiceCatalog?.getServiceDef?.(node.kind);
+    return getServiceDef(node.kind);
 }
 
 /**
@@ -325,18 +327,11 @@ export function failRequest(arg1, arg2, arg3) {
     setTimeout(() => removeRequest(state, req), 500);
 }
 
-function calculateFailChanceBasedOnLoad(load) {
+export function calculateFailChanceBasedOnLoad(load) {
     const clamped = Math.max(0, Math.min(1, load));
     if (clamped <= 0.8) return 0;
     return (clamped - 0.8) / 0.2;
 }
-
-window.calculateFailChanceBasedOnLoad = calculateFailChanceBasedOnLoad;
-
-window.updateScore = updateScore;
-window.removeRequest = removeRequest;
-window.finishRequest = finishRequest;
-window.failRequest = failRequest;
 
 /**
  * Select a traffic class based on distribution weights

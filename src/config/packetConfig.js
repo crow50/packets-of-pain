@@ -19,7 +19,7 @@
  * @test FRAUD packets should be blocked by WAF
  * @test MALICIOUS packets should be blocked by Firewall
  */
-const TRAFFIC_CLASS = Object.freeze({
+export const TRAFFIC_CLASS = Object.freeze({
     WEB: 'WEB',
     API: 'API',
     FRAUD: 'FRAUD',
@@ -37,7 +37,7 @@ const TRAFFIC_CLASS = Object.freeze({
  * @test RESPONSE phase packets should route back to origin (user node)
  * @test Phase should not affect routing decisions for traffic class
  */
-const PACKET_PHASE = Object.freeze({
+export const PACKET_PHASE = Object.freeze({
     REQUEST: 'REQUEST',
     RESPONSE: 'RESPONSE'
 });
@@ -49,7 +49,7 @@ const PACKET_PHASE = Object.freeze({
  * @enum {string}
  * @readonly
  */
-const FLOW_DIRECTION = Object.freeze({
+export const FLOW_DIRECTION = Object.freeze({
     INBOUND: 'INBOUND',
     OUTBOUND: 'OUTBOUND'
 });
@@ -67,7 +67,7 @@ const FLOW_DIRECTION = Object.freeze({
  * @test NO_ROUTE should be set when no valid next hop exists
  * @test CAPACITY_OVERFLOW should be set when service queue rejects packet
  */
-const PACKET_DEATH_REASON = Object.freeze({
+export const PACKET_DEATH_REASON = Object.freeze({
     BLOCKED: 'BLOCKED',
     TERMINATED: 'TERMINATED',
     TTL_EXPIRED: 'TTL_EXPIRED',
@@ -79,7 +79,7 @@ const PACKET_DEATH_REASON = Object.freeze({
  * Maximum hops before packet is dropped (TTL limit)
  * @constant {number}
  */
-const MAX_HOPS = 16;
+export const MAX_HOPS = 16;
 
 /**
  * Packet color mappings by TRAFFIC_CLASS
@@ -87,7 +87,7 @@ const MAX_HOPS = 16;
  * 
  * @type {Object.<string, number>}
  */
-const PACKET_COLORS = Object.freeze({
+export const PACKET_COLORS = Object.freeze({
     [TRAFFIC_CLASS.WEB]: 0x4ade80,      // Green
     [TRAFFIC_CLASS.API]: 0xffa500,      // Orange
     [TRAFFIC_CLASS.FRAUD]: 0xff00ff,    // Pink/Magenta
@@ -98,7 +98,7 @@ const PACKET_COLORS = Object.freeze({
  * Color for failed/dead packets
  * @constant {number}
  */
-const PACKET_FAIL_COLOR = 0xef4444;
+export const PACKET_FAIL_COLOR = 0xef4444;
 
 /**
  * Get color for a traffic class
@@ -108,14 +108,3 @@ const PACKET_FAIL_COLOR = 0xef4444;
 export function getPacketColor(trafficClass) {
     return PACKET_COLORS[trafficClass] ?? PACKET_FAIL_COLOR;
 }
-
-// ES module exports
-export {
-    TRAFFIC_CLASS,
-    PACKET_PHASE,
-    FLOW_DIRECTION,
-    PACKET_DEATH_REASON,
-    MAX_HOPS,
-    PACKET_COLORS,
-    PACKET_FAIL_COLOR
-};

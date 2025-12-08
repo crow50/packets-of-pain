@@ -1,5 +1,7 @@
 import { copyPosition, toPlainPosition } from "../sim/vectorUtils.js";
 import { TRAFFIC_CLASS, PACKET_PHASE, PACKET_DEATH_REASON, MAX_HOPS } from "../config/packetConfig.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
+import { failRequest as failRequestFn } from "../sim/traffic.js";
 
 /**
  * @typedef {Object} ResponseOrigin
@@ -8,7 +10,11 @@ import { TRAFFIC_CLASS, PACKET_PHASE, PACKET_DEATH_REASON, MAX_HOPS } from "../c
  */
 
 function getEngine() {
-    return window.__POP_RUNTIME__?.current?.engine;
+    return getRuntimeEngine();
+}
+
+function invokeFailRequest(...args) {
+    return failRequestFn(...args);
 }
 
 const DEFAULT_HEIGHT = 2;
@@ -115,7 +121,7 @@ class Request {
             if (!this._ttlFailed) {
                 this._ttlFailed = true;
                 this.deathReason = PACKET_DEATH_REASON.TTL_EXPIRED;
-                failRequest(this);
+                invokeFailRequest(this);
             }
             return;
         }
@@ -131,7 +137,7 @@ class Request {
                 const node = this.target;
                 if (!node || !Array.isArray(node.queue) || node.queue.length >= 20) {
                     this.deathReason = PACKET_DEATH_REASON.CAPACITY_OVERFLOW;
-                    failRequest(this);
+                    invokeFailRequest(this);
                 } else {
                     node.queue.push(this);
                 }
