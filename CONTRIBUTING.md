@@ -28,18 +28,18 @@ This project uses vanilla JavaScript, HTML, and CSS with Three.js. No build step
 ### Project Structure
 
 *   `index.html`: Main entry point and UI structure.
-*   `game.js`: Main game loop and logic (currently under refactoring).
 *   `src/`: Modularized code.
-    *   `entities/`: Game entities like `Service` and `Request`.
-    *   `services/`: Systems like `SoundService`.
-    *   `config.js`: Game configuration constants.
-    *   `state.js`: Global game state.
+    *   `core/`, `sim/`, `entities/`: Engine and simulation (DOM-free).
+    *   `render/`, `ui/`: Three.js scene + HUD/menus (DOM touches live here).
+    *   `config/`: Service/catalog/level data.
 
 ## Code Style
 
 *   **JavaScript**: Use modern ES6+ syntax (const/let, arrow functions, classes).
 *   **Formatting**: Keep code clean and readable.
 *   **Comments**: Comment complex logic, but aim for self-documenting code.
+*   **No globals**: Prefer imports; engine/runtime are injected via `utils/runtime`.
+*   **DOM boundary**: Engine/sim/ entities stay DOM-free; only `src/ui/*` and `src/render/*` should touch `document`/`window`.
 
 ## Pull Request Process
 
