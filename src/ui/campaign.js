@@ -32,9 +32,13 @@ export function initCampaignEngine(engine) {
 }
 
 const BABY_DOMAIN_ID = "babys-first-network";
+const BABY_LEVEL_1_ID = "babys-first-network-level-1";
+const BABY_LEVEL_2_ID = "babys-first-network-level-2";
+const BABY_LEVEL_3_ID = "babys-first-network-level-3";
+
 const LEVEL_UNLOCK_CHAIN = {
-    "baby-2": "baby-1",
-    "baby-3": "baby-2",
+    [BABY_LEVEL_2_ID]: BABY_LEVEL_1_ID,
+    [BABY_LEVEL_3_ID]: BABY_LEVEL_2_ID,
 };
 
 export { GAME_MODES };
@@ -165,7 +169,7 @@ function isLevelComplete(levelId) {
 
 function isLevelUnlocked(level) {
     if (!level) return false;
-    if (level.id === 'baby-1') return true;
+    if (level.id === BABY_LEVEL_1_ID) return true;
     const prerequisite = LEVEL_UNLOCK_CHAIN[level.id];
     return prerequisite ? isLevelComplete(prerequisite) : true;
 }

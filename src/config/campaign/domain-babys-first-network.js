@@ -1,9 +1,9 @@
 export const DOMAIN_BABYS_FIRST_NETWORK = {
 	id: "babys-first-network",
 	title: "Baby's First Network",
-	subtitle: "Aww, ain't it cute?",
+	subtitle: "Learn the fundamentals of wiring traffic safely.",
 	description:
-		"Take your first steps assembling modems, firewalls, and switches in a guided playground.",
+		"Build your first tiny network, route packets to the internet, and learn how basic security keeps users happy.",
 	icon: "🔰", // TODO: Currently unused metadata
 	order: 0,
 	topologyGuidance: [] // TODO: Currently unused metadata
@@ -21,13 +21,11 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 		toolbarWhitelist: ["Select", "LinkTool", "Delete", "Modem"],
 		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
-			{ type: "User", id: "Your little sister demanding 'Coco-Melon'", position: { x: 8, y: 0 } },
+			{ type: "USER", id: "Your little sister demanding 'Coco-Melon'", position: { x: 8, y: 0 } },
 		],
 		trafficProfile: {
-			mode: "simple",
-			userToInternetPps: 0,
+			userToInternetPps: 0.25,
 			maliciousRate: 0,
-			inboundOnly: true,
 			spawnRps: 0.25,
 			rpsRampPerSecond: 0,
 		},
@@ -38,7 +36,7 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 				{
 					id: "select-modem",
 					text: "Select the Modem, connecting this piece of equipment from your ISP is the first step to getting online.",
-					highlight: { elementId: "tool-modem" }, // TODO: Highlighting the element causes the tutorial to evaluate condition as true before user interaction
+					highlight: { elementId: "tool-MODEM" }, // TODO: Highlighting the element causes the tutorial to evaluate condition as true before user interaction
 					toolWhitelist: ["Select","Modem"], // Added "Select" to whitelist to prevent skipping step
 					condition: { type: "activeToolIs", toolId: "modem" }
 				},
@@ -65,7 +63,7 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 				},
 				{
 					id: "connect-user",
-					text: "Now connect the Modem back to your End-User so so the modem now has two links.",
+					text: "Now connect the Modem back to your end-user so the modem has two links.",
 					highlight: { elementId: "canvas-container" },
 					toolWhitelist: ["LinkTool"],
 					condition: { type: "serviceConnectionsAtLeast", serviceType: "MODEM", countAtLeast: 2 }
@@ -96,9 +94,8 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 		failConditionId: "baby_no_packets_timeout",
 	},
 	{
-		id: "baby-2",
+		id: "babys-first-network-level-2",
 	 	domainId: DOMAIN_BABYS_FIRST_NETWORK.id,
-		worldId: "multi-domain",
 		title: "Baby's First Network — Level 2",
 		subtitle: "Firewalls vs Malicious Traffic",
 		description: "Learn to deploy a Firewall so malicious packets stay at the border.",
@@ -106,8 +103,8 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 		toolbarWhitelist: ["Select", "LinkTool", "Firewall"],
 		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
-			{ type: "User", id: "user-1", position: { x: -6, y: 0 } },
-			{ type: "Internet", id: "inet-1", position: { x: 6, y: 0 } },
+			{ type: "USER", id: "user-1", position: { x: -6, y: 0 } },
+			{ type: "INTERNET", id: "inet-1", position: { x: 6, y: 0 } },
 		],
 		trafficProfile: {
 			mode: "simple",
@@ -129,9 +126,8 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 		failConditionId: "baby_generic_satisfaction_or_score",
 	},
 	{
-		id: "baby-3",
+		id: "babys-first-network-level-3",
 	 	domainId: DOMAIN_BABYS_FIRST_NETWORK.id,
-		worldId: "multi-domain",
 		title: "Baby's First Network — Level 3",
 		subtitle: "Switches & Multiple Clients",
 		description: "Multiple users flood the network, so build a resilient path.",
@@ -139,9 +135,9 @@ export const DOMAIN_BABYS_FIRST_NETWORK_LEVELS = [
 		toolbarWhitelist: ["Select", "LinkTool", "Firewall", "Switch"],
 		internetPosition: { x: -18, y: 0, z: 0 },
 		preplacedNodes: [
-			{ type: "User", id: "user-1", position: { x: -7, y: 0 } },
-			{ type: "User", id: "user-2", position: { x: -3, y: 0 } },
-			{ type: "Internet", id: "inet-1", position: { x: 7, y: 0 } },
+			{ type: "USER", id: "user-1", position: { x: -7, y: 0 } },
+			{ type: "USER", id: "user-2", position: { x: -3, y: 0 } },
+			{ type: "INTERNET", id: "inet-1", position: { x: 7, y: 0 } },
 		],
 		trafficProfile: {
 			mode: "simple",
