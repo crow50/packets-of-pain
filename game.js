@@ -1,6 +1,186 @@
 
 STATE.sound = new SoundService();
 
+// ==========================================
+// PACKET ROUTER (Injected Logic)
+// ==========================================
+class PacketRouter {
+    /**
+     * Determines the next hop for a packet based on BFS pathfinding.
+     */
+    static getNextHop(packet, currentService) {
+        // 1. Identify Destination based on Packet Type
+        let targetType = null;
+        if (packet.type === TRAFFIC_TYPES.WEB) targetType = 's3';
+        else if (packet.type === TRAFFIC_TYPES.API) targetType = 'db';
+        else if (packet.type === TRAFFIC_TYPES.FRAUD) {
+             // Fraud tries to reach *any* sensitive data store. 
+             // We'll prioritize DB, then S3.
+             // Or we can check which one is reachable.
+             targetType = 'db'; 
+        }
+
+        // 2. Perform BFS to find the shortest path to 'targetType'
+        const nextNode = this.bfs(currentService, targetType);
+        
+        // Fallback for Fraud: if DB unreachable, try S3
+        if (!nextNode && packet.type === TRAFFIC_TYPES.FRAUD && targetType === 'db') {
+            return this.bfs(currentService, 's3');
+        }
+
+        return nextNode;
+    }
+
+    static bfs(startNode, targetType) {
+        const queue = [];
+        const visited = new Set();
+        const cameFrom = new Map(); // key: node.id, value: parentNode
+
+        queue.push(startNode);
+        visited.add(startNode.id);
+        cameFrom.set(startNode.id, null);
+
+        let foundTarget = null;
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+
+            if (current.type === targetType) {
+                foundTarget = current;
+                break;
+            }
+
+            // Get neighbors
+            const neighbors = this.getNeighbors(current);
+            for (const neighbor of neighbors) {
+                if (!visited.has(neighbor.id)) {
+                    visited.add(neighbor.id);
+                    cameFrom.set(neighbor.id, current);
+                    queue.push(neighbor);
+                }
+            }
+        }
+
+        if (!foundTarget) return null;
+
+        // Reconstruct path to find immediate next step
+        let curr = foundTarget;
+        while (cameFrom.get(curr.id) !== startNode) {
+            curr = cameFrom.get(curr.id);
+            if (!curr) return null; // Should not happen
+        }
+
+        return curr;
+    }
+
+    static getNeighbors(node) {
+        // Convert connection IDs to objects
+        // 'node.connections' contains IDs of OUTGOING connections (or undirected?)
+        // In this game, connections seem undirected visually, but stored in .connections?
+        // createConnection adds to from.connections. 
+        // Wait, game.js createConnection: `from.connections.push(toId)`
+        // It does NOT add to `to.connections`. So it is DIRECTED?
+        // Let's check: `createConnection(fromId, toId)`.
+        // If it's directed, packets can only flow one way.
+        // Assuming directed for now based on code.
+        
+        return node.connections.map(id => {
+            if (id === 'internet') return STATE.internetNode;
+            return STATE.services.find(s => s.id === id);
+        }).filter(s => s !== undefined);
+    }
+
+    static canReachDestination(startNode, packetType) {
+        // Quick check if a path exists
+        let targetType = 's3';
+        if (packetType === TRAFFIC_TYPES.API) targetType = 'db';
+        
+        // For spawn check, we just want to know if *any* valid path exists
+        const next = this.bfs(startNode, targetType);
+        if (next) return true;
+        
+        if (packetType === TRAFFIC_TYPES.FRAUD) {
+            // Check both
+            if (this.bfs(startNode, 'db') || this.bfs(startNode, 's3')) return true;
+        }
+        return false;
+    }
+}
+
+// ==========================================
+// SERVICE UPDATE OVERRIDE
+// ==========================================
+// Monkey-patch the Service update to use PacketRouter
+Service.prototype.update = function(dt) {
+    STATE.money -= (this.config.upkeep / 60) * dt;
+
+    this.processQueue();
+
+    for (let i = this.processing.length - 1; i >= 0; i--) {
+        let job = this.processing[i];
+        job.timer += dt * 1000;
+
+        if (job.timer >= this.config.processingTime) {
+            this.processing.splice(i, 1);
+
+            // Random hardware failure simulation
+            const failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
+            if (Math.random() < failChance) {
+                failRequest(job.req);
+                continue;
+            }
+
+            // End Node Logic
+            if (this.type === 'db' || this.type === 's3') {
+                const expectedType = this.type === 'db' ? TRAFFIC_TYPES.API : TRAFFIC_TYPES.WEB;
+                if (job.req.type === expectedType) {
+                    finishRequest(job.req);
+                } else if (job.req.type === TRAFFIC_TYPES.FRAUD) {
+                    // Fraud successfully reached data store -> Bad!
+                    failRequest(job.req); // failRequest handles FRAUD_PASSED scoring
+                } else {
+                    // Wrong packet type at wrong store
+                    failRequest(job.req);
+                }
+                continue;
+            }
+
+            // ROUTING LOGIC via PacketRouter
+            // Mark current node type as visited
+            if (!job.req.visitedTypes) job.req.visitedTypes = [];
+            job.req.visitedTypes.push(this.type);
+
+            const nextHop = PacketRouter.getNextHop(job.req, this);
+
+            if (nextHop) {
+                job.req.flyTo(nextHop);
+            } else {
+                // No path found
+                failRequest(job.req);
+            }
+        }
+    }
+
+    // Update Visuals (Load Ring)
+    if (this.totalLoad > 0.8) {
+        this.loadRing.material.color.setHex(0xff0000);
+        this.loadRing.material.opacity = 0.8;
+    } else if (this.totalLoad > 0.5) {
+        this.loadRing.material.color.setHex(0xffaa00);
+        this.loadRing.material.opacity = 0.6;
+    } else if (this.totalLoad > 0.2) {
+        this.loadRing.material.color.setHex(0xffff00);
+        this.loadRing.material.opacity = 0.4;
+    } else {
+        this.loadRing.material.color.setHex(0x00ff00);
+        this.loadRing.material.opacity = 0.3;
+    }
+};
+
+
+// ==========================================
+// THREE.JS & GAME SETUP
+// ==========================================
 
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
@@ -148,18 +328,34 @@ function getTrafficType() {
     return TRAFFIC_TYPES.FRAUD;
 }
 
+// MODIFIED: Spawn Request with Router Check
 function spawnRequest() {
     const type = getTrafficType();
-    const req = new Request(type);
-    STATE.requests.push(req);
-    const conns = STATE.internetNode.connections;
-    if (conns.length > 0) {
-        const entryNodes = conns.map(id => STATE.services.find(s => s.id === id));
-        const wafEntry = entryNodes.find(s => s?.type === 'waf');
-        const target = wafEntry || entryNodes[Math.floor(Math.random() * entryNodes.length)];
+    
+    // Router Check: Can this packet even reach its destination?
+    // Using STATE.internetNode as the starting point
+    if (!PacketRouter.canReachDestination(STATE.internetNode, type)) {
+        // Silently fail or maybe show a "Path Blocked" indicator?
+        // For now, let's just not spawn or spawn-and-fail immediately.
+        // To be fair to the player, we usually spawn it and let it fail visually.
+        const req = new Request(type);
+        req.visitedTypes = []; // Initialize
+        STATE.requests.push(req);
+        failRequest(req); 
+        return;
+    }
 
-        if (target) req.flyTo(target); else failRequest(req);
-    } else failRequest(req);
+    const req = new Request(type);
+    req.visitedTypes = []; // Initialize
+    STATE.requests.push(req);
+
+    // Get next hop from Internet
+    const nextHop = PacketRouter.getNextHop(req, STATE.internetNode);
+    if (nextHop) {
+        req.flyTo(nextHop);
+    } else {
+        failRequest(req);
+    }
 }
 
 function updateScore(req, outcome) {
