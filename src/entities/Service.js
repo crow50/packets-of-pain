@@ -1,193 +1,290 @@
+/**
+ * Service.js - Service node entity for network topology
+ * 
+ * Represents a buildable or engine-controlled device in the network.
+ * Uses SERVICE_KIND values from serviceCatalog.js for type identification.
+ * 
+ * @module Service
+ */
+
+import { copyPosition, toPosition } from "../sim/vectorUtils.js";
+import { flashMoney } from "../sim/tools.js";
+import { getServiceDef, getCapacityForTier, getUpgradeCost, canUpgrade, SERVICE_KIND, SERVICE_ROLE } from "../config/serviceCatalog.js";
+import { getConnectionTargets, upgradeConnectionFormat } from "../sim/connectionUtils.js";
+import { getNextHop, isBlocked } from "../core/routing.js";
+import { updateScore, removeRequest, failRequest, finishRequest, calculateFailChanceBasedOnLoad } from "../sim/traffic.js";
+import { getRuntimeEngine } from "../utils/runtime.js";
+
+const normalizeConnections = upgradeConnectionFormat || function(service) {
+    if (!service) return [];
+    if (!Array.isArray(service.connections)) {
+        service.connections = [];
+    }
+    return service.connections;
+};
+
+/**
+ * Check if a catalog entry has a specific role
+ * @param {Object} catalogEntry - Catalog entry from getServiceDef()
+ * @param {string} role - SERVICE_ROLE value to check
+ * @returns {boolean}
+ */
+function hasRole(catalogEntry, role) {
+    return Array.isArray(catalogEntry?.roles) && catalogEntry.roles.includes(role);
+}
+
+/**
+ * Check if a service is a security device (WAF/Firewall)
+ * @param {Object} catalogEntry - Catalog entry from getServiceDef()
+ * @returns {boolean}
+ */
+function isSecurityDevice(catalogEntry) {
+    return catalogEntry?.isSecurityDevice === true;
+}
+
+const getEngine = () => getRuntimeEngine();
+
+function emit(event, payload) {
+    const engine = getEngine();
+    engine?.emit?.(event, payload);
+}
+
+/**
+ * Service - Network node entity
+ * 
+ * @param {string} kind - SERVICE_KIND value (e.g., 'LOAD_BALANCER', 'COMPUTE')
+ * @param {Object|{x,y}} pos - Position object or {x, y} coordinates
+ * 
+ * @test Constructor should accept SERVICE_KIND values directly
+ * @test Catalog entry should resolve via getServiceDef()
+ * @test Invalid kind should create service with sensible defaults
+ */
 class Service {
-    constructor(type, pos) {
+    constructor(kind, pos) {
         this.id = 'svc_' + Math.random().toString(36).substr(2, 9);
-        this.type = type;
-        this.config = CONFIG.services[type];
-        this.position = pos.clone();
+        
+        // Store the kind (SERVICE_KIND value)
+        this.kind = kind;
+        
+        // Look up catalog entry using new API
+        this.catalogEntry = getServiceDef(kind);
+        
+        this.config = {
+            name: this.catalogEntry?.label || kind,
+            cost: this.catalogEntry?.baseCost ?? 0,
+            kind: this.catalogEntry?.kind || kind,
+            processingTime: this.catalogEntry?.processingTime || 100,
+            capacity: getCapacityForTier(kind, 1),
+            upkeep: this.catalogEntry?.upkeepPerTick || 0
+        };
+        
+        this.position = toPosition(pos);
         this.queue = [];
         this.processing = [];
         this.connections = [];
+        this.tier = 1;
+        this.load = {
+            lastTickProcessed: 0,
+            lastTickCapacity: this.config.capacity,
+            utilization: 0,
+            dropped: 0
+        };
+    }
 
-        let geo, mat;
-        const materialProps = { roughness: 0.2 };
-
-        switch (type) {
-            case 'waf':
-                geo = new THREE.BoxGeometry(3, 2, 0.5);
-                mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.waf, ...materialProps });
-                break;
-            case 'alb':
-                geo = new THREE.BoxGeometry(3, 1.5, 3);
-                mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.alb, roughness: 0.1 });
-                break;
-            case 'compute':
-                geo = new THREE.CylinderGeometry(1.2, 1.2, 3, 16);
-                mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.compute, ...materialProps });
-                break;
-            case 'db':
-                geo = new THREE.CylinderGeometry(2, 2, 2, 6);
-                mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.db, roughness: 0.3 });
-                break;
-            case 's3':
-                geo = new THREE.CylinderGeometry(1.8, 1.5, 1.5, 8);
-                mat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.s3, ...materialProps });
-                break;
+    /**
+     * Upgrade service to next tier
+     * 
+     * @param {Object} state - Game state with simulation.money
+     * 
+     * @test Should deduct upgrade cost from money
+     * @test Should increase tier and capacity
+     * @test Should emit serviceUpgraded and playSound events
+     * @test Should flash money and abort if insufficient funds
+     */
+    upgrade(state) {
+        if (!canUpgrade(this.kind)) return;
+        const sim = state.simulation;
+        const upgradeCost = getUpgradeCost(this.kind, this.tier);
+        if (upgradeCost === null) return;
+        if (sim.money < upgradeCost) {
+            flashMoney();
+            return;
         }
 
-        this.mesh = new THREE.Mesh(geo, mat);
-        this.mesh.position.copy(pos);
-
-        if (type === 'waf') this.mesh.position.y += 1;
-        else if (type === 'alb') this.mesh.position.y += 0.75;
-        else if (type === 'compute') this.mesh.position.y += 1.5;
-        else if (type === 's3') this.mesh.position.y += 0.75;
-        else this.mesh.position.y += 1;
-
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.mesh.userData = { id: this.id };
-
-        const ringGeo = new THREE.RingGeometry(2.5, 2.7, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
-        this.loadRing = new THREE.Mesh(ringGeo, ringMat);
-        this.loadRing.rotation.x = -Math.PI / 2;
-        this.loadRing.position.y = -this.mesh.position.y + 0.1;
-        this.mesh.add(this.loadRing);
-
-        this.tier = 1;
-        this.tierRings = [];
-        this.rrIndex = 0;
-
-        serviceGroup.add(this.mesh);
+        sim.money -= upgradeCost;
+        this.tier += 1;
+        this.config.capacity = getCapacityForTier(this.kind, this.tier);
+        this.load.lastTickCapacity = this.config.capacity;
+        emit('serviceUpgraded', { serviceId: this.id, tier: this.tier });
+        emit('playSound', { soundName: 'upgrade' });
     }
 
-    upgrade() {
-        if (!['compute', 'db'].includes(this.type)) return;
-        const tiers = CONFIG.services[this.type].tiers;
-        if (this.tier >= tiers.length) return;
+    /**
+     * Process queued requests through this service
+     * 
+     * @param {number} dt - Delta time in seconds
+     * 
+     * @test Should process up to capacity requests per second
+     * @test Should block traffic matching catalogEntry.blocksClasses
+     * @test Should overflow and drop when queue exceeds 3x capacity
+     * @test Compute role services should mark hasCompute on requests
+     * @test Security devices (isSecurityDevice=true) should get priority blocking check
+     */
+    processQueue(dt) {
+        const capacityPerSec = this.config.capacity;
+        const maxToProcess = Math.max(1, Math.floor(capacityPerSec * dt));
+        let processed = 0;
+        
+        // Check if this is a compute role service
+        const isComputeService = this.kind === SERVICE_KIND.COMPUTE || hasRole(this.catalogEntry, SERVICE_ROLE.COMPUTE);
 
-        const nextTier = tiers[this.tier];
-        if (STATE.money < nextTier.cost) { flashMoney(); return; }
-
-        STATE.money -= nextTier.cost;
-        this.tier++;
-        this.config = { ...this.config, capacity: nextTier.capacity };
-        STATE.sound.playPlace();
-
-        // Visuals
-        const ringGeo = new THREE.TorusGeometry(this.type === 'db' ? 2.2 : 1.3, 0.1, 8, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color: this.type === 'db' ? 0xff0000 : 0xffff00 });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotation.x = Math.PI / 2;
-        // Tier rings
-        ring.position.y = -this.mesh.position.y + (this.tier === 2 ? 0.5 : 1.0);
-        this.mesh.add(ring);
-        this.tierRings.push(ring);
-    }
-
-    processQueue() {
-        while (this.processing.length < this.config.capacity && this.queue.length > 0) {
+        while (processed < maxToProcess && this.processing.length < capacityPerSec && this.queue.length > 0) {
             const req = this.queue.shift();
-
-            if (this.type === 'waf' && req.type === TRAFFIC_TYPES.FRAUD) {
+            const trafficClass = req.trafficClass;
+            
+            if (isBlocked(this.catalogEntry, trafficClass)) {
                 updateScore(req, 'FRAUD_BLOCKED');
-                req.destroy();
+                removeRequest(req);
+                processed++;
                 continue;
             }
 
-            this.processing.push({ req: req, timer: 0 });
+            // Compute services skip processing if already computed
+            if (isComputeService && req.hasCompute) {
+                this.processing.push({ req, timer: this.config.processingTime });
+                processed++;
+                continue;
+            }
+
+            this.processing.push({ req, timer: 0 });
+            processed++;
+        }
+
+        this.load.lastTickProcessed = processed;
+        this.load.lastTickCapacity = maxToProcess;
+
+        const maxQueueSize = capacityPerSec * 3;
+        if (this.queue.length > maxQueueSize) {
+            const overflow = this.queue.length - maxQueueSize;
+            const sim = getEngine()?.getSimulation();
+            for (let i = 0; i < overflow; i++) {
+                const dropped = this.queue.shift();
+                if (dropped) {
+                    this.load.dropped++;
+                    if (sim?.metrics?.droppedByReason) {
+                        sim.metrics.droppedByReason.overload = (sim.metrics.droppedByReason.overload || 0) + 1;
+                    }
+                    if (sim) {
+                        sim.reputation = Math.max(0, sim.reputation - 0.5);
+                    }
+                    removeRequest(dropped);
+                }
+            }
         }
     }
 
+    /**
+     * Update service state each tick
+     * 
+     * @param {number} dt - Delta time in seconds
+     * 
+     * @test Should deduct upkeep from money
+     * @test Should update load utilization
+     * @test Should route completed requests via Routing.getNextHop()
+     * @test Should fail requests that reach dead ends
+     * @test Routing role services (load balancers) should not fail requests
+     * @test Terminal services (terminalClasses match) should finishRequest
+     */
     update(dt) {
-        STATE.money -= (this.config.upkeep / 60) * dt;
+        const engine = getEngine();
+        const sim = engine?.getSimulation();
 
-        this.processQueue();
+        if (sim && sim.upkeepEnabled !== false) {
+            sim.money -= (this.config.upkeep / 60) * dt;
+        }
+
+        this.processQueue(dt);
+
+        const totalInSystem = this.queue.length + this.processing.length;
+        const effectiveCapacity = this.config.capacity;
+        this.load.utilization = effectiveCapacity > 0 ? Math.min(1, totalInSystem / effectiveCapacity) : 0;
+        
+        // Check roles for special behavior
+        const isRoutingService = this.kind === SERVICE_KIND.LOAD_BALANCER || hasRole(this.catalogEntry, SERVICE_ROLE.ROUTING);
+        const isUserService = this.kind === SERVICE_KIND.USER;
+        const isComputeService = this.kind === SERVICE_KIND.COMPUTE || hasRole(this.catalogEntry, SERVICE_ROLE.COMPUTE);
 
         for (let i = this.processing.length - 1; i >= 0; i--) {
-            let job = this.processing[i];
+            const job = this.processing[i];
             job.timer += dt * 1000;
 
             if (job.timer >= this.config.processingTime) {
                 this.processing.splice(i, 1);
+                let failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
+                
+                // Routing services and users don't fail requests
+                if (isRoutingService || isUserService) {
+                    failChance = 0;
+                }
 
-                const failChance = calculateFailChanceBasedOnLoad(this.totalLoad);
                 if (Math.random() < failChance) {
                     failRequest(job.req);
                     continue;
                 }
 
-                if (this.type === 'db' || this.type === 's3') {
-                    const expectedType = this.type === 'db' ? TRAFFIC_TYPES.API : TRAFFIC_TYPES.WEB;
-                    if (job.req.type === expectedType) {
-                        finishRequest(job.req);
-                    } else {
-                        failRequest(job.req);
+                // Compute role services mark requests as computed
+                if (isComputeService) {
+                    job.req.hasCompute = true;
+                }
+
+                const routeResult = getNextHop(engine?.getState(), job.req, this);
+                if (!routeResult || routeResult.action === 'DEAD_END') {
+                    if (sim?.metrics?.droppedByReason) {
+                        sim.metrics.droppedByReason.misconfig = (sim.metrics.droppedByReason.misconfig || 0) + 1;
                     }
+                    failRequest(job.req, 'misconfig');
                     continue;
                 }
 
-                if (this.type === 'compute') {
-                    const requiredType = job.req.type === TRAFFIC_TYPES.API ? 'db' : (job.req.type === TRAFFIC_TYPES.WEB ? 's3' : null);
+                if (routeResult.action === 'BLOCK') {
+                    updateScore(job.req, 'FRAUD_BLOCKED');
+                    removeRequest(job.req);
+                    continue;
+                }
 
-                    if (requiredType) {
-                        const correctTarget = STATE.services.find(s =>
-                            this.connections.includes(s.id) && s.type === requiredType
-                        );
+                if (routeResult.action === 'TERMINATE') {
+                    finishRequest(job.req);
+                    continue;
+                }
 
-                        if (correctTarget) {
-                            job.req.flyTo(correctTarget);
-                        } else {
-                            failRequest(job.req);
-                        }
-                    } else {
-                        failRequest(job.req);
-                    }
+                if (routeResult.action === 'FORWARD' && routeResult.node) {
+                    job.req.lastNodeId = this.id;
+                    job.req.flyTo(routeResult.node);
                 } else {
-                    // Round Robin Load Balancing
-                    const candidates = this.connections
-                        .map(id => STATE.services.find(s => s.id === id))
-                        .filter(s => s !== undefined);
-
-                    if (candidates.length > 0) {
-                        const target = candidates[this.rrIndex % candidates.length];
-                        this.rrIndex++;
-                        job.req.flyTo(target);
-                    } else {
-                        failRequest(job.req);
-                    }
+                    failRequest(job.req);
                 }
             }
-        }
-
-        if (this.totalLoad > 0.8) {
-            this.loadRing.material.color.setHex(0xff0000);
-            this.loadRing.material.opacity = 0.8;
-        } else if (this.totalLoad > 0.5) {
-            this.loadRing.material.color.setHex(0xffaa00);
-            this.loadRing.material.opacity = 0.6;
-        } else if (this.totalLoad > 0.2) {
-            this.loadRing.material.color.setHex(0xffff00);
-            this.loadRing.material.opacity = 0.4;
-        } else {
-            this.loadRing.material.color.setHex(0x00ff00);
-            this.loadRing.material.opacity = 0.3;
         }
     }
 
     get totalLoad() {
-        return (this.processing.length + this.queue.length) / (this.config.capacity * 2);
+        return this.load.utilization;
     }
 
     destroy() {
-        serviceGroup.remove(this.mesh);
-        if (this.tierRings) {
-            this.tierRings.forEach(r => {
-                r.geometry.dispose();
-                r.material.dispose();
-            });
-        }
-        this.mesh.geometry.dispose();
-        this.mesh.material.dispose();
+        this.queue.length = 0;
+        this.processing.length = 0;
+    }
+
+    getConnectedIds(includeInactive = false) {
+        return getConnectionTargets(this, { includeInactive });
     }
 }
+
+export function upgradeConnectionFormatForService(service) {
+    return normalizeConnections(service);
+}
+
+export { upgradeConnectionFormatForService as upgradeConnectionFormat };
+
+export default Service;

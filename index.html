@@ -12,271 +12,392 @@
 
 <body>
 
-    <!-- UI Overlay: Top Bar -->
-    <div class="absolute top-0 left-0 w-full h-full pointer-events-none">
+    <div id="game-ui" class="hidden">
+        <div id="hud-root">
+            <!-- Canvas -->
+            <div id="canvas-container"></div>
 
-        <!-- Stats Panel (Top Left) -->
-        <div id="statsPanel" class="absolute top-4 left-4 glass-panel rounded-xl p-5 w-80 pointer-events-auto">
-            <div class="flex justify-between items-end mb-3 border-b border-gray-700 pb-2">
-                <h1 class="text-2xl font-bold text-red-500 tracking-widest animate-pulse">SURVIVAL</h1>
-                <span class="text-xs text-gray-500 font-mono">v0.01</span>
-            </div>
+            <!-- Top Row -->
+            <div id="hud-top-row">
+                <div id="hud-top-left">
+                    <div id="statsPanel" class="glass-panel rounded-xl p-4">
+                        <div class="flex justify-between items-end mb-2 border-b border-gray-700 pb-2">
+                            <h1 id="game-mode-label" class="text-lg font-bold text-red-500 tracking-widest animate-pulse">SURVIVAL</h1>
+                            <span class="text-xs text-gray-500 font-mono">v0.01</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-xs">BUDGET</span>
+                                <span id="money-display" class="text-green-400 font-mono text-base font-bold transition-colors duration-300">$500</span>
+                            </div>
+                            <div class="flex justify-between items-center text-[11px]">
+                                <span class="text-gray-500">Upkeep</span>
+                                <span id="upkeep-display" class="text-red-400 font-mono">-$0.00/s</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400 text-xs">REPUTATION</span>
+                                <div class="w-24 h-2.5 bg-gray-800 rounded-full overflow-hidden">
+                                    <div id="rep-bar" class="h-full bg-yellow-500 transition-all duration-500" style="width: 100%"></div>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center pt-1 border-t border-gray-800">
+                                <span class="text-gray-400 text-xs">LOAD (RPS)</span>
+                                <span id="rps-display" class="text-blue-300 font-mono text-xs">0.0 req/s</span>
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-400 text-sm">BUDGET</span>
-                    <span id="money-display"
-                        class="text-green-400 font-mono text-xl font-bold transition-colors duration-300">$500</span>
-                </div>
-                <div class="flex justify-between items-center text-xs">
-                    <span class="text-gray-500">Upkeep Cost</span>
-                    <span id="upkeep-display" class="text-red-400 font-mono">-$0.00/s</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-400 text-sm">REPUTATION</span>
-                    <div class="w-32 h-3 bg-gray-800 rounded-full overflow-hidden relative">
-                        <div id="rep-bar" class="h-full bg-yellow-500 transition-all duration-500" style="width: 100%">
+                    <div id="hud-warnings-stack" class="hud-warnings-stack">
+                        <div id="warnings-pill" class="glass-panel rounded-full px-4 py-2 bg-red-900/50 border border-red-500/50 cursor-pointer hidden">
+                            <span class="text-red-300 text-xs font-bold tracking-wide animate-pulse">⚠ Issues</span>
+                        </div>
+
+                        <div id="topology-warnings-section" class="hidden border border-red-800/50 bg-red-950/40 rounded-xl px-3 py-2" data-expanded="false">
+                            <h4 class="text-xs font-bold text-red-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <span class="animate-pulse">⚠</span> Network Issues
+                            </h4>
+                            <ul id="topology-warnings-list" class="space-y-1 text-xs text-red-200"></ul>
                         </div>
                     </div>
                 </div>
-                <div class="flex justify-between items-center pt-1">
-                    <span class="text-gray-400 text-sm">LOAD (RPS)</span>
-                    <span id="rps-display" class="text-blue-300 font-mono text-sm">0.0 req/s</span>
-                </div>
-                <div class="flex justify-between items-center pt-3 border-t border-gray-700 mt-2">
-                    <span class="text-gray-300 font-bold text-lg">TOTAL SCORE</span>
-                    <span id="total-score-display" class="text-white font-mono text-2xl font-bold">0</span>
-                </div>
-            </div>
-        </div>
 
-        <!-- Score Details Panel (Top Right) -->
-        <div id="detailsPanel" class="absolute top-4 right-4 glass-panel rounded-xl p-4 w-60 pointer-events-auto">
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 border-b border-gray-700 pb-1">
-                Traffic Score Details</h3>
-            <div class="space-y-1 text-sm font-mono">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-500">WEB (S3)</span>
-                    <span id="score-web" class="text-gray-300">0</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-500">API (RDS)</span>
-                    <span id="score-api" class="text-gray-300">0</span>
-                </div>
-                <div class="flex justify-between items-center pt-1 border-t border-gray-800">
-                    <span class="text-purple-300 font-bold">WAF REFLECTED</span>
-                    <span id="score-fraud" class="text-purple-300">0</span>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- Time Control Panel (Top Center) -->
-        <div
-            class="absolute top-4 left-1/2 transform -translate-x-1/2 glass-panel rounded-xl p-2 pointer-events-auto flex gap-2">
-            <button onclick="restartGame()" id="btn-restart"
-                class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-red-500 hover:text-red-400 flex items-center justify-center mr-2"
-                title="Restart Game">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
-                    </path>
-                </svg>
-            </button>
-            <div class="w-px bg-gray-700 mx-1"></div>
-            <button onclick="setTimeScale(0)" id="btn-pause"
-                class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-            </button>
-            <button onclick="setTimeScale(1)" id="btn-play"
-                class="time-btn active w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                </svg>
-            </button>
-            <button onclick="setTimeScale(3)" id="btn-fast"
-                class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center relative">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
-                </svg>
-            </button>
-        </div>
-
-        <!-- Objective Panel (Bottom Left) -->
-        <div id="objectivesPanel"
-            class="absolute bottom-24 left-4 glass-panel rounded-xl p-4 pointer-events-auto max-w-xs">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Objectives</h3>
-                <span
-                    class="text-[10px] bg-red-900/50 px-2 py-0.5 rounded text-red-400 border border-red-800 animate-pulse">LIVE</span>
-            </div>
-            <ul class="text-xs text-gray-300 space-y-2 font-mono">
-                <li class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse"></span>
-                    Survive Endless Traffic
-                </li>
-                <li id="goal-web" class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                    Route WEB traffic to S3
-                </li>
-                <li id="goal-api" class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-yellow-500 mr-2"></span>
-                    Route API traffic to RDS
-                </li>
-                <li id="goal-waf" class="flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-purple-500 mr-2"></span>
-                    Block FRAUD traffic with WAF
-                </li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- UI Overlay: Bottom Toolbar -->
-    <div class="absolute bottom-6 left-0 w-full z-10 pointer-events-none flex justify-center">
-        <div class="glass-panel rounded-2xl p-2 pointer-events-auto overflow-y-auto flex items-center gap-2 shadow-2xl">
-
-
-
-            <!-- Help Button -->
-            <button id="tool-help"
-                class="service-btn bg-gray-700 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center mr-2 border border-gray-600"
-                onclick="showFAQ()">
-                <div class="text-xl">?</div>
-                <span class="text-[9px] font-bold mt-1 uppercase">Help</span>
-            </button>
-
-            <!-- Mute Button -->
-            <button id="tool-mute"
-                class="service-btn bg-gray-700 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-gray-600"
-                onclick="toggleMute()">
-                <div class="text-xl" id="mute-icon">🔊</div>
-                <span class="text-[9px] font-bold mt-1 uppercase">Sound</span>
-            </button>
-
-            <!-- Tools -->
-            <div class="flex gap-1 pr-4 border-r border-gray-700">
-                <button id="tool-select"
-                    class="service-btn active bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent"
-                    onclick="setTool('select')">
-                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] uppercase">Select</span>
-                </button>
-
-                <button id="tool-connect"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent"
-                    onclick="setTool('connect')">
-                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] uppercase">Link</span>
-                </button>
-
-                <button id="tool-delete"
-                    class="service-btn bg-red-900/30 text-red-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent hover:bg-red-900/50"
-                    onclick="setTool('delete')">
-                    <svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                        </path>
-                    </svg>
-                    <span class="text-[10px] uppercase">Demolish</span>
-                </button>
-            </div>
-
-            <!-- Shop -->
-            <div class="flex gap-2 pl-2">
-                <!-- WAF -->
-                <button id="tool-waf"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('waf')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $50</div>
-                    <div class="w-4 h-4 bg-purple-500 rounded-sm mb-1 shadow-[0_0_10px_rgba(168,85,247,0.6)]"></div>
-                    <span class="text-[10px] font-bold mt-1">WAF</span>
-                    <span class="text-[8px] text-gray-400">Sec</span>
-                </button>
-
-                <button id="tool-alb"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('alb')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $50</div>
-                    <div class="w-4 h-4 bg-blue-500 rounded-sm mb-1 shadow-[0_0_10px_rgba(59,130,246,0.6)]"></div>
-                    <span class="text-[10px] font-bold mt-1">ALB</span>
-                    <span class="text-[8px] text-gray-400">Load</span>
-                </button>
-
-                <button id="tool-lambda"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('lambda')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $100</div>
-                    <div class="w-4 h-4 bg-orange-500 rounded-full mb-1 shadow-[0_0_10px_rgba(249,115,22,0.6)]"></div>
-                    <span class="text-[10px] font-bold mt-1">EC2</span>
-                    <span class="text-[8px] text-gray-400">Comp</span>
-                </button>
-
-                <button id="tool-db"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('db')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $200</div>
-                    <div
-                        class="w-4 h-4 bg-red-600 rounded-sm mb-1 shadow-[0_0_10px_rgba(220,38,38,0.6)] border-b-2 border-red-800">
+                <div id="hud-top-center">
+                    <div id="time-control-panel" class="glass-panel rounded-xl p-2 flex items-center gap-2">
+                        <button id="btn-restart"
+                            class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-red-500 flex items-center justify-center"
+                            title="Restart Game">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                        <div class="w-px h-8 bg-gray-700"></div>
+                        <button id="btn-pause"
+                            class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                            </svg>
+                        </button>
+                        <button id="btn-play"
+                            class="time-btn active w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </button>
+                        <button id="btn-fast"
+                            class="time-btn w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
+                            </svg>
+                        </button>
+                        <span class="time-panel-menu-separator" aria-hidden="true">|</span>
+                        <div class="hud-menu-container relative">
+                            <button id="hud-menu-button"
+                                class="glass-panel w-10 h-10 rounded-lg border border-gray-600 text-gray-400 hover:text-white flex items-center justify-center"
+                                aria-label="Game menu">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                            <div id="hud-menu-dropdown" class="hud-menu-dropdown glass-panel hidden" role="menu">
+                                <button id="hud-menu-help" class="hud-menu-item glass-panel" role="menuitem">
+                                    <span class="mr-2">❓</span> Help & Controls
+                                </button>
+                                <button id="hud-menu-sound" class="hud-menu-item glass-panel" role="menuitem">
+                                    <span class="mr-2" id="hud-menu-sound-icon">🔇</span> Sound: <span id="hud-menu-sound-status">Off</span>
+                                </button>
+                                <button id="hud-menu-panels" class="hud-menu-item glass-panel" role="menuitem">
+                                    <span class="mr-2" id="hud-menu-panels-icon">📊</span> Panels: <span id="hud-menu-panels-status">On</span>
+                                </button>
+                                <button id="hud-menu-scenarios" class="hud-menu-item glass-panel" role="menuitem">
+                                    <span class="mr-2">🎯</span> Scenarios Browser
+                                </button>
+                                <div class="hud-menu-divider"></div>
+                                <button id="hud-menu-main" class="hud-menu-item danger glass-panel" role="menuitem">
+                                    <span class="mr-2">🚪</span> Main Menu
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <span class="text-[10px] font-bold mt-1">RDS</span>
-                    <span class="text-[8px] text-gray-400">Data</span>
-                </button>
 
-                <!-- S3 -->
-                <button id="tool-s3"
-                    class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-16 h-16 flex flex-col items-center justify-center border border-transparent group relative overflow-hidden"
-                    onclick="setTool('s3')">
-                    <div
-                        class="absolute top-0 right-0 bg-green-900/80 text-green-400 text-[9px] px-1 rounded-bl font-mono">
-                        $25</div>
-                    <div class="w-4 h-4 bg-emerald-500 rounded-full mb-1 shadow-[0_0_10px_rgba(16,185,129,0.6)]"></div>
-                    <span class="text-[10px] font-bold mt-1">S3</span>
-                    <span class="text-[8px] text-gray-400">Store</span>
-                </button>
+                </div>
+                
+                <!-- TODO: Make scoring more dynamic, plan to add more packets types and therefore scoring categories -->
+                <div id="hud-top-right">
+                    <div id="score-panel" class="glass-panel rounded-xl p-3">
+                        <div class="flex justify-between items-center border-b border-gray-700 pb-1 mb-2">
+                            <span class="text-gray-300 font-bold text-xs tracking-wide">TOTAL SCORE</span>
+                            <span id="total-score-display" class="text-white font-mono text-lg font-bold">0</span>
+                        </div>
+                        <div class="space-y-1 text-xs font-mono">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">WEB</span>
+                                <span id="score-web" class="text-gray-300">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">API</span>
+                                <span id="score-api" class="text-gray-300">0</span>
+                            </div>
+                            <div class="flex justify-between pt-1 border-t border-gray-800">
+                                <span class="text-purple-300 font-bold">BLOCKED</span>
+                                <span id="score-fraud" class="text-purple-300">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="details-panel" class="glass-panel rounded-xl p-3">
+                    <div id="bottleneck-display" class="hidden">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Hottest Node</h4>
+                        <div class="flex justify-between items-center text-xs mb-1">
+                            <span id="bottleneck-name" class="text-orange-400 font-mono">-</span>
+                            <span class="text-gray-500">Load</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div id="bottleneck-bar" class="h-full bg-orange-500 transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                </div>
             </div>
+
+            <!-- Left Column -->
+            <div id="hud-left-column">
+                <div id="tutorial-box" class="glass-panel rounded-xl p-4 hidden border border-amber-500/40 bg-amber-900/10">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] uppercase tracking-[0.4em] text-amber-300/80 font-mono">Tutorial</p>
+                        <span id="tutorial-step-counter" class="text-[10px] font-mono text-gray-400"></span>
+                    </div>
+                    <p id="tutorial-text" class="text-sm text-amber-100 mt-2 leading-relaxed"></p>
+                    <button id="tutorial-skip-btn" class="mt-3 text-[10px] uppercase tracking-wider text-amber-200/80 hover:text-amber-100 bg-amber-900/30 border border-amber-500/30 px-2 py-1 rounded">Skip Tutorial</button>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div id="hud-right-column">
+                <div id="campaign-panel" class="glass-panel rounded-xl p-4 hidden border border-blue-500/30 bg-gradient-to-b from-slate-900/70 to-slate-900/20">
+                    <div>
+                        <p id="campaign-panel-series" class="text-[10px] uppercase tracking-[0.4em] text-blue-400/70 font-mono">baby's first network</p>
+                        <h3 id="campaign-panel-title" class="text-base font-bold text-white">Level Title</h3>
+                    </div>
+                    <p id="campaign-panel-intro" class="text-xs text-gray-300 leading-relaxed mt-2"></p>
+                    <div class="border-t border-gray-700 pt-2 mt-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Objectives</h4>
+                            <span class="text-[9px] bg-red-900/50 px-2 py-0.5 rounded text-red-400 border border-red-800 animate-pulse">LIVE</span>
+                        </div>
+                        <ul id="campaign-panel-objectives" class="text-xs text-gray-300 space-y-1.5 font-mono"></ul>
+                    </div>
+                    <div class="flex gap-2 pt-2 border-t border-gray-700 mt-2">
+                        <button id="campaign-restart-btn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
+                        <button id="campaign-exit-btn" class="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
+                    </div>
+                </div>
+
+                <div id="scenarios-panel" class="glass-panel rounded-xl p-4 hidden border border-purple-500/40 bg-gradient-to-b from-purple-900/15 to-slate-900/30">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-[10px] uppercase tracking-[0.4em] text-purple-300/80 font-mono">Scenario Briefing</p>
+                            <h3 id="scenarios-panel-title" class="text-lg font-bold text-white">Scenario Title</h3>
+                            <p id="scenarios-panel-subtitle" class="text-xs text-purple-200/80 mt-0.5">Subtitle</p>
+                        </div>
+                        <div id="scenarios-panel-difficulty" class="text-[10px] uppercase tracking-[0.4em] text-right text-red-200/80"></div>
+                    </div>
+                    <p id="scenarios-panel-summary" class="text-xs text-gray-300 leading-relaxed mt-3"></p>
+                    <div id="scenarios-panel-tags" class="flex flex-wrap gap-1 mt-3"></div>
+                    <div class="border-t border-purple-900/40 pt-3 mt-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Objectives</h4>
+                            <span class="text-[9px] text-purple-200/80 font-mono" id="scenarios-panel-status">Paused</span>
+                        </div>
+                        <ul id="scenarios-panel-objectives" class="text-xs text-gray-300 space-y-1.5 font-mono"></ul>
+                    </div>
+                    <div class="border-t border-purple-900/40 flex gap-2 pt-3 mt-3">
+                        <button id="scenarios-restart-btn" class="flex-1 bg-purple-700/70 hover:bg-purple-600 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Restart</button>
+                        <button id="scenarios-exit-btn" class="flex-1 bg-gray-900/70 hover:bg-gray-800 text-gray-200 text-[10px] font-bold uppercase tracking-wider rounded-lg py-1.5">Exit</button>
+                    </div>
+                </div>
+
+                <div id="sandbox-panel" class="glass-panel rounded-xl p-3 hidden border border-cyan-500/30 bg-gradient-to-b from-cyan-900/20 to-slate-900/20">
+                    <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <span>🧪</span> Sandbox Controls
+                    </h3>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="text-gray-400 text-xs">Budget</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="sandbox-budget-input" value="5000" min="0" step="500"
+                                    class="w-16 bg-gray-800 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white font-mono text-right">
+                                <button id="sandbox-budget-set" class="text-xs bg-cyan-700 hover:bg-cyan-600 px-2 py-0.5 rounded">Set</button>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-gray-400 text-xs">Traffic RPS</label>
+                                <span id="sandbox-rps-value" class="text-cyan-300 text-xs font-mono">1.0</span>
+                            </div>
+                            <input type="range" id="sandbox-rps-slider" min="0" max="5" step="0.1" value="1"
+                                class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                        </div>
+                        <div class="border-t border-gray-700 pt-2">
+                            <div class="text-gray-400 text-xs mb-1">Traffic Mix</div>
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-1">
+                                    <span class="text-gray-500 text-xs w-12">WEB</span>
+                                    <input type="range" id="sandbox-mix-web" min="0" max="100" value="50"
+                                        class="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500">
+                                    <span id="sandbox-mix-web-value" class="text-gray-300 text-xs font-mono w-8 text-right">50%</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-gray-500 text-xs w-12">API</span>
+                                    <input type="range" id="sandbox-mix-api" min="0" max="100" value="40"
+                                        class="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                                    <span id="sandbox-mix-api-value" class="text-gray-300 text-xs font-mono w-8 text-right">40%</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-gray-500 text-xs w-12">FRAUD</span>
+                                    <input type="range" id="sandbox-mix-fraud" min="0" max="100" value="10"
+                                        class="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500">
+                                    <span id="sandbox-mix-fraud-value" class="text-gray-300 text-xs font-mono w-8 text-right">10%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-gray-700 pt-2">
+                            <label class="text-gray-400 text-xs">Upkeep</label>
+                            <button id="sandbox-upkeep-toggle" class="text-xs px-2.5 py-0.5 rounded border border-gray-600 text-gray-400">Off</button>
+                        </div>
+                        <div class="border-t border-gray-700 pt-2">
+                            <div class="text-gray-400 text-xs mb-1">Spawn Burst</div>
+                            <div class="flex gap-1">
+                                <button id="sandbox-burst-web" class="flex-1 text-xs bg-green-800/50 hover:bg-green-700/50 border border-green-600/50 px-1.5 py-1 rounded">+10 WEB</button>
+                                <button id="sandbox-burst-api" class="flex-1 text-xs bg-blue-800/50 hover:bg-blue-700/50 border border-blue-600/50 px-1.5 py-1 rounded">+10 API</button>
+                                <button id="sandbox-burst-fraud" class="flex-1 text-xs bg-red-800/50 hover:bg-red-700/50 border border-red-600/50 px-1.5 py-1 rounded">+10 FRAUD</button>
+                            </div>
+                        </div>
+                        <div class="border-t border-gray-700 pt-2">
+                            <div class="text-gray-400 text-xs mb-1">Presets</div>
+                            <div class="flex flex-wrap gap-1">
+                                <button data-preset="balanced" class="sandbox-preset-btn text-xs bg-gray-700 hover:bg-gray-600 px-2 py-0.5 rounded">Balanced</button>
+                                <button data-preset="highLoad" class="sandbox-preset-btn text-xs bg-gray-700 hover:bg-gray-600 px-2 py-0.5 rounded">High Load</button>
+                                <button data-preset="fraudAttack" class="sandbox-preset-btn text-xs bg-gray-700 hover:bg-gray-600 px-2 py-0.5 rounded">Fraud</button>
+                                <button data-preset="apiHeavy" class="sandbox-preset-btn text-xs bg-gray-700 hover:bg-gray-600 px-2 py-0.5 rounded">API</button>
+                                <button data-preset="webHeavy" class="sandbox-preset-btn text-xs bg-gray-700 hover:bg-gray-600 px-2 py-0.5 rounded">Web</button>
+                            </div>
+                        </div>
+                        <div class="border-t border-gray-700 pt-2">
+                            <button id="sandbox-clear-all" class="w-full text-xs bg-red-900/50 hover:bg-red-800/50 border border-red-600/50 text-red-300 px-2 py-1.5 rounded">
+                                🗑️ Clear All Services
+                            </button>
+                        </div>
+                    </div>
+                </div>               
+            </div>
+
+            <!-- Bottom Toolbar -->
+            <div id="bottom-toolbar">
+                <div class="glass-panel rounded-2xl p-2 flex items-center gap-2 shadow-2xl">
+                    <div id="tools-panel" class="flex">
+                        <button id="tool-select" data-tool-id="select" data-tool-name="Select"
+                            class="service-btn active bg-gray-800 text-gray-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent">
+                            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                            </svg>
+                            <span class="text-[9px] uppercase">Select</span>
+                        </button>
+                        <button id="tool-connect" data-tool-id="connect" data-tool-name="LinkTool"
+                            class="service-btn bg-gray-800 text-gray-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent">
+                            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            <span class="text-[9px] uppercase">Link</span>
+                        </button>
+                        <div class="flex flex-col items-center justify-center ml-1">
+                            <span class="text-[8px] uppercase tracking-wide text-gray-400">Direction</span>
+                            <button id="link-direction-toggle" class="mt-1 text-[9px] px-2 py-1 rounded-lg border border-blue-500 text-blue-200 bg-blue-900/40"
+                                type="button" aria-pressed="true">
+                                ↔ Bidirectional
+                            </button>
+                        </div>
+                        <button id="tool-delete" data-tool-id="delete" data-tool-name="Delete"
+                            class="service-btn bg-red-900/30 text-red-200 p-2 rounded-lg w-14 h-14 flex flex-col items-center justify-center border border-transparent hover:bg-red-900/50">
+                            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span class="text-[9px] uppercase">Delete</span>
+                        </button>
+                    </div>
+                    <div id="shop-panel" class="flex gap-2 pl-2">
+                        <div id="shop-items" class="flex gap-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hover Tooltip -->
+            <div id="tooltip" class="tooltip"></div>
         </div>
     </div>
 
-    <!-- Hover Tooltip -->
-    <div id="tooltip" class="tooltip"></div>
-
-    <!-- Game Canvas -->
-    <div id="canvas-container"></div>
 
 
+    <div id="campaign-hub" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto px-4">
+        <div class="glass-panel w-full max-w-5xl rounded-3xl border border-blue-500/40 p-8 space-y-8 text-white">
+                <div class="flex justify-between items-start gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.4em] text-gray-400">Campaign</p>
+                    <h2 class="text-4xl font-black">Multi-Domain</h2>
+                    <p class="text-gray-400 max-w-xl">A questionable journey across increasingly chaotic networks.</p>
+                </div>
+                    <button id="campaign-hub-back-btn" class="text-sm font-mono uppercase tracking-widest text-gray-300 hover:text-white border border-gray-700 rounded-lg px-4 py-2">Back to Main Menu</button>
+            </div>
+
+            <div id="campaign-worlds" class="grid gap-6 lg:grid-cols-2">
+                <div class="glass-panel border border-gray-700/80 p-6 space-y-4 bg-gradient-to-br from-slate-900/70 to-slate-900/30">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase tracking-[0.4em]">World</p>
+                        <h3 class="text-3xl font-bold text-white">Baby's First Network</h3>
+                    </div>
+                    <p class="text-sm text-gray-300">Learn in the tutorials designed for beginners.</p>
+                    <button id="campaign-hub-view-levels" class="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-blue-900/40 border border-white/20 text-xs font-bold uppercase tracking-widest">View levels</button>
+                </div>
+            </div>
+
+            <section id="campaign-levels" class="hidden space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.4em] text-gray-400">World</p>
+                        <h3 class="text-2xl font-bold">Baby's First Network</h3>
+                    </div>
+                    <button id="campaign-levels-back-btn" class="text-xs uppercase tracking-[0.4em] text-gray-300 border border-gray-600 rounded-full px-4 py-2 hover:text-white">Back to Worlds</button>
+                </div>
+                <div id="campaign-level-list" class="grid gap-4 md:grid-cols-2"></div>
+            </section>
+        </div>
+    </div>
+
+    <div id="scenarios-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+        <div class="glass-panel w-full max-w-4xl rounded-3xl border border-purple-500/40 p-8 space-y-6 text-white">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.4em] text-purple-300/80">Scenarios</p>
+                    <h2 class="text-3xl font-black">Operations Lab</h2>
+                    <p class="text-gray-300">Drop into curated challenges without touching campaign progression.</p>
+                </div>
+                <button id="scenarios-close" class="text-xs font-bold uppercase tracking-[0.4em] text-gray-300 border border-gray-600 rounded-full px-4 py-2 hover:text-white">Close</button>
+            </div>
+            <div id="scenarios-list" class="grid gap-4 max-h-[70vh] overflow-y-auto pr-1"></div>
+        </div>
+    </div>
 
     <!-- End/Next Level Modal -->
-    <div id="modal"
+    <div id="game-over-modal"
         class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center backdrop-blur-sm">
         <div class="glass-panel p-8 rounded-2xl text-center max-w-md border border-gray-600">
-            <h2 id="modal-title" class="text-4xl font-bold mb-4 text-white font-mono tracking-tighter">SYSTEM FAILURE
+            <h2 id="game-over-title" class="text-4xl font-bold mb-4 text-white font-mono tracking-tighter">SYSTEM FAILURE
             </h2>
             <div class="h-px w-full bg-gray-700 mb-6"></div>
-            <p id="modal-desc" class="text-gray-300 mb-8 text-sm leading-relaxed">Infrastructure collapsed.</p>
-            <div class="flex justify-center gap-4">
-                <button onclick="restartGame()"
-                    class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-sm">
-                    Try Again
-                </button>
-            </div>
+            <p id="game-over-desc" class="text-gray-300 mb-8 text-sm leading-relaxed">Infrastructure collapsed.</p>
+            <div id="game-over-actions" class="flex flex-wrap justify-center gap-4"></div>
         </div>
     </div>
 
@@ -287,23 +408,33 @@
             class="relative bg-gray-900/90 p-12 rounded-2xl border border-blue-500/30 shadow-2xl max-w-md w-full text-center">
 
             <!-- Menu Mute Button -->
-            <button id="menu-mute-btn" onclick="toggleMute()"
+            <button id="menu-mute-btn"
                 class="absolute top-4 right-4 text-gray-400 hover:text-white transition p-2 rounded-full pulse-green">
                 <span id="menu-mute-icon" class="text-xl">🔇</span>
             </button>
 
             <h1
-                class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-2 tracking-tighter filter drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
-                Packets of<br>PAIN
+                class="text-6xl font-black text-white mb-2 tracking-tighter filter drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+                Packets of Pain
             </h1>
 
             <div class="space-y-4">
-                <button onclick="startGame()"
-                    class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-lg border border-green-400/50">
-                    Start The Packets
+                <button id="main-menu-campaign"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-lg shadow-lg transform transition hover:scale-105 font-mono uppercase text-lg border border-blue-400/50">
+                    Campaign
                 </button>
 
-                <button onclick="showFAQ()"
+                <button id="main-menu-scenarios"
+                    class="w-full bg-purple-700/80 hover:bg-purple-600 text-white font-bold py-3 px-8 rounded-lg border border-purple-400/60 transition hover:shadow-[0_0_15px_rgba(168,85,247,0.45)] font-mono uppercase">
+                    Scenario Lab
+                </button>
+
+                <button id="main-menu-sandbox"
+                    class="w-full bg-green-600/80 hover:bg-green-500 text-white font-bold py-3 px-8 rounded-lg border border-green-400/60 transition hover:shadow-[0_0_15px_rgba(34,197,94,0.45)] font-mono uppercase">
+                    Sandbox Mode
+                </button>
+
+                <button id="main-menu-show-faq"
                     class="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-3 px-8 rounded-lg border border-gray-600 transition hover:text-white font-mono uppercase">
                     Manual / FAQ
                 </button>
@@ -320,7 +451,7 @@
         <div class="glass-panel p-8 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
             <div class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
                 <h2 class="text-2xl font-bold text-white">OPERATOR MANUAL</h2>
-                <button onclick="closeFAQ()" class="text-gray-400 hover:text-white">
+                <button data-faq-close class="text-gray-400 hover:text-white">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
                         </path>
@@ -329,24 +460,28 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Traffic Types -->
+                <!-- Traffic Classes -->
                 <div>
-                    <h3 class="text-lg font-bold text-blue-400 mb-4">TRAFFIC TYPES</h3>
+                    <h3 class="text-lg font-bold text-blue-400 mb-4">TRAFFIC CLASSES</h3>
                     <div class="space-y-3">
                         <div class="bg-gray-800/50 p-3 rounded border border-green-900/50">
-                            <strong class="text-green-400">WEB Traffic</strong>
-                            <p class="text-sm text-gray-400">Route to <span class="text-emerald-400">S3 Storage</span>
+                            <strong class="text-green-400">WEB</strong>
+                            <p class="text-sm text-gray-400">Route to <span class="text-emerald-400">Object Storage</span>
                                 via Load Balancer.</p>
                         </div>
                         <div class="bg-gray-800/50 p-3 rounded border border-orange-900/50">
-                            <strong class="text-orange-400">API Traffic</strong>
-                            <p class="text-sm text-gray-400">Route to <span class="text-red-400">RDS Database</span> via
+                            <strong class="text-orange-400">API</strong>
+                            <p class="text-sm text-gray-400">Route to <span class="text-red-400">Database</span> via
                                 Compute.</p>
                         </div>
                         <div class="bg-gray-800/50 p-3 rounded border border-purple-900/50">
-                            <strong class="text-purple-400">FRAUD Traffic</strong>
-                            <p class="text-sm text-gray-400">Block with <span class="text-purple-400">WAF
+                            <strong class="text-purple-400">FRAUD</strong>
+                            <p class="text-sm text-gray-400">Block with <span class="text-purple-400">WAF or
                                     Firewall</span>.</p>
+                        </div>
+                        <div class="bg-gray-800/50 p-3 rounded border border-red-900/50">
+                            <strong class="text-red-400">MALICIOUS</strong>
+                            <p class="text-sm text-gray-400">Hostile packets that target users directly. Block early.</p>
                         </div>
                     </div>
                 </div>
@@ -366,7 +501,7 @@
                         <li class="flex justify-between"><span class="text-red-400 font-bold">Database</span>
                             <span>Stores API Data ($200)</span>
                         </li>
-                        <li class="flex justify-between"><span class="text-emerald-400 font-bold">S3</span> <span>Stores
+                        <li class="flex justify-between"><span class="text-emerald-400 font-bold">Object Storage</span> <span>Stores
                                 Web Data ($25)</span></li>
                     </ul>
                 </div>
@@ -388,7 +523,7 @@
                             <strong class="text-white">SELECT</strong>
                         </div>
                         <p class="text-gray-400">
-                            Inspect services to see load and stats. Click Compute/DB to upgrade.
+                            Inspect services to see load and stats. Click Compute/Database to upgrade.
                         </p>
                     </div>
                     <div class="bg-gray-800/30 p-3 rounded border border-gray-700">
@@ -443,11 +578,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div class="bg-gray-800/30 p-3 rounded">
                         <strong class="text-white block mb-1">Upgrades</strong>
-                        <p class="text-gray-400">Click existing Compute/DB instances to upgrade capacity (Tier 1-3).</p>
+                        <p class="text-gray-400">Click existing Compute/Database instances to upgrade capacity (Tier 1-3).</p>
                     </div>
                     <div class="bg-gray-800/30 p-3 rounded">
                         <strong class="text-white block mb-1">Load Balancing</strong>
-                        <p class="text-gray-400">ALBs use Round Robin to distribute traffic evenly.</p>
+                        <p class="text-gray-400">Load Balancers use Round Robin to distribute traffic evenly.</p>
                     </div>
                     <div class="bg-gray-800/30 p-3 rounded">
                         <strong class="text-white block mb-1">Failure Conditions</strong>
@@ -457,19 +592,14 @@
             </div>
 
             <div class="mt-8 text-center">
-                <button onclick="closeFAQ()"
+                <button data-faq-close
                     class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-8 rounded-lg transition">
                     Close Manual
                 </button>
             </div>
         </div>
     </div>
-    <script src="src/config.js"></script>
-    <script src="src/state.js"></script>
-    <script src="src/entities/Request.js"></script>
-    <script src="src/entities/Service.js"></script>
-    <script src="src/services/SoundService.js"></script>
-    <script src="game.js"></script>
+    <script type="module" src="src/main.js"></script>
 </body>
 
 </html>
