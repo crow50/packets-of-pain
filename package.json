@@ -1,0 +1,27 @@
+{
+  "name": "packets-of-pain",
+  "version": "1.0.0",
+  "description": "![Gameplay Demo](assets/gameplay.gif)",
+  "main": "game.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crow50/packets-of-pain.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/crow50/packets-of-pain/issues"
+  },
+  "homepage": "https://github.com/crow50/packets-of-pain#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.1",
+    "globals": "^17.3.0"
+  },
+  "type": "module"
+}
